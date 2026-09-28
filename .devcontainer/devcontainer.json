@@ -1,0 +1,31 @@
+{
+  "name": "Linyu development",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.13-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  },
+  "forwardPorts": [
+    8000,
+    5173
+  ],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite development",
+      "onAutoForward": "silent"
+    },
+    "8000": {
+      "label": "Linyu application",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "python -m venv .venv && .venv/bin/pip install -r backend/requirements.lock && cd web && npm ci && npm run build",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+      }
+    }
+  }
+}
