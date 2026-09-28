@@ -1,0 +1,137 @@
+/* Keep secondary information readable on light surfaces. */
+.conversation p,
+.chat-person > span,
+.post-meta,
+.page-heading p,
+.section-heading p,
+.context-profile p,
+.now-card p,
+.memory-snippet,
+.conversation-empty p {
+  color: #77876d;
+}
+.conversation-title span,
+.date-divider,
+.sidebar-foot span,
+.composer-tools > span,
+.composer-bottom > span {
+  color: #819176;
+}
+.conversation-title b {
+  font-size: 14px;
+}
+.conversation p {
+  font-size: 12px;
+}
+.conversation-title span {
+  font-size: 10px;
+}
+.context-label,
+.context-section h3,
+.now-card h3 {
+  font-size: 12px;
+}
+.context-profile p,
+.now-card p,
+.memory-snippet,
+.task-teaser b {
+  font-size: 11px;
+}
+.muted-small,
+.muted,
+.task-result,
+.memory-row p {
+  color: #718568;
+}
+.tag {
+  color: #6e845d;
+}
+.context-section .muted-small {
+  font-size: 11px;
+}
+.context-footer {
+  color: #819474;
+}
+.task-teaser small {
+  font-size: 10px;
+  color: #7e9270;
+}
+.admin-topbar,
+.admin-main .page-heading p {
+  color: #74886a;
+}
+.metric > div {
+  font-size: 12px;
+  color: #6d845e;
+}
+.metric > small {
+  font-size: 11px;
+  color: #7b8c6d;
+}
+th {
+  font-size: 12px;
+  color: #778a68;
+}
+td {
+  font-size: 13px;
+}
+.table-user b {
+  font-size: 13px;
+}
+.table-user small {
+  font-size: 11px;
+  color: #7d8e70;
+}
+.status {
+  font-size: 11px;
+}
+.status.succeeded {
+  color: #50733b;
+}
+.status.waiting_configuration {
+  color: #93752d;
+}
+.presence {
+  font-size: 12px;
+}
+.presence.online {
+  color: #668c48;
+}
+.table-time,
+.table-muted {
+  font-size: 11px;
+  color: #7d8f6e;
+}
+.table-footer,
+.admin-bottom-note {
+  color: #7e9270;
+}
+.post-body > p {
+  color: #5c7051;
+}
+.post-author > span {
+  color: #7b906b;
+}
+@media (max-width: 700px) {
+  .context-panel {
+    display: none;
+  }
+  .conversation-title b {
+    font-size: 14px;
+  }
+  .conversation p {
+    font-size: 12px;
+  }
+  .chat-person > span {
+    font-size: 9px;
+  }
+  .metric > small {
+    font-size: 9px;
+  }
+  .status {
+    font-size: 10px;
+  }
+  .table-user small {
+    font-size: 10px;
+  }
+}
