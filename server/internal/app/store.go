@@ -64,6 +64,42 @@ func (s *Store) RestoreRooms(rooms []Room) {
 	}
 }
 
+func (s *Store) UpsertAuthoritativeRoom(room Room, serverSeq int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	existing := s.rooms[room.Code]
+	if existing != nil && serverSeq < existing.serverSeq {
+		return
+	}
+	members := make(map[string]Member, len(room.Members))
+	for _, member := range room.Members {
+		members[member.UserID] = member
+	}
+	room.Members = nil
+	lastControlSeq := make(map[string]int64)
+	if existing != nil {
+		lastControlSeq = existing.lastControlSeq
+	}
+	s.rooms[room.Code] = &roomRecord{
+		room: room, members: members, lastControlSeq: lastControlSeq, serverSeq: serverSeq,
+	}
+}
+
+func (s *Store) ApplyAuthoritativePlayback(code string, playback Playback, serverSeq int64) (Room, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.rooms[strings.ToUpper(code)]
+	if !ok {
+		return Room{}, ErrNotFound
+	}
+	if serverSeq < record.serverSeq {
+		return cloneRoom(record, s.now()), nil
+	}
+	record.room.Playback = playback
+	record.serverSeq = serverSeq
+	return cloneRoom(record, s.now()), nil
+}
+
 func (s *Store) IssueSocketTicket(code string, user User) (string, error) {
 	code = strings.ToUpper(code)
 	ticket, err := randomString(24)
@@ -194,6 +230,16 @@ func (s *Store) GetRoom(code, userID string) (Room, error) {
 		return Room{}, ErrExpired
 	}
 	return cloneRoom(record, now), nil
+}
+
+func (s *Store) Room(code string) (Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.rooms[strings.ToUpper(code)]
+	if !ok {
+		return Room{}, ErrNotFound
+	}
+	return cloneRoom(record, s.now()), nil
 }
 
 func (s *Store) ApplyControl(code string, user User, clientSeq int64, control Control) (Room, int64, error) {

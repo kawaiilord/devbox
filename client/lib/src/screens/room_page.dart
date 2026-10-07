@@ -276,7 +276,7 @@ class _MembersPanel extends StatelessWidget {
                 Text('房间成员', style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
                 Text(
-                  '${controller.room.members.length}/${controller.room.maxMembers}',
+                  '${controller.onlineUserIds.length} 在线 · ${controller.room.members.length}/${controller.room.maxMembers}',
                 ),
               ],
             ),
@@ -291,7 +291,11 @@ class _MembersPanel extends StatelessWidget {
                 ),
                 title: Text(member.displayName),
                 subtitle: Text(
-                  member.userId == controller.session.user.id ? '当前设备' : '在线',
+                  member.userId == controller.session.user.id
+                      ? '当前设备'
+                      : (controller.onlineUserIds.contains(member.userId)
+                            ? '在线'
+                            : '离线'),
                 ),
                 trailing: member.userId == controller.room.ownerId
                     ? const Icon(Icons.star_rounded, color: Color(0xFFFFC857))

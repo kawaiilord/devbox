@@ -9,16 +9,17 @@ its assets, or accept third-party cookies and media-library credentials.
 ## Milestone 1 topology
 
 ```text
-Flutter client ── HTTPS ──► Go API ──► PostgreSQL
-       │                      │          users / refresh tokens / rooms
-       ├── WebSocket ticket ──┤
-       ├── WSS room channel ◄─┤── authoritative hot room state
-       └── direct HTTP media  │
+Flutter client ── HTTPS ──► Go API nodes ──► PostgreSQL
+       │                         │             durable business state
+       ├── WebSocket ticket ─────┤
+       ├── WSS room channel ◄────┤──► Redis
+       └── direct HTTP media     │    hot playback / PubSub / presence
 ```
 
-Durable entities are restored from PostgreSQL at startup. The next topology
-step will move hot room state and sequence numbers into Redis and place
-WebSocket fan-out behind Redis Pub/Sub or Streams for multi-instance operation.
+Durable entities are restored from PostgreSQL at startup. Redis holds the hot
+playback hashes, globally increasing room sequences, one-time socket tickets,
+online-presence sorted sets, and the cross-node Pub/Sub channel. If Redis loses
+ephemeral data, room state is reconstructed from PostgreSQL on service startup.
 
 ## Authentication
 
@@ -53,6 +54,12 @@ Every server message uses this envelope:
 - Server sequence numbers let clients discard old snapshots.
 - A full `room.state` is sent after every connection and after membership
   changes, so reconnects converge without replaying an event log.
+- Playback controls execute in Redis Lua scripts, making projection, replay
+  rejection, mutation, and sequence increment atomic across service nodes.
+- A short Redis lock elects one node per room to emit each periodic snapshot,
+  preventing duplicate snapshot streams in a multi-instance deployment.
+- Presence uses 15-second heartbeats and a 45-second expiry window; multiple
+  connections for one account are deduplicated in the displayed online count.
 - Normal playback snapshots are broadcast every three seconds and immediately
   after a control command.
 - Clients estimate server clock offset using the lowest-RTT of three samples.
@@ -75,8 +82,8 @@ The `*` origin setting in `docker-compose.yml` is for local development only.
 
 ## Next production slices
 
-1. Redis for snapshots, presence, and multi-instance fan-out; device IDs,
-   request rate limits, email verification, recovery, and audit records.
+1. Device IDs, request rate limits, email verification, recovery, and audit
+   records; move critical Pub/Sub events to Redis Streams if replay is needed.
 2. Source adapters beginning with direct URLs and WebDAV. Provider credentials
    go into a KMS-backed vault; clients receive short-lived media tickets.
 3. Local Range-aware cache proxy, subtitles, error classification, and source

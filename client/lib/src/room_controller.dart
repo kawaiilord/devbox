@@ -16,7 +16,9 @@ class RoomController extends ChangeNotifier {
     MediaPlayerKernel? player,
     PlaybackSynchronizer? synchronizer,
   }) : player = player ?? MediaPlayerKernel(),
-       _synchronizer = synchronizer ?? const PlaybackSynchronizer();
+       _synchronizer = synchronizer ?? const PlaybackSynchronizer() {
+    onlineUserIds.add(session.user.id);
+  }
 
   final ApiClient api;
   final Session session;
@@ -29,12 +31,13 @@ class RoomController extends ChangeNotifier {
   StreamSubscription<bool>? _connectionSubscription;
   Duration _clockOffset = Duration.zero;
   Future<void> _alignmentQueue = Future.value();
-  int _clientSequence = 0;
+  int _clientSequence = DateTime.now().microsecondsSinceEpoch;
   int _lastServerSequence = -1;
   bool connected = false;
   bool loading = true;
   String? error;
   AlignmentAction? lastAlignment;
+  final Set<String> onlineUserIds = <String>{};
 
   bool get isOwner => room.ownerId == session.user.id;
 
@@ -97,6 +100,16 @@ class RoomController extends ChangeNotifier {
     if (envelope.type == 'error') {
       error = envelope.payload['message']?.toString() ?? 'Room error';
       notifyListeners();
+      return;
+    }
+    if (envelope.type == 'room.presence') {
+      final ids = envelope.payload['online_user_ids'] as List<dynamic>?;
+      if (ids != null) {
+        onlineUserIds
+          ..clear()
+          ..addAll(ids.map((value) => value.toString()));
+        notifyListeners();
+      }
       return;
     }
     if (envelope.type != 'playback.snapshot' ||

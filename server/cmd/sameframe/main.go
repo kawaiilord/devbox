@@ -35,6 +35,23 @@ func main() {
 		repository = postgres
 		logger.Info("postgres persistence enabled", "restored_rooms", len(initialRooms))
 	}
+	var redisCoordinator *app.RedisCoordinator
+	if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
+		coordinator, redisErr := app.OpenRedis(ctx, redisURL, os.Getenv("SAMEFRAME_NODE_ID"))
+		if redisErr != nil {
+			logger.Error("connect redis", "error", redisErr)
+			os.Exit(1)
+		}
+		redisCoordinator = coordinator
+		defer redisCoordinator.Close()
+		for _, room := range initialRooms {
+			if err := redisCoordinator.InitializeRoom(ctx, room); err != nil {
+				logger.Error("initialize Redis room", "error", err, "room", room.Code)
+				os.Exit(1)
+			}
+		}
+		logger.Info("redis realtime coordination enabled")
+	}
 	jwtSecret := os.Getenv("SAMEFRAME_JWT_SECRET")
 	if jwtSecret == "" {
 		if databaseURL != "" {
@@ -59,6 +76,7 @@ func main() {
 		Auth:           app.NewAuthService(repository, tokens),
 		InitialRooms:   initialRooms,
 		AllowDemoAuth:  envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),
+		Redis:          redisCoordinator,
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

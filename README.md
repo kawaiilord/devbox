@@ -15,6 +15,8 @@ The current foundation contains:
 - email/password accounts with Argon2id password hashing;
 - 15-minute JWT access tokens and rotating, revocable refresh tokens;
 - PostgreSQL persistence for users, rooms, members, and playback state;
+- Redis atomic hot-room state, distributed sequencing, Pub/Sub, presence, and
+  one-time WebSocket tickets;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -56,7 +58,7 @@ Windows binaries must be produced on a Windows runner; the workflow in
 ## Current boundary
 
 This is an engineering foundation, not a production release. Production work
-still requires Redis-backed multi-instance fan-out and presence, secure client
-credential storage, email verification, account recovery, a credential vault,
-TURN, signed updates, rate limiting, moderation, and payment integration.
+still requires secure client credential storage, email verification, account
+recovery, device controls, a credential vault, TURN, signed updates, rate
+limiting, moderation, and payment integration.
 Third-party source credentials are never accepted by this milestone.

@@ -7,8 +7,15 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 55432 -U sameframe -d sameframe"]
 
+  redis:
+    network_mode: host
+    command: ["redis-server", "--port", "56379", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "56379", "ping"]
+
   server:
     network_mode: host
     environment:
       SAMEFRAME_ADDR: :18080
       DATABASE_URL: postgres://sameframe:sameframe-dev-only@127.0.0.1:55432/sameframe?sslmode=disable
+      REDIS_URL: redis://127.0.0.1:56379/0
