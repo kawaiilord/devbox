@@ -9,13 +9,13 @@ permissions:
 
 jobs:
   server:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
@@ -23,12 +23,12 @@ jobs:
       - run: go build -trimpath -o ../bin/sameframe ./cmd/sameframe
 
   flutter-web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -38,7 +38,7 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build web --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sameframe-web
           path: client/build/web
@@ -49,7 +49,7 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -57,7 +57,7 @@ jobs:
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       - run: flutter build windows --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sameframe-windows
           path: client/build/windows/x64/runner/Release
