@@ -11,7 +11,9 @@ import (
 )
 
 func TestCreateAndJoinRoomAPI(t *testing.T) {
-	server := NewServer(Options{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), AllowedOrigins: []string{"*"}})
+	server := NewServer(Options{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), AllowedOrigins: []string{"*"}, AllowDemoAuth: true,
+	})
 	httpServer := httptest.NewServer(server.Handler())
 	defer httpServer.Close()
 

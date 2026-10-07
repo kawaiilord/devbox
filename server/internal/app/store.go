@@ -35,19 +35,32 @@ type socketTicket struct {
 }
 
 type Store struct {
-	mu       sync.RWMutex
-	rooms    map[string]*roomRecord
-	sessions map[string]User
-	tickets  map[string]socketTicket
-	now      func() time.Time
+	mu      sync.RWMutex
+	rooms   map[string]*roomRecord
+	tickets map[string]socketTicket
+	now     func() time.Time
 }
 
 func NewStore() *Store {
 	return &Store{
-		rooms:    make(map[string]*roomRecord),
-		sessions: make(map[string]User),
-		tickets:  make(map[string]socketTicket),
-		now:      time.Now,
+		rooms:   make(map[string]*roomRecord),
+		tickets: make(map[string]socketTicket),
+		now:     time.Now,
+	}
+}
+
+func (s *Store) RestoreRooms(rooms []Room) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, room := range rooms {
+		members := make(map[string]Member, len(room.Members))
+		for _, member := range room.Members {
+			members[member.UserID] = member
+		}
+		room.Members = nil
+		s.rooms[room.Code] = &roomRecord{
+			room: room, members: members, lastControlSeq: make(map[string]int64),
+		}
 	}
 }
 
@@ -84,36 +97,6 @@ func (s *Store) ConsumeSocketTicket(ticket, code string) (User, error) {
 		return User{}, ErrUnauthorized
 	}
 	return issued.user, nil
-}
-
-func (s *Store) CreateSession(displayName string) (Session, error) {
-	displayName = strings.TrimSpace(displayName)
-	if len([]rune(displayName)) < 2 || len([]rune(displayName)) > 32 {
-		return Session{}, fmt.Errorf("display name must be 2-32 characters")
-	}
-	userID, err := randomString(12)
-	if err != nil {
-		return Session{}, err
-	}
-	token, err := randomString(32)
-	if err != nil {
-		return Session{}, err
-	}
-	user := User{ID: userID, DisplayName: displayName}
-	s.mu.Lock()
-	s.sessions[token] = user
-	s.mu.Unlock()
-	return Session{AccessToken: token, User: user}, nil
-}
-
-func (s *Store) Authenticate(token string) (User, error) {
-	s.mu.RLock()
-	user, ok := s.sessions[token]
-	s.mu.RUnlock()
-	if !ok {
-		return User{}, ErrUnauthorized
-	}
-	return user, nil
 }
 
 func (s *Store) CreateRoom(owner User, name, sourceURL string, maxMembers int) (Room, error) {

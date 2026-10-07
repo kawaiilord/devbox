@@ -1,25 +1,50 @@
 class AppUser {
-  const AppUser({required this.id, required this.displayName});
+  const AppUser({
+    required this.id,
+    required this.displayName,
+    required this.email,
+  });
 
   final String id;
   final String displayName;
+  final String email;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
     displayName: json['display_name'] as String,
+    email: json['email']?.toString() ?? '',
   );
 }
 
 class Session {
-  const Session({required this.accessToken, required this.user});
+  Session({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.tokenType,
+    required this.expiresIn,
+    required this.user,
+  });
 
-  final String accessToken;
+  String accessToken;
+  String refreshToken;
+  String tokenType;
+  int expiresIn;
   final AppUser user;
 
   factory Session.fromJson(Map<String, dynamic> json) => Session(
     accessToken: json['access_token'] as String,
+    refreshToken: json['refresh_token'] as String,
+    tokenType: json['token_type']?.toString() ?? 'bearer',
+    expiresIn: (json['expires_in'] as num).toInt(),
     user: AppUser.fromJson(json['user'] as Map<String, dynamic>),
   );
+
+  void replaceTokens(Session next) {
+    accessToken = next.accessToken;
+    refreshToken = next.refreshToken;
+    tokenType = next.tokenType;
+    expiresIn = next.expiresIn;
+  }
 }
 
 class RoomMember {

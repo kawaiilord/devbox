@@ -9,16 +9,29 @@ its assets, or accept third-party cookies and media-library credentials.
 ## Milestone 1 topology
 
 ```text
-Flutter client ── HTTPS ──► Go API
-       │                      │
+Flutter client ── HTTPS ──► Go API ──► PostgreSQL
+       │                      │          users / refresh tokens / rooms
        ├── WebSocket ticket ──┤
-       ├── WSS room channel ◄─┤── authoritative in-memory room state
+       ├── WSS room channel ◄─┤── authoritative hot room state
        └── direct HTTP media  │
 ```
 
-The current in-memory store is intentionally replaceable. The production
-topology will put durable entities in PostgreSQL, hot room state and sequence
-numbers in Redis, and WebSocket fan-out behind Redis Pub/Sub or Streams.
+Durable entities are restored from PostgreSQL at startup. The next topology
+step will move hot room state and sequence numbers into Redis and place
+WebSocket fan-out behind Redis Pub/Sub or Streams for multi-instance operation.
+
+## Authentication
+
+- Passwords are normalized only at the email boundary and hashed with Argon2id
+  using per-password random salts.
+- HMAC-SHA256 access tokens expire after 15 minutes and validate issuer,
+  audience, validity time, and the exact signing algorithm.
+- Opaque refresh tokens live for 30 days. Only SHA-256 token digests are stored;
+  every refresh transaction revokes the old token and inserts a new one.
+- Access-token authentication checks that the account still exists in the
+  authoritative database.
+- Login performs a dummy Argon2id verification for unknown emails to reduce
+  obvious account-enumeration timing differences.
 
 ## Playback protocol
 
@@ -62,12 +75,10 @@ The `*` origin setting in `docker-compose.yml` is for local development only.
 
 ## Next production slices
 
-1. PostgreSQL migrations for users, rooms, members, refresh tokens, and audit
-   records; Redis for snapshots, presence, and fan-out.
-2. Password/email authentication, secure refresh-token rotation, device IDs,
-   rate limits, and revocation.
-3. Source adapters beginning with direct URLs and WebDAV. Provider credentials
+1. Redis for snapshots, presence, and multi-instance fan-out; device IDs,
+   request rate limits, email verification, recovery, and audit records.
+2. Source adapters beginning with direct URLs and WebDAV. Provider credentials
    go into a KMS-backed vault; clients receive short-lived media tickets.
-4. Local Range-aware cache proxy, subtitles, error classification, and source
+3. Local Range-aware cache proxy, subtitles, error classification, and source
    renewal.
-5. Chat, moderation, reporting, and privacy controls before public rooms.
+4. Chat, moderation, reporting, and privacy controls before public rooms.

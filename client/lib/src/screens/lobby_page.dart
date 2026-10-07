@@ -15,18 +15,23 @@ class LobbyPage extends StatefulWidget {
 
 class _LobbyPageState extends State<LobbyPage> {
   final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   final _roomName = TextEditingController(text: '周五放映室');
   final _source = TextEditingController(
     text: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
   );
   final _roomCode = TextEditingController();
   Session? _session;
+  bool _registerMode = true;
   bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
     _name.dispose();
+    _email.dispose();
+    _password.dispose();
     _roomName.dispose();
     _source.dispose();
     _roomCode.dispose();
@@ -35,7 +40,16 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Future<void> _signIn() async {
     await _run(() async {
-      final session = await widget.api.createDemoSession(_name.text);
+      final session = _registerMode
+          ? await widget.api.register(
+              email: _email.text,
+              displayName: _name.text,
+              password: _password.text,
+            )
+          : await widget.api.login(
+              email: _email.text,
+              password: _password.text,
+            );
       if (mounted) setState(() => _session = session);
     });
   }
@@ -62,6 +76,20 @@ class _LobbyPageState extends State<LobbyPage> {
         code: _roomCode.text,
       );
       _openRoom(session, room);
+    });
+  }
+
+  Future<void> _logout() async {
+    final session = _session;
+    if (session == null) return;
+    await _run(() async {
+      await widget.api.logout(session);
+      if (mounted) {
+        setState(() {
+          _session = null;
+          _password.clear();
+        });
+      }
     });
   }
 
@@ -101,13 +129,23 @@ class _LobbyPageState extends State<LobbyPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Brand(session: _session),
+                  _Brand(
+                    session: _session,
+                    onLogout: _session == null ? null : _logout,
+                  ),
                   const SizedBox(height: 40),
                   if (_session == null)
                     _LoginCard(
-                      controller: _name,
+                      name: _name,
+                      email: _email,
+                      password: _password,
+                      registerMode: _registerMode,
                       busy: _busy,
                       onSubmit: _signIn,
+                      onToggleMode: () => setState(() {
+                        _registerMode = !_registerMode;
+                        _error = null;
+                      }),
                     )
                   else
                     LayoutBuilder(
@@ -166,8 +204,9 @@ class _LobbyPageState extends State<LobbyPage> {
 }
 
 class _Brand extends StatelessWidget {
-  const _Brand({required this.session});
+  const _Brand({required this.session, required this.onLogout});
   final Session? session;
+  final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -202,6 +241,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onLogout != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onLogout,
+            tooltip: '退出登录',
+            icon: const Icon(Icons.logout_rounded),
+          ),
+        ],
       ],
     );
   }
@@ -209,27 +256,55 @@ class _Brand extends StatelessWidget {
 
 class _LoginCard extends StatelessWidget {
   const _LoginCard({
-    required this.controller,
+    required this.name,
+    required this.email,
+    required this.password,
+    required this.registerMode,
     required this.busy,
     required this.onSubmit,
+    required this.onToggleMode,
   });
-  final TextEditingController controller;
+  final TextEditingController name;
+  final TextEditingController email;
+  final TextEditingController password;
+  final bool registerMode;
   final bool busy;
   final VoidCallback onSubmit;
+  final VoidCallback onToggleMode;
 
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),
       child: _Panel(
-        title: '进入测试环境',
-        subtitle: '当前里程碑使用临时会话，刷新服务端后数据会清空。',
+        title: registerMode ? '创建账号' : '登录 SameFrame',
+        subtitle: registerMode
+            ? '密码使用 Argon2id 处理，登录态支持安全轮换。'
+            : '使用邮箱和密码继续进入放映室。',
         child: Column(
           children: [
+            if (registerMode) ...[
+              TextField(
+                controller: name,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: '你的昵称'),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: '你的昵称'),
+              controller: email,
+              autofocus: !registerMode,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: '邮箱'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: password,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '密码',
+                helperText: '至少 10 个字符',
+              ),
               onSubmitted: (_) => onSubmit(),
             ),
             const SizedBox(height: 16),
@@ -238,8 +313,13 @@ class _LoginCard extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: busy ? null : onSubmit,
                 icon: const Icon(Icons.arrow_forward_rounded),
-                label: Text(busy ? '连接中…' : '进入大厅'),
+                label: Text(busy ? '连接中…' : (registerMode ? '注册并进入' : '登录')),
               ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: busy ? null : onToggleMode,
+              child: Text(registerMode ? '已有账号？直接登录' : '没有账号？立即注册'),
             ),
           ],
         ),

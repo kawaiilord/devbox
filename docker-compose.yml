@@ -1,10 +1,33 @@
 services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: sameframe
+      POSTGRES_USER: sameframe
+      POSTGRES_PASSWORD: sameframe-dev-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sameframe -d sameframe"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - sameframe-postgres:/var/lib/postgresql
+
   server:
     build:
       context: ./server
     environment:
       SAMEFRAME_ADDR: :8080
       SAMEFRAME_ALLOWED_ORIGINS: "*"
+      SAMEFRAME_JWT_SECRET: development-only-secret-change-me-now
+      SAMEFRAME_ALLOW_DEMO_AUTH: "false"
+      DATABASE_URL: postgres://sameframe:sameframe-dev-only@postgres:5432/sameframe?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     restart: unless-stopped
+
+volumes:
+  sameframe-postgres:

@@ -17,6 +17,7 @@ class ApiClient {
 
   final http.Client _client;
   final String baseUrl;
+  Future<Session>? _refreshInFlight;
 
   Future<Session> createDemoSession(String displayName) async {
     final data = await _request(
@@ -27,6 +28,40 @@ class ApiClient {
     return Session.fromJson(data);
   }
 
+  Future<Session> register({
+    required String email,
+    required String displayName,
+    required String password,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/auth/register',
+      body: {'email': email, 'display_name': displayName, 'password': password},
+    );
+    return Session.fromJson(data);
+  }
+
+  Future<Session> login({
+    required String email,
+    required String password,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/auth/login',
+      body: {'email': email, 'password': password},
+    );
+    return Session.fromJson(data);
+  }
+
+  Future<void> logout(Session session) async {
+    await _request(
+      'POST',
+      '/api/v1/auth/logout',
+      body: {'refresh_token': session.refreshToken},
+      allowRefresh: false,
+    );
+  }
+
   Future<Room> createRoom({
     required Session session,
     required String name,
@@ -35,7 +70,7 @@ class ApiClient {
     final data = await _request(
       'POST',
       '/api/v1/rooms',
-      token: session.accessToken,
+      session: session,
       body: {'name': name, 'source_url': sourceUrl, 'max_members': 8},
     );
     return Room.fromJson(data);
@@ -48,7 +83,7 @@ class ApiClient {
     final data = await _request(
       'POST',
       '/api/v1/rooms/${code.trim().toUpperCase()}/join',
-      token: session.accessToken,
+      session: session,
     );
     return Room.fromJson(data);
   }
@@ -75,7 +110,7 @@ class ApiClient {
     final ticket = await _request(
       'POST',
       '/api/v1/rooms/${room.code}/socket-ticket',
-      token: session.accessToken,
+      session: session,
     );
     final httpUri = Uri.parse(baseUrl);
     return httpUri.replace(
@@ -88,13 +123,15 @@ class ApiClient {
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
-    String? token,
+    Session? session,
     Map<String, dynamic>? body,
+    bool allowRefresh = true,
   }) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'));
     request.headers['Content-Type'] = 'application/json';
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
+    final requestAccessToken = session?.accessToken;
+    if (session != null) {
+      request.headers['Authorization'] = 'Bearer $requestAccessToken';
     }
     if (body != null) {
       request.body = jsonEncode(body);
@@ -102,10 +139,47 @@ class ApiClient {
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 401 && session != null && allowRefresh) {
+      if (session.accessToken == requestAccessToken) {
+        final refreshed = await _refreshSingleFlight(session.refreshToken);
+        session.replaceTokens(refreshed);
+      }
+      return _request(
+        method,
+        path,
+        session: session,
+        body: body,
+        allowRefresh: false,
+      );
+    }
     if (response.statusCode >= 300 || decoded['code'] != 0) {
       throw ApiException(decoded['msg']?.toString() ?? 'Request failed');
     }
-    return decoded['data'] as Map<String, dynamic>;
+    return decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+  }
+
+  Future<Session> _refresh(String refreshToken) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/auth/refresh',
+      body: {'refresh_token': refreshToken},
+      allowRefresh: false,
+    );
+    return Session.fromJson(data);
+  }
+
+  Future<Session> _refreshSingleFlight(String refreshToken) async {
+    final active = _refreshInFlight;
+    if (active != null) return active;
+    final refresh = _refresh(refreshToken);
+    _refreshInFlight = refresh;
+    try {
+      return await refresh;
+    } finally {
+      if (identical(_refreshInFlight, refresh)) {
+        _refreshInFlight = null;
+      }
+    }
   }
 
   void close() => _client.close();

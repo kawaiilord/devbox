@@ -18,12 +18,18 @@ type Options struct {
 	Address        string
 	AllowedOrigins []string
 	Logger         *slog.Logger
+	Repository     Repository
+	Auth           *AuthService
+	InitialRooms   []Room
+	AllowDemoAuth  bool
 }
 
 type Server struct {
 	options Options
 	store   *Store
 	hub     *Hub
+	repo    Repository
+	auth    *AuthService
 	http    *http.Server
 }
 
@@ -40,12 +46,28 @@ func NewServer(options Options) *Server {
 	if options.Logger == nil {
 		options.Logger = slog.Default()
 	}
-	s := &Server{options: options, store: NewStore(), hub: NewHub()}
+	if options.Repository == nil {
+		options.Repository = NewMemoryRepository()
+	}
+	if options.Auth == nil {
+		tokens, _ := NewTokenManager("development-only-secret-change-me-now", "sameframe-test")
+		options.Auth = NewAuthService(options.Repository, tokens)
+	}
+	store := NewStore()
+	store.RestoreRooms(options.InitialRooms)
+	s := &Server{
+		options: options, store: store, hub: NewHub(), repo: options.Repository, auth: options.Auth,
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/config", s.config)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
+	mux.HandleFunc("POST /api/v1/auth/register", s.register)
+	mux.HandleFunc("POST /api/v1/auth/login", s.login)
+	mux.HandleFunc("POST /api/v1/auth/refresh", s.refresh)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
 	mux.HandleFunc("POST /api/v1/session/demo", s.demoSession)
+	mux.HandleFunc("GET /api/v1/users/me", s.currentUser)
 	mux.HandleFunc("POST /api/v1/rooms", s.createRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/join", s.joinRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
@@ -85,6 +107,10 @@ func (s *Server) clock(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) demoSession(w http.ResponseWriter, r *http.Request) {
+	if !s.options.AllowDemoAuth {
+		writeError(w, http.StatusNotFound, ErrNotFound)
+		return
+	}
 	var request struct {
 		DisplayName string `json:"display_name"`
 	}
@@ -92,12 +118,91 @@ func (s *Server) demoSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	session, err := s.store.CreateSession(request.DisplayName)
+	session, err := s.auth.CreateDemo(r.Context(), request.DisplayName)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: session, Msg: "created"})
+}
+
+func (s *Server) register(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Email       string `json:"email"`
+		DisplayName string `json:"display_name"`
+		Password    string `json:"password"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	session, err := s.auth.Register(r.Context(), request.Email, request.DisplayName, request.Password)
+	if errors.Is(err, ErrEmailExists) {
+		writeError(w, http.StatusConflict, err)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: session, Msg: "created"})
+}
+
+func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	session, err := s.auth.Login(r.Context(), request.Email, request.Password)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, ErrInvalidCredentials)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: session, Msg: "ok"})
+}
+
+func (s *Server) refresh(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	session, err := s.auth.Refresh(r.Context(), request.RefreshToken)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, ErrInvalidRefresh)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: session, Msg: "ok"})
+}
+
+func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := s.auth.Logout(r.Context(), request.RefreshToken); err != nil {
+		writeError(w, http.StatusInternalServerError, errors.New("logout failed"))
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Msg: "logged out"})
+}
+
+func (s *Server) currentUser(w http.ResponseWriter, r *http.Request) {
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: user, Msg: "ok"})
 }
 
 func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +225,11 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := s.repo.SaveRoom(r.Context(), room); err != nil {
+		s.options.Logger.Error("persist room", "error", err, "room", room.Code)
+		writeError(w, http.StatusInternalServerError, errors.New("could not persist room"))
+		return
+	}
 	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: room, Msg: "created"})
 }
 
@@ -133,6 +243,16 @@ func (s *Server) joinRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeStoreError(w, err)
 		return
+	}
+	for _, member := range room.Members {
+		if member.UserID == user.ID {
+			if err := s.repo.SaveMember(r.Context(), room.Code, member); err != nil {
+				s.options.Logger.Error("persist room member", "error", err, "room", room.Code, "user", user.ID)
+				writeError(w, http.StatusInternalServerError, errors.New("could not persist room membership"))
+				return
+			}
+			break
+		}
 	}
 	state, sequence, snapshotErr := s.store.Snapshot(room.Code)
 	if snapshotErr == nil {
@@ -225,6 +345,11 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 			s.sendSocketError(client, code, applyErr)
 			continue
 		}
+		if persistErr := s.repo.UpdatePlayback(ctx, code, updated.Playback); persistErr != nil {
+			s.options.Logger.Error("persist playback", "error", persistErr, "room", code)
+			s.sendSocketError(client, code, errors.New("playback persistence failed"))
+			continue
+		}
 		s.broadcastSnapshot(updated, serverSeq, user.ID)
 	}
 }
@@ -294,7 +419,7 @@ func (s *Server) userFromRequest(r *http.Request) (User, error) {
 	if !strings.HasPrefix(auth, prefix) {
 		return User{}, ErrUnauthorized
 	}
-	return s.store.Authenticate(strings.TrimSpace(strings.TrimPrefix(auth, prefix)))
+	return s.auth.AuthenticateAccess(r.Context(), strings.TrimSpace(strings.TrimPrefix(auth, prefix)))
 }
 
 func (s *Server) withCORS(next http.Handler) http.Handler {

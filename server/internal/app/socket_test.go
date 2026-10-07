@@ -14,18 +14,23 @@ import (
 )
 
 func TestOwnerControlBroadcastsAuthoritativeSnapshot(t *testing.T) {
-	server := NewServer(Options{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), AllowedOrigins: []string{"*"}})
+	server := NewServer(Options{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), AllowedOrigins: []string{"*"}, AllowDemoAuth: true,
+	})
 	httpServer := httptest.NewServer(server.Handler())
 	defer httpServer.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	owner, _ := server.store.CreateSession("Owner")
-	room, _ := server.store.CreateRoom(owner.User, "Socket room", "https://example.com/movie.mp4", 4)
-	ticket, _ := server.store.IssueSocketTicket(room.Code, owner.User)
+	owner := User{ID: "owner", DisplayName: "Owner"}
+	room, _ := server.store.CreateRoom(owner, "Socket room", "https://example.com/movie.mp4", 4)
+	if err := server.repo.SaveRoom(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	ticket, _ := server.store.IssueSocketTicket(room.Code, owner)
 	wsURL := strings.Replace(httpServer.URL, "http://", "ws://", 1) +
 		"/ws/v1/rooms/" + room.Code + "?ticket=" + ticket
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
 	connection, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		t.Fatal(err)

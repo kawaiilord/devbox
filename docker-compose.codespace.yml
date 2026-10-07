@@ -1,0 +1,14 @@
+# GitHub Codespaces may block traffic between containers on user-created bridge
+# networks. Layer this file over docker-compose.yml only in that environment.
+services:
+  postgres:
+    network_mode: host
+    command: ["postgres", "-p", "55432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 55432 -U sameframe -d sameframe"]
+
+  server:
+    network_mode: host
+    environment:
+      SAMEFRAME_ADDR: :18080
+      DATABASE_URL: postgres://sameframe:sameframe-dev-only@127.0.0.1:55432/sameframe?sslmode=disable
