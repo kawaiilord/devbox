@@ -1,0 +1,10 @@
+services:
+  server:
+    build:
+      context: ./server
+    environment:
+      SAMEFRAME_ADDR: :8080
+      SAMEFRAME_ALLOWED_ORIGINS: "*"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

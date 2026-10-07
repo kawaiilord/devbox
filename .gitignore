@@ -1,0 +1,10 @@
+.env
+.DS_Store
+bin/
+coverage/
+server/sameframe
+client/build/
+client/.dart_tool/
+client/.flutter-plugins-dependencies
+client/.idea/
+client/*.iml
