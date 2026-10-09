@@ -22,6 +22,8 @@ The current foundation contains:
   and password recovery;
 - single-use email verification and password-reset tokens delivered through a
   configurable authenticated webhook;
+- encrypted WebDAV sources, renewable five-minute media tickets, Range
+  streaming, and a bounded desktop loopback cache;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -68,5 +70,6 @@ device-ban administration, a credential vault, TURN, signed updates,
 moderation, and payment integration.
 Third-party source credentials are never accepted by this milestone.
 
-See `docs/architecture.md` for the topology and `docs/account-security.md` for
-device headers, recovery endpoints, webhook payloads, and rate-limit values.
+See `docs/architecture.md` for the topology, `docs/account-security.md` for
+identity controls, and `docs/media-sources.md` for the credential and playback
+data flow.

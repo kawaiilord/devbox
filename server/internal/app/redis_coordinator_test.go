@@ -72,6 +72,18 @@ func TestRedisCoordinatesPlaybackTicketsPresenceAndEvents(t *testing.T) {
 	if _, err := nodeA.ConsumeTicket(ctx, ticket, room.Code); !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("replayed ticket error=%v", err)
 	}
+	mediaRaw, expiresAt, err := nodeA.IssueMediaTicket(ctx, MediaTicket{
+		UserID: owner.ID, SourceID: "source-a", Path: "/movie.mp4",
+	}, time.Minute)
+	if err != nil || !expiresAt.After(time.Now()) {
+		t.Fatalf("media ticket expires=%v error=%v", expiresAt, err)
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		mediaTicket, err := nodeB.MediaTicket(ctx, mediaRaw)
+		if err != nil || mediaTicket.Path != "/movie.mp4" {
+			t.Fatalf("media ticket=%+v error=%v", mediaTicket, err)
+		}
+	}
 
 	member := User{ID: "member", DisplayName: "Member"}
 	if err := nodeA.TouchPresence(ctx, room.Code, "owner-a", owner); err != nil {

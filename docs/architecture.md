@@ -16,6 +16,11 @@ Flutter client ── HTTPS ──► Go API nodes ──► PostgreSQL
        └── direct HTTP media     │    hot playback / PubSub / presence
 ```
 
+WebDAV credentials are an encrypted PostgreSQL record. API nodes decrypt them
+only while making an outbound request through an SSRF-restricted transport.
+Players consume a renewable SameFrame media ticket, optionally through the
+desktop loopback Range cache; they never receive provider credentials.
+
 Durable entities are restored from PostgreSQL at startup. Redis holds the hot
 playback hashes, globally increasing room sequences, one-time socket tickets,
 online-presence sorted sets, and the cross-node Pub/Sub channel. If Redis loses
@@ -112,8 +117,7 @@ The `*` origin setting in `docker-compose.yml` is for local development only.
 
 1. Administrative device bans and audit records; move critical Pub/Sub events
    to Redis Streams if replay is needed.
-2. Source adapters beginning with direct URLs and WebDAV. Provider credentials
-   go into a KMS-backed vault; clients receive short-lived media tickets.
-3. Local Range-aware cache proxy, subtitles, error classification, and source
-   renewal.
+2. Add Emby and object-storage adapters behind the same encrypted source
+   interface; move the static vault master key to a managed KMS envelope.
+3. Subtitles, media-error classification, and richer cache controls.
 4. Chat, moderation, reporting, and privacy controls before public rooms.

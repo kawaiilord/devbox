@@ -109,18 +109,110 @@ class ApiClient {
     await _request('DELETE', '/api/v1/devices/$deviceId', session: session);
   }
 
+  Future<MediaSource> createWebDAVSource({
+    required Session session,
+    required String name,
+    required String baseUrl,
+    required String username,
+    required String password,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/sources/webdav',
+      session: session,
+      body: {
+        'name': name,
+        'base_url': baseUrl,
+        'username': username,
+        'password': password,
+      },
+    );
+    return MediaSource.fromJson(data);
+  }
+
+  Future<List<MediaSource>> listMediaSources(Session session) async {
+    final data = await _request('GET', '/api/v1/sources', session: session);
+    return (data['sources'] as List<dynamic>)
+        .map((value) => MediaSource.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<List<MediaFile>> browseMediaSource(
+    Session session,
+    String sourceId,
+    String path,
+  ) async {
+    final uri = Uri(
+      path: '/api/v1/sources/$sourceId/files',
+      queryParameters: {'path': path},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['files'] as List<dynamic>)
+        .map((value) => MediaFile.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<MediaPlaybackTicket> issueMediaTicket(
+    Session session,
+    String sourceId,
+    String path,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/sources/$sourceId/ticket',
+      session: session,
+      body: {'path': path},
+    );
+    final rawUrl = data['url'] as String;
+    final resolved = Uri.parse(baseUrl).resolve(rawUrl).toString();
+    return MediaPlaybackTicket(
+      url: resolved,
+      expiresAt: (data['expires_at'] as num).toInt(),
+    );
+  }
+
+  Future<MediaPlaybackTicket> renewRoomMediaTicket(
+    Session session,
+    String roomCode,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/rooms/$roomCode/media-ticket',
+      session: session,
+    );
+    final resolved = Uri.parse(baseUrl)
+        .resolve(data['url'] as String)
+        .toString();
+    return MediaPlaybackTicket(
+      url: resolved,
+      expiresAt: (data['expires_at'] as num).toInt(),
+    );
+  }
+
+  Future<void> deleteMediaSource(Session session, String sourceId) async {
+    await _request('DELETE', '/api/v1/sources/$sourceId', session: session);
+  }
+
   Future<Room> createRoom({
     required Session session,
     required String name,
-    required String sourceUrl,
+    String sourceUrl = '',
+    String mediaSourceId = '',
+    String mediaPath = '',
   }) async {
     final data = await _request(
       'POST',
       '/api/v1/rooms',
       session: session,
-      body: {'name': name, 'source_url': sourceUrl, 'max_members': 8},
+      body: {
+        'name': name,
+        'source_url': sourceUrl,
+        'media_source_id': mediaSourceId,
+        'media_path': mediaPath,
+        'max_members': 8,
+      },
     );
-    return Room.fromJson(data);
+    return _roomFromJson(data);
   }
 
   Future<Room> joinRoom({
@@ -132,7 +224,7 @@ class ApiClient {
       '/api/v1/rooms/${code.trim().toUpperCase()}/join',
       session: session,
     );
-    return Room.fromJson(data);
+    return _roomFromJson(data);
   }
 
   Future<Duration> measureClockOffset() async {
@@ -151,6 +243,14 @@ class ApiClient {
       }
     }
     return bestOffset;
+  }
+
+  Room _roomFromJson(Map<String, dynamic> data) {
+    final room = Room.fromJson(data);
+    if (room.sourceUrl.isEmpty) return room;
+    return room.withSourceUrl(
+      Uri.parse(baseUrl).resolve(room.sourceUrl).toString(),
+    );
   }
 
   Future<Uri> roomSocketUri(Room room, Session session) async {

@@ -81,6 +81,20 @@ func main() {
 		logger.Error("mail webhook is required when verified email is enforced")
 		os.Exit(1)
 	}
+	var sourceManager *app.MediaSourceManager
+	if vaultKey := os.Getenv("SAMEFRAME_VAULT_KEY"); vaultKey != "" {
+		vault, vaultErr := app.NewCredentialVault(vaultKey)
+		if vaultErr != nil {
+			logger.Error("configure credential vault", "error", vaultErr)
+			os.Exit(1)
+		}
+		sourceManager = app.NewMediaSourceManager(
+			repository,
+			vault,
+			envBool("SAMEFRAME_ALLOW_PRIVATE_SOURCES", false),
+		)
+		logger.Info("media source vault enabled")
+	}
 	addr := envOr("SAMEFRAME_ADDR", ":8080")
 	origins := strings.Split(envOr("SAMEFRAME_ALLOWED_ORIGINS", "http://localhost:*"), ",")
 	server := app.NewServer(app.Options{
@@ -93,6 +107,8 @@ func main() {
 		AllowDemoAuth:        envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),
 		Redis:                redisCoordinator,
 		RequireVerifiedEmail: requireVerifiedEmail,
+		Sources:              sourceManager,
+		PublicBaseURL:        os.Getenv("SAMEFRAME_PUBLIC_BASE_URL"),
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

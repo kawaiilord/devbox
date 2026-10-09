@@ -1,6 +1,8 @@
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'local_media_proxy.dart';
+
 class MediaPlayerKernel {
   MediaPlayerKernel()
     : player = Player(),
@@ -8,10 +10,12 @@ class MediaPlayerKernel {
       sourceVersion = 0,
       episode = 0 {
     videoController = VideoController(player);
+    _proxy = LocalMediaProxy.create();
   }
 
   final Player player;
   late final VideoController videoController;
+  late final Future<LocalMediaProxy> _proxy;
   int generation;
   int sourceVersion;
   int episode;
@@ -29,11 +33,17 @@ class MediaPlayerKernel {
     required int version,
     required int episodeIndex,
     Duration initialPosition = Duration.zero,
+    String? cacheIdentity,
   }) async {
     final operationGeneration = ++generation;
     sourceVersion = version;
     episode = episodeIndex;
-    await player.open(Media(source), play: false);
+    final proxy = await _proxy;
+    final playbackUri = await proxy.prepare(
+      Uri.parse(source),
+      cacheIdentity: cacheIdentity,
+    );
+    await player.open(Media(playbackUri.toString()), play: false);
     if (operationGeneration != generation) return;
     if (initialPosition > Duration.zero) {
       await player.seek(initialPosition);
@@ -48,5 +58,6 @@ class MediaPlayerKernel {
   Future<void> dispose() async {
     generation++;
     await player.dispose();
+    await (await _proxy).close();
   }
 }

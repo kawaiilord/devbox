@@ -104,6 +104,7 @@ class PlaybackSynchronizer {
     required MediaPlayerKernel player,
     required String sourceUrl,
     required Duration clockOffset,
+    String? cacheIdentity,
   }) async {
     final alignment = plan(
       snapshot: snapshot,
@@ -121,6 +122,7 @@ class PlaybackSynchronizer {
           version: snapshot.sourceVersion,
           episodeIndex: snapshot.episode,
           initialPosition: alignment.targetPosition,
+          cacheIdentity: cacheIdentity,
         );
       case AlignmentAction.hardSeek:
         await player.seek(alignment.targetPosition);

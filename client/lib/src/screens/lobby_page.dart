@@ -28,6 +28,8 @@ class _LobbyPageState extends State<LobbyPage> {
   bool _verifiedOverride = false;
   bool _busy = false;
   String? _error;
+  String _selectedMediaSourceId = '';
+  String _selectedMediaPath = '';
 
   @override
   void dispose() {
@@ -70,6 +72,8 @@ class _LobbyPageState extends State<LobbyPage> {
         session: session,
         name: _roomName.text,
         sourceUrl: _source.text,
+        mediaSourceId: _selectedMediaSourceId,
+        mediaPath: _selectedMediaPath,
       );
       _openRoom(session, room);
     });
@@ -170,6 +174,240 @@ class _LobbyPageState extends State<LobbyPage> {
         ),
       );
     });
+  }
+
+  Future<void> _showMediaSources() async {
+    final session = _session;
+    if (session == null) return;
+    var sources = await widget.api.listMediaSources(session);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('媒体源'),
+          content: SizedBox(
+            width: 560,
+            child: sources.isEmpty
+                ? const Text('还没有媒体源。凭据只会加密保存在服务端。')
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final source in sources)
+                        ListTile(
+                          leading: const Icon(Icons.cloud_rounded),
+                          title: Text(source.name),
+                          subtitle: Text(source.baseUrl),
+                          onTap: () => _browseMediaSource(source),
+                          trailing: IconButton(
+                            tooltip: '删除媒体源',
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            onPressed: () async {
+                              await widget.api.deleteMediaSource(
+                                session,
+                                source.id,
+                              );
+                              sources = await widget.api.listMediaSources(
+                                session,
+                              );
+                              setDialogState(() {});
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('关闭'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                final created = await _promptAddWebDAV();
+                if (created && dialogContext.mounted) {
+                  sources = await widget.api.listMediaSources(session);
+                  setDialogState(() {});
+                }
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('添加 WebDAV'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _promptAddWebDAV() async {
+    final session = _session;
+    if (session == null) return false;
+    final name = TextEditingController();
+    final baseUrl = TextEditingController();
+    final username = TextEditingController();
+    final password = TextEditingController();
+    var created = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('添加 WebDAV'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: '名称'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: baseUrl,
+                decoration: const InputDecoration(labelText: 'HTTPS WebDAV 地址'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: username,
+                decoration: const InputDecoration(labelText: '用户名'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '密码'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await widget.api.createWebDAVSource(
+                session: session,
+                name: name.text,
+                baseUrl: baseUrl.text,
+                username: username.text,
+                password: password.text,
+              );
+              created = true;
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    name.dispose();
+    baseUrl.dispose();
+    username.dispose();
+    password.dispose();
+    return created;
+  }
+
+  Future<void> _browseMediaSource(MediaSource source) async {
+    final session = _session;
+    if (session == null) return;
+    var currentPath = '/';
+    var files = await widget.api.browseMediaSource(
+      session,
+      source.id,
+      currentPath,
+    );
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('${source.name} · $currentPath'),
+          content: SizedBox(
+            width: 560,
+            height: 420,
+            child: ListView(
+              children: [
+                if (currentPath != '/')
+                  ListTile(
+                    leading: const Icon(Icons.arrow_upward_rounded),
+                    title: const Text('返回上级'),
+                    onTap: () async {
+                      final segments = currentPath.split('/')
+                        ..removeWhere((value) => value.isEmpty);
+                      if (segments.isNotEmpty) segments.removeLast();
+                      currentPath = '/${segments.join('/')}';
+                      if (currentPath != '/') currentPath += '/';
+                      files = await widget.api.browseMediaSource(
+                        session,
+                        source.id,
+                        currentPath,
+                      );
+                      setDialogState(() {});
+                    },
+                  ),
+                for (final file in files)
+                  ListTile(
+                    leading: Icon(
+                      file.isDirectory
+                          ? Icons.folder_rounded
+                          : Icons.movie_outlined,
+                    ),
+                    title: Text(file.name),
+                    subtitle: file.isDirectory
+                        ? null
+                        : Text(_formatBytes(file.size)),
+                    onTap: () async {
+                      if (file.isDirectory) {
+                        currentPath = file.path.endsWith('/')
+                            ? file.path
+                            : '${file.path}/';
+                        files = await widget.api.browseMediaSource(
+                          session,
+                          source.id,
+                          currentPath,
+                        );
+                        setDialogState(() {});
+                        return;
+                      }
+                      _selectedMediaSourceId = source.id;
+                      _selectedMediaPath = file.path;
+                      _source.text = 'WebDAV · ${source.name} · ${file.name}';
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                      if (mounted) {
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(content: Text('已选择 ${file.name}，现在可以创建房间。')),
+                        );
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '$bytes B';
   }
 
   Future<void> _showPasswordReset() async {
@@ -276,6 +514,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     session: _session,
                     onLogout: _session == null ? null : _logout,
                     onDevices: _session == null ? null : _showDevices,
+                    onSources: _session == null ? null : _showMediaSources,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -312,6 +551,10 @@ class _LobbyPageState extends State<LobbyPage> {
                                 source: _source,
                                 busy: _busy,
                                 onSubmit: _createRoom,
+                                onSourceChanged: () {
+                                  _selectedMediaSourceId = '';
+                                  _selectedMediaPath = '';
+                                },
                               ),
                               _JoinCard(
                                 roomCode: _roomCode,
@@ -366,10 +609,12 @@ class _Brand extends StatelessWidget {
     required this.session,
     required this.onLogout,
     required this.onDevices,
+    required this.onSources,
   });
   final Session? session;
   final VoidCallback? onLogout;
   final VoidCallback? onDevices;
+  final VoidCallback? onSources;
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +649,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onSources != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onSources,
+            tooltip: '媒体源',
+            icon: const Icon(Icons.video_library_rounded),
+          ),
+        ],
         if (onDevices != null) ...[
           const SizedBox(width: 8),
           IconButton(
@@ -512,11 +765,13 @@ class _CreateCard extends StatelessWidget {
     required this.source,
     required this.busy,
     required this.onSubmit,
+    required this.onSourceChanged,
   });
   final TextEditingController roomName;
   final TextEditingController source;
   final bool busy;
   final VoidCallback onSubmit;
+  final VoidCallback onSourceChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -535,6 +790,7 @@ class _CreateCard extends StatelessWidget {
             decoration: const InputDecoration(labelText: 'HTTP(S) 直链'),
             minLines: 2,
             maxLines: 3,
+            onChanged: (_) => onSourceChanged(),
           ),
           const SizedBox(height: 16),
           SizedBox(

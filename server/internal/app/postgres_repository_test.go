@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"testing"
 	"time"
@@ -46,8 +47,26 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	vaultKey := make([]byte, 32)
+	vault, _ := NewCredentialVault(base64.StdEncoding.EncodeToString(vaultKey))
+	encrypted, err := vault.Encrypt(
+		[]byte(`{"username":"viewer","password":"secret"}`),
+		sourceAAD(owner.User.ID, "source-postgres"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateMediaSource(ctx, MediaSource{
+		ID: "source-postgres", UserID: owner.User.ID, Type: "webdav", Name: "Persistent source",
+		BaseURL: "https://example.com/dav/", CredentialsCiphertext: encrypted,
+		CreatedAt: time.Now().UnixMilli(), UpdatedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		t.Fatal(err)
+	}
 	store := NewStore()
-	room, err := store.CreateRoom(owner.User, "Persistent room", "https://example.com/movie.mp4", 4)
+	room, err := store.CreateMediaRoom(
+		owner.User, "Persistent room", "source-postgres", "/movie.mp4", 4,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +114,13 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	}
 	if rooms[0].Playback.Position != position {
 		t.Fatalf("restored position=%v, want %v", rooms[0].Playback.Position, position)
+	}
+	if rooms[0].MediaSourceID != "source-postgres" || rooms[0].MediaPath != "/movie.mp4" {
+		t.Fatalf("restored media reference=%+v", rooms[0])
+	}
+	sources, err := reopened.ListMediaSources(ctx, owner.User.ID)
+	if err != nil || len(sources) != 1 || sources[0].CredentialsCiphertext != encrypted {
+		t.Fatalf("restored sources=%+v error=%v", sources, err)
 	}
 	freshAuth := NewAuthService(reopened, tokens)
 	login, err := freshAuth.Login(ctx, "owner@example.com", "correct horse battery")

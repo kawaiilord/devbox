@@ -18,6 +18,9 @@ var foundationMigration string
 //go:embed migrations/002_account_security.sql
 var accountSecurityMigration string
 
+//go:embed migrations/003_media_sources.sql
+var mediaSourcesMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -42,7 +45,7 @@ func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository,
 }
 
 func (r *PostgresRepository) Migrate(ctx context.Context) error {
-	for _, migration := range []string{foundationMigration, accountSecurityMigration} {
+	for _, migration := range []string{foundationMigration, accountSecurityMigration, mediaSourcesMigration} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
 		}
@@ -421,6 +424,102 @@ func (r *PostgresRepository) UpdatePassword(ctx context.Context, userID, passwor
 	return err
 }
 
+func (r *PostgresRepository) CreateMediaSource(ctx context.Context, source MediaSource) error {
+	_, err := r.pool.Exec(
+		ctx,
+		`INSERT INTO media_sources (
+		 id, user_id, source_type, name, base_url, credentials_ciphertext, created_at, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,to_timestamp($7 / 1000.0),to_timestamp($8 / 1000.0))`,
+		source.ID,
+		source.UserID,
+		source.Type,
+		source.Name,
+		source.BaseURL,
+		source.CredentialsCiphertext,
+		source.CreatedAt,
+		source.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListMediaSources(ctx context.Context, userID string) ([]MediaSource, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id, user_id, source_type, name, base_url, credentials_ciphertext,
+		 (extract(epoch FROM created_at) * 1000)::bigint,
+		 (extract(epoch FROM updated_at) * 1000)::bigint
+		 FROM media_sources WHERE user_id = $1 ORDER BY created_at`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sources := make([]MediaSource, 0)
+	for rows.Next() {
+		var source MediaSource
+		if err := rows.Scan(
+			&source.ID,
+			&source.UserID,
+			&source.Type,
+			&source.Name,
+			&source.BaseURL,
+			&source.CredentialsCiphertext,
+			&source.CreatedAt,
+			&source.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		sources = append(sources, source)
+	}
+	return sources, rows.Err()
+}
+
+func (r *PostgresRepository) GetMediaSource(
+	ctx context.Context,
+	userID, sourceID string,
+) (MediaSource, error) {
+	var source MediaSource
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT id, user_id, source_type, name, base_url, credentials_ciphertext,
+		 (extract(epoch FROM created_at) * 1000)::bigint,
+		 (extract(epoch FROM updated_at) * 1000)::bigint
+		 FROM media_sources WHERE id = $1 AND user_id = $2`,
+		sourceID,
+		userID,
+	).Scan(
+		&source.ID,
+		&source.UserID,
+		&source.Type,
+		&source.Name,
+		&source.BaseURL,
+		&source.CredentialsCiphertext,
+		&source.CreatedAt,
+		&source.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MediaSource{}, ErrNotFound
+	}
+	return source, err
+}
+
+func (r *PostgresRepository) DeleteMediaSource(ctx context.Context, userID, sourceID string) error {
+	command, err := r.pool.Exec(
+		ctx,
+		`DELETE FROM media_sources WHERE id = $1 AND user_id = $2`,
+		sourceID,
+		userID,
+	)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -430,11 +529,13 @@ func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {
 	_, err = tx.Exec(
 		ctx,
 		`INSERT INTO rooms (
-			code, name, owner_id, source_url, max_members, created_at, expires_at,
+			code, name, owner_id, source_url, media_source_id, media_path,
+			max_members, created_at, expires_at,
 			position, playing, speed, episode, position_ts, source_version
-		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 		 ON CONFLICT (code) DO UPDATE SET
 			name = EXCLUDED.name, source_url = EXCLUDED.source_url,
+			media_source_id = EXCLUDED.media_source_id, media_path = EXCLUDED.media_path,
 			max_members = EXCLUDED.max_members, expires_at = EXCLUDED.expires_at,
 			position = EXCLUDED.position, playing = EXCLUDED.playing,
 			speed = EXCLUDED.speed, episode = EXCLUDED.episode,
@@ -443,6 +544,8 @@ func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {
 		room.Name,
 		room.OwnerID,
 		room.SourceURL,
+		nilIfEmpty(room.MediaSourceID),
+		nilIfEmpty(room.MediaPath),
 		room.MaxMembers,
 		room.CreatedAt,
 		room.ExpiresAt,
@@ -504,7 +607,9 @@ func (r *PostgresRepository) UpdatePlayback(ctx context.Context, code string, pl
 func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT code, name, owner_id, source_url, max_members, created_at, expires_at,
+		`SELECT code, name, owner_id, source_url,
+		 COALESCE(media_source_id, ''), COALESCE(media_path, ''),
+		 max_members, created_at, expires_at,
 		 position, playing, speed, episode, position_ts, source_version FROM rooms`,
 	)
 	if err != nil {
@@ -520,6 +625,8 @@ func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 			&room.Name,
 			&room.OwnerID,
 			&room.SourceURL,
+			&room.MediaSourceID,
+			&room.MediaPath,
 			&room.MaxMembers,
 			&room.CreatedAt,
 			&room.ExpiresAt,
@@ -562,4 +669,11 @@ func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 
 func (r *PostgresRepository) Close() {
 	r.pool.Close()
+}
+
+func nilIfEmpty(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }

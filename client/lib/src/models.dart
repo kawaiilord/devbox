@@ -43,6 +43,58 @@ class UserDevice {
   );
 }
 
+class MediaSource {
+  const MediaSource({
+    required this.id,
+    required this.type,
+    required this.name,
+    required this.baseUrl,
+  });
+
+  final String id;
+  final String type;
+  final String name;
+  final String baseUrl;
+
+  factory MediaSource.fromJson(Map<String, dynamic> json) => MediaSource(
+    id: json['id'] as String,
+    type: json['type'] as String,
+    name: json['name'] as String,
+    baseUrl: json['base_url'] as String,
+  );
+}
+
+class MediaFile {
+  const MediaFile({
+    required this.name,
+    required this.path,
+    required this.isDirectory,
+    required this.size,
+    required this.contentType,
+  });
+
+  final String name;
+  final String path;
+  final bool isDirectory;
+  final int size;
+  final String contentType;
+
+  factory MediaFile.fromJson(Map<String, dynamic> json) => MediaFile(
+    name: json['name'] as String,
+    path: json['path'] as String,
+    isDirectory: json['is_directory'] as bool,
+    size: (json['size'] as num).toInt(),
+    contentType: json['content_type']?.toString() ?? '',
+  );
+}
+
+class MediaPlaybackTicket {
+  const MediaPlaybackTicket({required this.url, required this.expiresAt});
+
+  final String url;
+  final int expiresAt;
+}
+
 class Session {
   Session({
     required this.accessToken,
@@ -126,6 +178,8 @@ class Room {
     required this.name,
     required this.ownerId,
     required this.sourceUrl,
+    required this.mediaSourceId,
+    required this.mediaPath,
     required this.maxMembers,
     required this.expiresAt,
     required this.members,
@@ -136,6 +190,8 @@ class Room {
   final String name;
   final String ownerId;
   final String sourceUrl;
+  final String mediaSourceId;
+  final String mediaPath;
   final int maxMembers;
   final int expiresAt;
   final List<RoomMember> members;
@@ -146,6 +202,8 @@ class Room {
     name: json['name'] as String,
     ownerId: json['owner_id'] as String,
     sourceUrl: json['source_url'] as String,
+    mediaSourceId: json['media_source_id']?.toString() ?? '',
+    mediaPath: json['media_path']?.toString() ?? '',
     maxMembers: (json['max_members'] as num).toInt(),
     expiresAt: (json['expires_at'] as num).toInt(),
     members: (json['members'] as List<dynamic>)
@@ -154,6 +212,19 @@ class Room {
     playback: PlaybackSnapshot.fromJson(
       json['playback'] as Map<String, dynamic>,
     ),
+  );
+
+  Room withSourceUrl(String value) => Room(
+    code: code,
+    name: name,
+    ownerId: ownerId,
+    sourceUrl: value,
+    mediaSourceId: mediaSourceId,
+    mediaPath: mediaPath,
+    maxMembers: maxMembers,
+    expiresAt: expiresAt,
+    members: members,
+    playback: playback,
   );
 }
 

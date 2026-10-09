@@ -136,16 +136,39 @@ func (s *Store) ConsumeSocketTicket(ticket, code string) (User, error) {
 }
 
 func (s *Store) CreateRoom(owner User, name, sourceURL string, maxMembers int) (Room, error) {
+	return s.createRoom(owner, name, sourceURL, "", "", maxMembers)
+}
+
+func (s *Store) CreateMediaRoom(
+	owner User,
+	name, sourceID, mediaPath string,
+	maxMembers int,
+) (Room, error) {
+	if sourceID == "" || cleanMediaPath(mediaPath) == "/" {
+		return Room{}, errors.New("media source and file path are required")
+	}
+	return s.createRoom(owner, name, "", sourceID, cleanMediaPath(mediaPath), maxMembers)
+}
+
+func (s *Store) createRoom(
+	owner User,
+	name, sourceURL, mediaSourceID, mediaPath string,
+	maxMembers int,
+) (Room, error) {
 	name = strings.TrimSpace(name)
 	if len([]rune(name)) < 2 || len([]rune(name)) > 64 {
 		return Room{}, fmt.Errorf("room name must be 2-64 characters")
 	}
-	parsed, err := url.Parse(strings.TrimSpace(sourceURL))
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return Room{}, fmt.Errorf("source_url must be an absolute HTTP(S) URL")
-	}
-	if parsed.User != nil {
-		return Room{}, fmt.Errorf("source_url must not contain credentials")
+	parsed := &url.URL{}
+	var err error
+	if mediaSourceID == "" {
+		parsed, err = url.Parse(strings.TrimSpace(sourceURL))
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return Room{}, fmt.Errorf("source_url must be an absolute HTTP(S) URL")
+		}
+		if parsed.User != nil {
+			return Room{}, fmt.Errorf("source_url must not contain credentials")
+		}
 	}
 	if maxMembers == 0 {
 		maxMembers = 8
@@ -173,13 +196,15 @@ func (s *Store) CreateRoom(owner User, name, sourceURL string, maxMembers int) (
 	}
 	record := &roomRecord{
 		room: Room{
-			Code:       code,
-			Name:       name,
-			OwnerID:    owner.ID,
-			SourceURL:  parsed.String(),
-			MaxMembers: maxMembers,
-			CreatedAt:  now.UnixMilli(),
-			ExpiresAt:  now.Add(6 * time.Hour).UnixMilli(),
+			Code:          code,
+			Name:          name,
+			OwnerID:       owner.ID,
+			SourceURL:     parsed.String(),
+			MediaSourceID: mediaSourceID,
+			MediaPath:     mediaPath,
+			MaxMembers:    maxMembers,
+			CreatedAt:     now.UnixMilli(),
+			ExpiresAt:     now.Add(6 * time.Hour).UnixMilli(),
 			Playback: Playback{
 				Speed:         1,
 				PositionTS:    now.UnixMilli(),

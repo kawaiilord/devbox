@@ -33,6 +33,10 @@ services:
       DATABASE_URL: postgres://sameframe:sameframe-dev-only@postgres:5432/sameframe?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       SAMEFRAME_REQUIRE_VERIFIED_EMAIL: "false"
+      # Development-only deterministic key. Production must inject a secret-manager value.
+      SAMEFRAME_VAULT_KEY: c2FtZWZyYW1lLWRldmVsb3BtZW50LXZhdWx0LWtleSE=
+      # Allows local/LAN WebDAV only in this development stack.
+      SAMEFRAME_ALLOW_PRIVATE_SOURCES: "true"
     depends_on:
       postgres:
         condition: service_healthy

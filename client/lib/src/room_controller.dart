@@ -31,6 +31,8 @@ class RoomController extends ChangeNotifier {
   StreamSubscription<bool>? _connectionSubscription;
   Duration _clockOffset = Duration.zero;
   Future<void> _alignmentQueue = Future.value();
+  Timer? _mediaRenewal;
+  bool _renewingMedia = false;
   int _clientSequence = DateTime.now().microsecondsSinceEpoch;
   int _lastServerSequence = -1;
   bool connected = false;
@@ -51,12 +53,14 @@ class RoomController extends ChangeNotifier {
         initialPosition: Duration(
           milliseconds: (room.playback.position * 1000).round(),
         ),
+        cacheIdentity: _mediaCacheIdentity,
       );
       await _synchronizer.apply(
         snapshot: room.playback,
         player: player,
         sourceUrl: room.sourceUrl,
         clockOffset: _clockOffset,
+        cacheIdentity: _mediaCacheIdentity,
       );
       final socket = RoomSocket(() => api.roomSocketUri(room, session));
       _socket = socket;
@@ -66,6 +70,7 @@ class RoomController extends ChangeNotifier {
         notifyListeners();
       });
       await socket.connect();
+      _scheduleMediaRenewal();
     } catch (exception) {
       error = exception.toString();
     } finally {
@@ -91,9 +96,13 @@ class RoomController extends ChangeNotifier {
 
   void _handleEnvelope(RoomEnvelope envelope) {
     if (envelope.type == 'room.state') {
-      room = Room.fromJson(envelope.payload);
+      final incoming = Room.fromJson(envelope.payload);
+      room = incoming.mediaSourceId.isNotEmpty && room.sourceUrl.isNotEmpty
+          ? incoming.withSourceUrl(room.sourceUrl)
+          : incoming;
       _lastServerSequence = envelope.sequence;
       _queueAlignment(room.playback);
+      _scheduleMediaRenewal();
       notifyListeners();
       return;
     }
@@ -128,6 +137,7 @@ class RoomController extends ChangeNotifier {
             player: player,
             sourceUrl: room.sourceUrl,
             clockOffset: _clockOffset,
+            cacheIdentity: _mediaCacheIdentity,
           );
           lastAlignment = alignment.action;
           notifyListeners();
@@ -138,10 +148,49 @@ class RoomController extends ChangeNotifier {
         });
   }
 
+  void _scheduleMediaRenewal() {
+    _mediaRenewal?.cancel();
+    if (room.mediaSourceId.isEmpty) return;
+    _mediaRenewal = Timer.periodic(
+      const Duration(minutes: 4),
+      (_) => _renewMediaTicket(),
+    );
+  }
+
+  Future<void> _renewMediaTicket() async {
+    if (_renewingMedia || room.mediaSourceId.isEmpty) return;
+    _renewingMedia = true;
+    try {
+      final ticket = await api.renewRoomMediaTicket(session, room.code);
+      final position = player.position;
+      final wasPlaying = player.playing;
+      room = room.withSourceUrl(ticket.url);
+      await player.open(
+        ticket.url,
+        version: player.sourceVersion,
+        episodeIndex: player.episode,
+        initialPosition: position,
+        cacheIdentity: _mediaCacheIdentity,
+      );
+      if (wasPlaying) await player.play();
+      notifyListeners();
+    } catch (exception) {
+      error = '媒体票据续期失败：$exception';
+      notifyListeners();
+    } finally {
+      _renewingMedia = false;
+    }
+  }
+
+  String? get _mediaCacheIdentity => room.mediaSourceId.isEmpty
+      ? null
+      : '${room.mediaSourceId}:${room.mediaPath}';
+
   @override
   void dispose() {
     _eventSubscription?.cancel();
     _connectionSubscription?.cancel();
+    _mediaRenewal?.cancel();
     _socket?.close();
     player.dispose();
     super.dispose();

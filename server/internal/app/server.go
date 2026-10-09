@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,6 +29,8 @@ type Options struct {
 	AllowDemoAuth        bool
 	Redis                *RedisCoordinator
 	RequireVerifiedEmail bool
+	Sources              *MediaSourceManager
+	PublicBaseURL        string
 }
 
 type Server struct {
@@ -37,6 +41,7 @@ type Server struct {
 	auth    *AuthService
 	redis   *RedisCoordinator
 	limiter *RateLimiter
+	sources *MediaSourceManager
 	http    *http.Server
 	start   sync.Once
 }
@@ -66,6 +71,7 @@ func NewServer(options Options) *Server {
 	s := &Server{
 		options: options, store: store, hub: NewHub(), repo: options.Repository,
 		auth: options.Auth, redis: options.Redis,
+		sources: options.Sources,
 	}
 	if options.Redis != nil {
 		s.limiter = options.Redis.RateLimiter()
@@ -86,9 +92,17 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/users/me", s.currentUser)
 	mux.HandleFunc("GET /api/v1/devices", s.listDevices)
 	mux.HandleFunc("DELETE /api/v1/devices/{id}", s.revokeDevice)
+	mux.HandleFunc("POST /api/v1/sources/webdav", s.createWebDAVSource)
+	mux.HandleFunc("GET /api/v1/sources", s.listMediaSources)
+	mux.HandleFunc("DELETE /api/v1/sources/{id}", s.deleteMediaSource)
+	mux.HandleFunc("GET /api/v1/sources/{id}/files", s.browseMediaSource)
+	mux.HandleFunc("POST /api/v1/sources/{id}/ticket", s.issueMediaTicket)
+	mux.HandleFunc("GET /media/{ticket}", s.proxyMedia)
+	mux.HandleFunc("HEAD /media/{ticket}", s.proxyMedia)
 	mux.HandleFunc("POST /api/v1/rooms", s.createRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/join", s.joinRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/media-ticket", s.issueRoomMediaTicket)
 	mux.HandleFunc("GET /api/v1/rooms/{code}", s.getRoom)
 	mux.HandleFunc("GET /ws/v1/rooms/{code}", s.roomSocket)
 	s.http = &http.Server{
@@ -96,6 +110,7 @@ func NewServer(options Options) *Server {
 		Handler:           s.withCORS(s.withRequestLog(mux)),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    64 * 1024,
 	}
 	return s
 }
@@ -133,6 +148,7 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"room": true, "direct_source": true, "chat": false, "voice": false,
 		"multi_node_realtime": s.redis != nil, "presence": s.redis != nil,
 		"device_management": true, "email_verification": s.options.RequireVerifiedEmail,
+		"media_sources": s.sources != nil,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -395,6 +411,263 @@ func (s *Server) revokeDevice(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Msg: "device revoked"})
 }
 
+func (s *Server) createWebDAVSource(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if s.options.RequireVerifiedEmail && !user.EmailVerified {
+		writeError(w, http.StatusForbidden, errors.New("email verification required"))
+		return
+	}
+	if !s.enforceRateLimit(w, r, "source-create", user.ID, 10, time.Hour) {
+		return
+	}
+	var request struct {
+		Name     string `json:"name"`
+		BaseURL  string `json:"base_url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	source, err := s.sources.CreateWebDAV(
+		r.Context(), user, request.Name, request.BaseURL, request.Username, request.Password,
+	)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: source, Msg: "created"})
+}
+
+func (s *Server) listMediaSources(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	sources, err := s.sources.List(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, errors.New("could not load media sources"))
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"sources": sources}, Msg: "ok"})
+}
+
+func (s *Server) deleteMediaSource(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if err := s.sources.Delete(r.Context(), user.ID, r.PathValue("id")); err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Msg: "source deleted"})
+}
+
+func (s *Server) browseMediaSource(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "source-browse", user.ID, 60, time.Minute) {
+		return
+	}
+	files, err := s.sources.Browse(
+		r.Context(), user.ID, r.PathValue("id"), r.URL.Query().Get("path"),
+	)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"files": files}, Msg: "ok"})
+}
+
+func (s *Server) issueMediaTicket(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil || s.redis == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media tickets unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "media-ticket", user.ID, 60, time.Minute) {
+		return
+	}
+	var request struct {
+		Path string `json:"path"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if _, err := s.repo.GetMediaSource(r.Context(), user.ID, r.PathValue("id")); err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	if _, err := resolveSourcePath("https://validation.invalid/", request.Path, false); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), MediaTicket{
+		UserID: user.ID, SourceID: r.PathValue("id"), Path: cleanMediaPath(request.Path),
+	}, 5*time.Minute)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue media ticket"))
+		return
+	}
+	playURL := s.mediaPlaybackURL(raw)
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: map[string]any{
+		"url": playURL, "expires_at": expiresAt.UnixMilli(),
+	}, Msg: "created"})
+}
+
+func (s *Server) issueRoomMediaTicket(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil || s.redis == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media tickets unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	code := strings.ToUpper(r.PathValue("code"))
+	if err := s.refreshRedisRoom(r.Context(), code); err != nil && !errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
+		return
+	}
+	room, err := s.store.GetRoom(code, user.ID)
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	hydrated, expiresAt, err := s.issueTicketForRoom(r.Context(), room)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
+		return
+	}
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: map[string]any{
+		"url": hydrated.SourceURL, "expires_at": expiresAt.UnixMilli(),
+	}, Msg: "created"})
+}
+
+func (s *Server) hydrateRoomMediaURL(ctx context.Context, room Room) (Room, error) {
+	if room.MediaSourceID == "" {
+		return room, nil
+	}
+	hydrated, _, err := s.issueTicketForRoom(ctx, room)
+	return hydrated, err
+}
+
+func (s *Server) issueTicketForRoom(
+	ctx context.Context,
+	room Room,
+) (Room, time.Time, error) {
+	if s.redis == nil || s.sources == nil {
+		return Room{}, time.Time{}, errors.New("media tickets unavailable")
+	}
+	if _, err := s.repo.GetMediaSource(ctx, room.OwnerID, room.MediaSourceID); err != nil {
+		return Room{}, time.Time{}, err
+	}
+	raw, expiresAt, err := s.redis.IssueMediaTicket(ctx, MediaTicket{
+		UserID: room.OwnerID, SourceID: room.MediaSourceID, Path: room.MediaPath,
+	}, 5*time.Minute)
+	if err != nil {
+		return Room{}, time.Time{}, err
+	}
+	room.SourceURL = s.mediaPlaybackURL(raw)
+	return room, expiresAt, nil
+}
+
+func (s *Server) mediaPlaybackURL(raw string) string {
+	playURL := "/media/" + raw
+	if s.options.PublicBaseURL == "" {
+		return playURL
+	}
+	base, err := url.Parse(s.options.PublicBaseURL)
+	if err != nil {
+		return playURL
+	}
+	return base.ResolveReference(&url.URL{Path: playURL}).String()
+}
+
+func (s *Server) proxyMedia(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil || s.redis == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media proxy unavailable"))
+		return
+	}
+	raw := r.PathValue("ticket")
+	if len(raw) < 24 || len(raw) > 128 {
+		writeError(w, http.StatusUnauthorized, ErrUnauthorized)
+		return
+	}
+	ticket, err := s.redis.MediaTicket(r.Context(), raw)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, ErrUnauthorized)
+		return
+	}
+	rangeHeader := r.Header.Get("Range")
+	ifRange := r.Header.Get("If-Range")
+	if (rangeHeader != "" && !singleByteRange.MatchString(rangeHeader)) || len(ifRange) > 256 {
+		writeError(w, http.StatusRequestedRangeNotSatisfiable, errors.New("invalid range request"))
+		return
+	}
+	response, err := s.sources.Open(
+		r.Context(), ticket, r.Method, rangeHeader, ifRange,
+	)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, errors.New("upstream media unavailable"))
+		return
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
+		writeError(w, http.StatusBadGateway, fmt.Errorf("upstream media returned HTTP %d", response.StatusCode))
+		return
+	}
+	for _, header := range []string{
+		"Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified",
+	} {
+		if value := response.Header.Get(header); value != "" {
+			w.Header().Set(header, value)
+		}
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(response.StatusCode)
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = io.Copy(w, response.Body)
+}
+
+var singleByteRange = regexp.MustCompile(`^bytes=(?:[0-9]+-[0-9]*|-[0-9]+)$`)
+
 func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	user, err := s.userFromRequest(r)
 	if err != nil {
@@ -406,15 +679,32 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		Name       string `json:"name"`
-		SourceURL  string `json:"source_url"`
-		MaxMembers int    `json:"max_members"`
+		Name          string `json:"name"`
+		SourceURL     string `json:"source_url"`
+		MediaSourceID string `json:"media_source_id"`
+		MediaPath     string `json:"media_path"`
+		MaxMembers    int    `json:"max_members"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	room, err := s.store.CreateRoom(user, request.Name, request.SourceURL, request.MaxMembers)
+	var room Room
+	if request.MediaSourceID != "" {
+		if s.sources == nil {
+			writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+			return
+		}
+		if _, err := s.repo.GetMediaSource(r.Context(), user.ID, request.MediaSourceID); err != nil {
+			writeStoreError(w, err)
+			return
+		}
+		room, err = s.store.CreateMediaRoom(
+			user, request.Name, request.MediaSourceID, request.MediaPath, request.MaxMembers,
+		)
+	} else {
+		room, err = s.store.CreateRoom(user, request.Name, request.SourceURL, request.MaxMembers)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -437,7 +727,12 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		}
 		s.broadcastRoomState(r.Context(), state, sequence)
 	}
-	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: room, Msg: "created"})
+	clientRoom, err := s.hydrateRoomMediaURL(r.Context(), room)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
+		return
+	}
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: clientRoom, Msg: "created"})
 }
 
 func (s *Server) joinRoom(w http.ResponseWriter, r *http.Request) {
@@ -476,7 +771,12 @@ func (s *Server) joinRoom(w http.ResponseWriter, r *http.Request) {
 	if snapshotErr == nil {
 		s.broadcastRoomState(r.Context(), state, sequence)
 	}
-	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: room, Msg: "joined"})
+	clientRoom, err := s.hydrateRoomMediaURL(r.Context(), room)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: clientRoom, Msg: "joined"})
 }
 
 func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
@@ -496,6 +796,11 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	room = s.syncRedisPlayback(r.Context(), room)
+	room, err = s.hydrateRoomMediaURL(r.Context(), room)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
+		return
+	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: room, Msg: "ok"})
 }
 
@@ -550,6 +855,11 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	room = s.syncRedisPlayback(r.Context(), room)
+	room, err = s.hydrateRoomMediaURL(r.Context(), room)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
+		return
+	}
 	acceptOptions := &websocket.AcceptOptions{OriginPatterns: s.options.AllowedOrigins}
 	for _, origin := range s.options.AllowedOrigins {
 		if strings.TrimSpace(origin) == "*" {
@@ -931,7 +1241,11 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		}
 		w.Header().Set(
 			"Access-Control-Allow-Headers",
-			"Authorization, Content-Type, X-Device-ID, X-Device-Name, X-Device-Platform",
+			"Authorization, Content-Type, Range, If-Range, X-Device-ID, X-Device-Name, X-Device-Platform",
+		)
+		w.Header().Set(
+			"Access-Control-Expose-Headers",
+			"Accept-Ranges, Content-Length, Content-Range, ETag, Last-Modified, Retry-After, X-RateLimit-Remaining",
 		)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {

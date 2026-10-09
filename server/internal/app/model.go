@@ -28,6 +28,32 @@ type UserDevice struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+type MediaSource struct {
+	ID                    string `json:"id"`
+	UserID                string `json:"-"`
+	Type                  string `json:"type"`
+	Name                  string `json:"name"`
+	BaseURL               string `json:"base_url"`
+	CredentialsCiphertext string `json:"-"`
+	CreatedAt             int64  `json:"created_at"`
+	UpdatedAt             int64  `json:"updated_at"`
+}
+
+type MediaFile struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	IsDirectory bool   `json:"is_directory"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"content_type,omitempty"`
+	ModifiedAt  string `json:"modified_at,omitempty"`
+}
+
+type MediaTicket struct {
+	UserID   string `json:"user_id"`
+	SourceID string `json:"source_id"`
+	Path     string `json:"path"`
+}
+
 type Session struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -52,15 +78,17 @@ type Playback struct {
 }
 
 type Room struct {
-	Code       string   `json:"code"`
-	Name       string   `json:"name"`
-	OwnerID    string   `json:"owner_id"`
-	SourceURL  string   `json:"source_url"`
-	MaxMembers int      `json:"max_members"`
-	CreatedAt  int64    `json:"created_at"`
-	ExpiresAt  int64    `json:"expires_at"`
-	Members    []Member `json:"members"`
-	Playback   Playback `json:"playback"`
+	Code          string   `json:"code"`
+	Name          string   `json:"name"`
+	OwnerID       string   `json:"owner_id"`
+	SourceURL     string   `json:"source_url"`
+	MediaSourceID string   `json:"media_source_id,omitempty"`
+	MediaPath     string   `json:"media_path,omitempty"`
+	MaxMembers    int      `json:"max_members"`
+	CreatedAt     int64    `json:"created_at"`
+	ExpiresAt     int64    `json:"expires_at"`
+	Members       []Member `json:"members"`
+	Playback      Playback `json:"playback"`
 }
 
 type Envelope struct {

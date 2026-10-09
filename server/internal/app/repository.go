@@ -51,6 +51,10 @@ type Repository interface {
 	ConsumeActionToken(context.Context, string, string) (AccountRecord, error)
 	VerifyEmail(context.Context, string) error
 	UpdatePassword(context.Context, string, string) error
+	CreateMediaSource(context.Context, MediaSource) error
+	ListMediaSources(context.Context, string) ([]MediaSource, error)
+	GetMediaSource(context.Context, string, string) (MediaSource, error)
+	DeleteMediaSource(context.Context, string, string) error
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -90,6 +94,7 @@ type MemoryRepository struct {
 	devices      map[string]memoryDevice
 	userDevices  map[string]map[string]memoryUserDevice
 	actionTokens map[string]memoryActionToken
+	mediaSources map[string]MediaSource
 	rooms        map[string]Room
 }
 
@@ -101,6 +106,7 @@ func NewMemoryRepository() *MemoryRepository {
 		devices:      make(map[string]memoryDevice),
 		userDevices:  make(map[string]map[string]memoryUserDevice),
 		actionTokens: make(map[string]memoryActionToken),
+		mediaSources: make(map[string]MediaSource),
 		rooms:        make(map[string]Room),
 	}
 }
@@ -315,6 +321,47 @@ func (r *MemoryRepository) UpdatePassword(_ context.Context, userID, passwordHas
 	account.PasswordHash = passwordHash
 	account.SessionVersion++
 	r.usersByID[userID] = account
+	return nil
+}
+
+func (r *MemoryRepository) CreateMediaSource(_ context.Context, source MediaSource) error {
+	r.mu.Lock()
+	r.mediaSources[source.ID] = source
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *MemoryRepository) ListMediaSources(_ context.Context, userID string) ([]MediaSource, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]MediaSource, 0)
+	for _, source := range r.mediaSources {
+		if source.UserID == userID {
+			result = append(result, source)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt < result[j].CreatedAt })
+	return result, nil
+}
+
+func (r *MemoryRepository) GetMediaSource(_ context.Context, userID, sourceID string) (MediaSource, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	source, ok := r.mediaSources[sourceID]
+	if !ok || source.UserID != userID {
+		return MediaSource{}, ErrNotFound
+	}
+	return source, nil
+}
+
+func (r *MemoryRepository) DeleteMediaSource(_ context.Context, userID, sourceID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	source, ok := r.mediaSources[sourceID]
+	if !ok || source.UserID != userID {
+		return ErrNotFound
+	}
+	delete(r.mediaSources, sourceID)
 	return nil
 }
 

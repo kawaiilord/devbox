@@ -236,6 +236,39 @@ func (r *RedisCoordinator) ConsumeTicket(ctx context.Context, ticket, code strin
 	return payload.User, nil
 }
 
+func (r *RedisCoordinator) IssueMediaTicket(
+	ctx context.Context,
+	ticket MediaTicket,
+	lifetime time.Duration,
+) (string, time.Time, error) {
+	raw := mustRandomString(24)
+	encoded, err := json.Marshal(ticket)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiresAt := time.Now().Add(lifetime)
+	if err := r.client.Set(ctx, r.mediaTicketKey(raw), encoded, lifetime).Err(); err != nil {
+		return "", time.Time{}, err
+	}
+	return raw, expiresAt, nil
+}
+
+func (r *RedisCoordinator) MediaTicket(ctx context.Context, raw string) (MediaTicket, error) {
+	encoded, err := r.client.Get(ctx, r.mediaTicketKey(raw)).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return MediaTicket{}, ErrUnauthorized
+	}
+	if err != nil {
+		return MediaTicket{}, err
+	}
+	var ticket MediaTicket
+	if json.Unmarshal(encoded, &ticket) != nil || ticket.UserID == "" ||
+		ticket.SourceID == "" || ticket.Path == "" {
+		return MediaTicket{}, ErrUnauthorized
+	}
+	return ticket, nil
+}
+
 func (r *RedisCoordinator) TouchPresence(
 	ctx context.Context,
 	code, connectionID string,
@@ -409,6 +442,10 @@ func (r *RedisCoordinator) presenceUsersKey(code string) string {
 
 func (r *RedisCoordinator) ticketKey(ticket string) string {
 	return r.prefix + ":ticket:" + ticket
+}
+
+func (r *RedisCoordinator) mediaTicketKey(ticket string) string {
+	return r.prefix + ":media-ticket:" + ticket
 }
 
 func (r *RedisCoordinator) eventChannel() string { return r.prefix + ":events" }
