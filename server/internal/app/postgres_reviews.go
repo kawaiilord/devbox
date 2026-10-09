@@ -7,6 +7,9 @@ import (
 )
 
 func (r *PostgresRepository) UpsertReview(ctx context.Context, review Review) (Review, []string, error) {
+	if review.ImageKeys == nil {
+		review.ImageKeys = []string{}
+	}
 	var previous []string
 	err := r.pool.QueryRow(ctx, `WITH old AS (SELECT image_keys FROM reviews WHERE user_id=$1 AND target_type=$2 AND target_id=$3), saved AS (INSERT INTO reviews(user_id,target_type,target_id,title,rating,content,image_keys) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(user_id,target_type,target_id) DO UPDATE SET title=EXCLUDED.title,rating=EXCLUDED.rating,content=EXCLUDED.content,image_keys=EXCLUDED.image_keys,updated_at=now() RETURNING id,created_at,updated_at) SELECT saved.id,(extract(epoch FROM saved.created_at)*1000)::bigint,(extract(epoch FROM saved.updated_at)*1000)::bigint,COALESCE((SELECT image_keys FROM old),'{}'::text[]) FROM saved`, review.UserID, review.TargetType, review.TargetID, review.Title, review.Rating, review.Content, review.ImageKeys).Scan(&review.ID, &review.CreatedAt, &review.UpdatedAt, &previous)
 	if err != nil {

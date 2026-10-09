@@ -9,6 +9,9 @@ import (
 func (r *MemoryRepository) UpsertReview(_ context.Context, review Review) (Review, []string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if review.ImageKeys == nil {
+		review.ImageKeys = []string{}
+	}
 	key := review.UserID + "\x00" + review.TargetType + "\x00" + review.TargetID
 	now := time.Now().UnixMilli()
 	removed := []string{}
