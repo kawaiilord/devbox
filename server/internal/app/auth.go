@@ -108,6 +108,7 @@ type AuthService struct {
 	repository        Repository
 	tokens            *TokenManager
 	mailer            Mailer
+	adminEmails       map[string]struct{}
 	dummyPasswordHash string
 	now               func() time.Time
 }
@@ -123,7 +124,17 @@ func NewAuthService(repository Repository, tokens *TokenManager, mailers ...Mail
 	}
 	return &AuthService{
 		repository: repository, tokens: tokens, mailer: mailer,
-		dummyPasswordHash: dummyPasswordHash, now: time.Now,
+		adminEmails: make(map[string]struct{}), dummyPasswordHash: dummyPasswordHash, now: time.Now,
+	}
+}
+
+func (s *AuthService) SetAdminEmails(emails []string) {
+	s.adminEmails = make(map[string]struct{}, len(emails))
+	for _, email := range emails {
+		email = strings.ToLower(strings.TrimSpace(email))
+		if email != "" {
+			s.adminEmails[email] = struct{}{}
+		}
 	}
 }
 
@@ -152,6 +163,7 @@ func (s *AuthService) Register(
 		PasswordHash: passwordHash,
 		CreatedAt:    s.now(),
 	}
+	_, account.IsAdmin = s.adminEmails[normalizedEmail]
 	if err := s.repository.CreateUser(ctx, account); err != nil {
 		return Session{}, err
 	}

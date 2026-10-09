@@ -138,6 +138,109 @@ void main() {
     expect(session.refreshToken, 'new-refresh');
     api.close();
   });
+
+  test(
+    'privacy, block, and report calls use authenticated endpoints',
+    () async {
+      final methods = <String>[];
+      final client = MockClient((request) async {
+        methods.add('${request.method} ${request.url.path}');
+        expect(request.headers['Authorization'], 'Bearer old-access');
+        if (request.url.path == '/api/v1/privacy' && request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'code': 0,
+              'data': {
+                'allow_room_chat': true,
+                'allow_profile_find': false,
+                'show_watch_activity': true,
+              },
+              'msg': 'ok',
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/api/v1/privacy' &&
+            request.method == 'PATCH') {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['allow_room_chat'], false);
+          return http.Response(
+            jsonEncode({'code': 0, 'data': body, 'msg': 'updated'}),
+            200,
+          );
+        }
+        if (request.url.path == '/api/v1/blocks' && request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'code': 0,
+              'data': {
+                'users': [
+                  {
+                    'id': 'blocked-user',
+                    'display_name': 'Blocked',
+                    'email_verified': true,
+                  },
+                ],
+              },
+              'msg': 'ok',
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/api/v1/reports') {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['target_type'], 'message');
+          expect(body['target_id'], '42');
+          return http.Response(
+            jsonEncode({
+              'code': 0,
+              'data': <String, dynamic>{},
+              'msg': 'created',
+            }),
+            201,
+          );
+        }
+        return http.Response(
+          jsonEncode({'code': 0, 'data': <String, dynamic>{}, 'msg': 'ok'}),
+          200,
+        );
+      });
+      final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+      final session = _session();
+
+      final privacy = await api.privacy(session);
+      expect(privacy.allowProfileFind, false);
+      final saved = await api.updatePrivacy(
+        session,
+        const PrivacySettings(
+          allowRoomChat: false,
+          allowProfileFind: true,
+          showWatchActivity: false,
+        ),
+      );
+      expect(saved.allowRoomChat, false);
+      final blocked = await api.blockedUsers(session);
+      expect(blocked.single.id, 'blocked-user');
+      await api.blockUser(session, 'blocked-user');
+      await api.unblockUser(session, 'blocked-user');
+      await api.createReport(
+        session: session,
+        targetType: 'message',
+        targetId: '42',
+        reason: 'spam',
+      );
+
+      expect(methods, [
+        'GET /api/v1/privacy',
+        'PATCH /api/v1/privacy',
+        'GET /api/v1/blocks',
+        'POST /api/v1/blocks/blocked-user',
+        'DELETE /api/v1/blocks/blocked-user',
+        'POST /api/v1/reports',
+      ]);
+      api.close();
+    },
+  );
 }
 
 Session _session() => Session(

@@ -109,6 +109,59 @@ class ApiClient {
     await _request('DELETE', '/api/v1/devices/$deviceId', session: session);
   }
 
+  Future<PrivacySettings> privacy(Session session) async {
+    final data = await _request('GET', '/api/v1/privacy', session: session);
+    return PrivacySettings.fromJson(data);
+  }
+
+  Future<PrivacySettings> updatePrivacy(
+    Session session,
+    PrivacySettings settings,
+  ) async {
+    final data = await _request(
+      'PATCH',
+      '/api/v1/privacy',
+      session: session,
+      body: settings.toJson(),
+    );
+    return PrivacySettings.fromJson(data);
+  }
+
+  Future<List<AppUser>> blockedUsers(Session session) async {
+    final data = await _request('GET', '/api/v1/blocks', session: session);
+    return (data['users'] as List<dynamic>)
+        .map((value) => AppUser.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> blockUser(Session session, String userId) async {
+    await _request('POST', '/api/v1/blocks/$userId', session: session);
+  }
+
+  Future<void> unblockUser(Session session, String userId) async {
+    await _request('DELETE', '/api/v1/blocks/$userId', session: session);
+  }
+
+  Future<void> createReport({
+    required Session session,
+    required String targetType,
+    required String targetId,
+    required String reason,
+    String details = '',
+  }) async {
+    await _request(
+      'POST',
+      '/api/v1/reports',
+      session: session,
+      body: {
+        'target_type': targetType,
+        'target_id': targetId,
+        'reason': reason,
+        'details': details,
+      },
+    );
+  }
+
   Future<MediaSource> createWebDAVSource({
     required Session session,
     required String name,

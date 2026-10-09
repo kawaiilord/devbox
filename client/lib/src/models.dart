@@ -4,19 +4,47 @@ class AppUser {
     required this.displayName,
     required this.email,
     required this.emailVerified,
+    this.isAdmin = false,
   });
 
   final String id;
   final String displayName;
   final String email;
   final bool emailVerified;
+  final bool isAdmin;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
     displayName: json['display_name'] as String,
     email: json['email']?.toString() ?? '',
     emailVerified: json['email_verified'] as bool? ?? false,
+    isAdmin: json['is_admin'] as bool? ?? false,
   );
+}
+
+class PrivacySettings {
+  const PrivacySettings({
+    required this.allowRoomChat,
+    required this.allowProfileFind,
+    required this.showWatchActivity,
+  });
+
+  final bool allowRoomChat;
+  final bool allowProfileFind;
+  final bool showWatchActivity;
+
+  factory PrivacySettings.fromJson(Map<String, dynamic> json) =>
+      PrivacySettings(
+        allowRoomChat: json['allow_room_chat'] as bool? ?? true,
+        allowProfileFind: json['allow_profile_find'] as bool? ?? true,
+        showWatchActivity: json['show_watch_activity'] as bool? ?? true,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'allow_room_chat': allowRoomChat,
+    'allow_profile_find': allowProfileFind,
+    'show_watch_activity': showWatchActivity,
+  };
 }
 
 class UserDevice {
@@ -211,6 +239,7 @@ class Room {
     required this.expiresAt,
     required this.members,
     required this.playback,
+    this.closed = false,
   });
 
   final String code;
@@ -223,6 +252,7 @@ class Room {
   final int expiresAt;
   final List<RoomMember> members;
   final PlaybackSnapshot playback;
+  final bool closed;
 
   factory Room.fromJson(Map<String, dynamic> json) => Room(
     code: json['code'] as String,
@@ -239,6 +269,7 @@ class Room {
     playback: PlaybackSnapshot.fromJson(
       json['playback'] as Map<String, dynamic>,
     ),
+    closed: json['closed'] as bool? ?? false,
   );
 
   Room withSourceUrl(String value) => Room(
@@ -252,6 +283,7 @@ class Room {
     expiresAt: expiresAt,
     members: members,
     playback: playback,
+    closed: closed,
   );
 }
 

@@ -69,3 +69,25 @@ func TestSocketTicketIsScopedAndOneTime(t *testing.T) {
 		t.Fatalf("valid ticket user=%+v error=%v", user, err)
 	}
 }
+
+func TestClosedRoomCannotBeReopenedByStaleRealtimeState(t *testing.T) {
+	store := NewStore()
+	owner := User{ID: "owner", DisplayName: "Owner"}
+	room, err := store.CreateRoom(owner, "Closed room", "https://example.com/movie.mp4", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed, sequence, err := store.CloseRoom(room.Code)
+	if err != nil || !closed.Closed {
+		t.Fatalf("closed room=%+v sequence=%d error=%v", closed, sequence, err)
+	}
+	store.UpsertAuthoritativeRoom(room, sequence+100)
+	if _, err := store.GetRoom(room.Code, owner.ID); !errors.Is(err, ErrRoomClosed) {
+		t.Fatalf("stale open room state error=%v, want room closed", err)
+	}
+	playing := room.Playback
+	playing.Playing = true
+	if current, err := store.ApplyAuthoritativePlayback(room.Code, playing, sequence+101); err != nil || current.Playback.Playing {
+		t.Fatalf("closed room accepted playback=%+v error=%v", current.Playback, err)
+	}
+}

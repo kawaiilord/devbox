@@ -18,6 +18,7 @@ var (
 	ErrNotFound     = errors.New("not found")
 	ErrRoomFull     = errors.New("room is full")
 	ErrExpired      = errors.New("room has expired")
+	ErrRoomClosed   = errors.New("room is closed")
 	ErrStaleControl = errors.New("stale control sequence")
 )
 
@@ -68,8 +69,13 @@ func (s *Store) UpsertAuthoritativeRoom(room Room, serverSeq int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	existing := s.rooms[room.Code]
-	if existing != nil && serverSeq < existing.serverSeq {
-		return
+	if existing != nil {
+		if existing.room.Closed && !room.Closed {
+			return
+		}
+		if serverSeq < existing.serverSeq && !room.Closed {
+			return
+		}
 	}
 	members := make(map[string]Member, len(room.Members))
 	for _, member := range room.Members {
@@ -91,6 +97,9 @@ func (s *Store) ApplyAuthoritativePlayback(code string, playback Playback, serve
 	record, ok := s.rooms[strings.ToUpper(code)]
 	if !ok {
 		return Room{}, ErrNotFound
+	}
+	if record.room.Closed {
+		return cloneRoom(record, s.now()), nil
 	}
 	if serverSeq < record.serverSeq {
 		return cloneRoom(record, s.now()), nil
@@ -114,6 +123,9 @@ func (s *Store) IssueSocketTicket(code string, user User) (string, error) {
 	}
 	if _, member := record.members[user.ID]; !member {
 		return "", ErrForbidden
+	}
+	if record.room.Closed {
+		return "", ErrRoomClosed
 	}
 	if record.room.ExpiresAt <= s.now().UnixMilli() {
 		return "", ErrExpired
@@ -226,6 +238,9 @@ func (s *Store) JoinRoom(code string, user User) (Room, error) {
 		return Room{}, ErrNotFound
 	}
 	now := s.now()
+	if record.room.Closed {
+		return Room{}, ErrRoomClosed
+	}
 	if record.room.ExpiresAt <= now.UnixMilli() {
 		return Room{}, ErrExpired
 	}
@@ -250,6 +265,9 @@ func (s *Store) GetRoom(code, userID string) (Room, error) {
 	if _, member := record.members[userID]; !member {
 		return Room{}, ErrForbidden
 	}
+	if record.room.Closed {
+		return Room{}, ErrRoomClosed
+	}
 	now := s.now()
 	if record.room.ExpiresAt <= now.UnixMilli() {
 		return Room{}, ErrExpired
@@ -267,6 +285,20 @@ func (s *Store) Room(code string) (Room, error) {
 	return cloneRoom(record, s.now()), nil
 }
 
+func (s *Store) CloseRoom(code string) (Room, int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.rooms[strings.ToUpper(code)]
+	if !ok {
+		return Room{}, 0, ErrNotFound
+	}
+	record.room.Closed = true
+	record.room.Playback.Playing = false
+	record.room.Playback.PositionTS = s.now().UnixMilli()
+	record.serverSeq++
+	return cloneRoom(record, s.now()), record.serverSeq, nil
+}
+
 func (s *Store) ApplyControl(code string, user User, clientSeq int64, control Control) (Room, int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -276,6 +308,9 @@ func (s *Store) ApplyControl(code string, user User, clientSeq int64, control Co
 	}
 	if record.room.OwnerID != user.ID {
 		return Room{}, 0, ErrForbidden
+	}
+	if record.room.Closed {
+		return Room{}, 0, ErrRoomClosed
 	}
 	if clientSeq <= record.lastControlSeq[user.ID] {
 		return Room{}, 0, ErrStaleControl
@@ -329,7 +364,9 @@ func (s *Store) RoomCodes() []string {
 	defer s.mu.RUnlock()
 	codes := make([]string, 0, len(s.rooms))
 	for code := range s.rooms {
-		codes = append(codes, code)
+		if !s.rooms[code].room.Closed {
+			codes = append(codes, code)
+		}
 	}
 	sort.Strings(codes)
 	return codes

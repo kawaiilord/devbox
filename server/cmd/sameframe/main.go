@@ -97,12 +97,27 @@ func main() {
 	}
 	addr := envOr("SAMEFRAME_ADDR", ":8080")
 	origins := strings.Split(envOr("SAMEFRAME_ALLOWED_ORIGINS", "http://localhost:*"), ",")
+	adminEmails := splitList(os.Getenv("SAMEFRAME_ADMIN_EMAILS"))
+	authService := app.NewAuthService(repository, tokens, mailer)
+	authService.SetAdminEmails(adminEmails)
+	for _, email := range adminEmails {
+		account, lookupErr := repository.UserByEmail(ctx, email)
+		if lookupErr != nil {
+			continue
+		}
+		if !account.IsAdmin {
+			if setErr := repository.SetUserAdmin(ctx, account.ID, true); setErr != nil {
+				logger.Error("provision administrator", "error", setErr)
+				os.Exit(1)
+			}
+		}
+	}
 	server := app.NewServer(app.Options{
 		Address:              addr,
 		AllowedOrigins:       origins,
 		Logger:               logger,
 		Repository:           repository,
-		Auth:                 app.NewAuthService(repository, tokens, mailer),
+		Auth:                 authService,
 		InitialRooms:         initialRooms,
 		AllowDemoAuth:        envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),
 		Redis:                redisCoordinator,
@@ -114,6 +129,16 @@ func main() {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+func splitList(value string) []string {
+	items := make([]string, 0)
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.ToLower(strings.TrimSpace(item)); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
 func envBool(key string, fallback bool) bool {

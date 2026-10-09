@@ -15,6 +15,12 @@ display name, message ID, room code, and timestamp.
   message, so reconnecting clients can deduplicate and paginate reliably.
 - `GET /api/v1/rooms/{code}/messages?before={id}&limit=50` returns ascending
   display order while querying the newest page efficiently.
+- Blocking works in both directions: if either participant blocks the other,
+  their messages are excluded from history and from local or cross-node realtime
+  delivery. This check is server-side; the Flutter client also removes already
+  displayed messages after a block for immediate visual feedback.
+- Turning off `allow_room_chat` returns an empty history, rejects sends, and
+  suppresses realtime delivery for that account.
 
 ## External subtitles
 

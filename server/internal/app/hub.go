@@ -37,6 +37,14 @@ func (h *Hub) Subscribe(roomCode string, client *socketClient) func() {
 }
 
 func (h *Hub) Broadcast(roomCode string, envelope Envelope) {
+	h.BroadcastWhere(roomCode, envelope, nil)
+}
+
+func (h *Hub) BroadcastWhere(
+	roomCode string,
+	envelope Envelope,
+	allow func(User) bool,
+) {
 	message, err := json.Marshal(envelope)
 	if err != nil {
 		return
@@ -48,6 +56,9 @@ func (h *Hub) Broadcast(roomCode string, envelope Envelope) {
 	}
 	h.mu.RUnlock()
 	for _, client := range clients {
+		if allow != nil && !allow(client.user) {
+			continue
+		}
 		select {
 		case client.send <- message:
 		default:

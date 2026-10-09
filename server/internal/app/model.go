@@ -11,6 +11,7 @@ type User struct {
 	Email          string `json:"email,omitempty"`
 	EmailVerified  bool   `json:"email_verified"`
 	SessionVersion int64  `json:"-"`
+	IsAdmin        bool   `json:"is_admin"`
 }
 
 type DeviceInfo struct {
@@ -63,6 +64,38 @@ type ChatMessage struct {
 	CreatedAt   int64  `json:"created_at"`
 }
 
+type PrivacySettings struct {
+	AllowRoomChat     bool `json:"allow_room_chat"`
+	AllowProfileFind  bool `json:"allow_profile_find"`
+	ShowWatchActivity bool `json:"show_watch_activity"`
+}
+
+type Report struct {
+	ID         int64  `json:"id"`
+	ReporterID string `json:"reporter_id"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Reason     string `json:"reason"`
+	Details    string `json:"details"`
+	Status     string `json:"status"`
+	Resolution string `json:"resolution,omitempty"`
+	CreatedAt  int64  `json:"created_at"`
+	ReviewedBy string `json:"reviewed_by,omitempty"`
+	ReviewedAt int64  `json:"reviewed_at,omitempty"`
+}
+
+type AuditEvent struct {
+	ID           int64          `json:"id"`
+	ActorID      string         `json:"actor_id"`
+	Action       string         `json:"action"`
+	TargetType   string         `json:"target_type"`
+	TargetID     string         `json:"target_id"`
+	Metadata     map[string]any `json:"metadata"`
+	PreviousHash string         `json:"previous_hash"`
+	EntryHash    string         `json:"entry_hash"`
+	CreatedAt    int64          `json:"created_at"`
+}
+
 type Session struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -98,6 +131,7 @@ type Room struct {
 	ExpiresAt     int64    `json:"expires_at"`
 	Members       []Member `json:"members"`
 	Playback      Playback `json:"playback"`
+	Closed        bool     `json:"closed"`
 }
 
 type Envelope struct {

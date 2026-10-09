@@ -88,11 +88,38 @@ class _RoomPageState extends State<RoomPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      message.displayName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelSmall,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            message.displayName,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall,
+                                          ),
+                                        ),
+                                        PopupMenuButton<String>(
+                                          tooltip: '消息操作',
+                                          padding: EdgeInsets.zero,
+                                          iconSize: 18,
+                                          onSelected: (action) =>
+                                              _handleMessageAction(
+                                                action,
+                                                message,
+                                              ),
+                                          itemBuilder: (_) => [
+                                            const PopupMenuItem(
+                                              value: 'report',
+                                              child: Text('举报消息'),
+                                            ),
+                                            if (!mine)
+                                              const PopupMenuItem(
+                                                value: 'block',
+                                                child: Text('屏蔽该用户'),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 3),
                                     Text(message.body),
@@ -143,6 +170,133 @@ class _RoomPageState extends State<RoomPage> {
       ),
     );
     input.dispose();
+  }
+
+  Future<void> _handleMessageAction(String action, ChatMessage message) async {
+    if (action == 'block') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('屏蔽 ${message.displayName}？'),
+          content: const Text('双方的历史消息和后续实时消息都会对你隐藏。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('屏蔽'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      try {
+        await controller.blockUser(message.userId);
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已屏蔽 ${message.displayName}')));
+        }
+      } catch (exception) {
+        _showActionError(exception);
+      }
+      return;
+    }
+    await _showReport(message: message);
+  }
+
+  Future<void> _showReport({ChatMessage? message}) async {
+    final details = TextEditingController();
+    var reason = 'harassment';
+    var submitted = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(message == null ? '举报房间' : '举报消息'),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: reason,
+                  decoration: const InputDecoration(labelText: '原因'),
+                  items: const [
+                    DropdownMenuItem(value: 'spam', child: Text('垃圾信息')),
+                    DropdownMenuItem(value: 'harassment', child: Text('骚扰或攻击')),
+                    DropdownMenuItem(value: 'illegal', child: Text('违法内容')),
+                    DropdownMenuItem(value: 'copyright', child: Text('版权问题')),
+                    DropdownMenuItem(value: 'other', child: Text('其他')),
+                  ],
+                  onChanged: submitted
+                      ? null
+                      : (value) => setDialogState(() => reason = value!),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: details,
+                  enabled: !submitted,
+                  maxLength: 1000,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: '补充说明（可选）'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: submitted
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: submitted
+                  ? null
+                  : () async {
+                      setDialogState(() => submitted = true);
+                      try {
+                        if (message == null) {
+                          await controller.reportRoom(
+                            reason: reason,
+                            details: details.text,
+                          );
+                        } else {
+                          await controller.reportMessage(
+                            message,
+                            reason: reason,
+                            details: details.text,
+                          );
+                        }
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(content: Text('举报已提交，管理员会进行审核。')),
+                          );
+                        }
+                      } catch (exception) {
+                        setDialogState(() => submitted = false);
+                        _showActionError(exception);
+                      }
+                    },
+              child: const Text('提交'),
+            ),
+          ],
+        ),
+      ),
+    );
+    details.dispose();
+  }
+
+  void _showActionError(Object exception) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('操作失败：$exception')));
   }
 
   Future<void> _showSubtitles() async {
@@ -210,6 +364,11 @@ class _RoomPageState extends State<RoomPage> {
               ],
             ),
             actions: [
+              IconButton(
+                tooltip: '举报房间',
+                onPressed: _showReport,
+                icon: const Icon(Icons.flag_outlined),
+              ),
               if (controller.room.mediaSourceId.isNotEmpty)
                 IconButton(
                   tooltip: '外挂字幕',
@@ -218,7 +377,7 @@ class _RoomPageState extends State<RoomPage> {
                 ),
               IconButton(
                 tooltip: '房间聊天',
-                onPressed: _showChat,
+                onPressed: controller.room.closed ? null : _showChat,
                 icon: const Icon(Icons.chat_bubble_outline_rounded),
               ),
               Padding(

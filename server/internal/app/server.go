@@ -94,6 +94,17 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/users/me", s.currentUser)
 	mux.HandleFunc("GET /api/v1/devices", s.listDevices)
 	mux.HandleFunc("DELETE /api/v1/devices/{id}", s.revokeDevice)
+	mux.HandleFunc("GET /api/v1/privacy", s.getPrivacy)
+	mux.HandleFunc("PATCH /api/v1/privacy", s.updatePrivacy)
+	mux.HandleFunc("GET /api/v1/blocks", s.listBlocks)
+	mux.HandleFunc("POST /api/v1/blocks/{user_id}", s.blockUser)
+	mux.HandleFunc("DELETE /api/v1/blocks/{user_id}", s.unblockUser)
+	mux.HandleFunc("POST /api/v1/reports", s.createReport)
+	mux.HandleFunc("GET /api/v1/admin/reports", s.adminReports)
+	mux.HandleFunc("POST /api/v1/admin/reports/{id}/resolve", s.resolveReport)
+	mux.HandleFunc("POST /api/v1/admin/rooms/{code}/close", s.adminCloseRoom)
+	mux.HandleFunc("POST /api/v1/admin/devices/{hash}/ban", s.adminBanDevice)
+	mux.HandleFunc("GET /api/v1/admin/audit", s.adminAudit)
 	mux.HandleFunc("POST /api/v1/sources/webdav", s.createWebDAVSource)
 	mux.HandleFunc("GET /api/v1/sources", s.listMediaSources)
 	mux.HandleFunc("DELETE /api/v1/sources/{id}", s.deleteMediaSource)
@@ -155,6 +166,8 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"device_management": true, "email_verification": s.options.RequireVerifiedEmail,
 		"media_sources":      s.sources != nil,
 		"external_subtitles": s.sources != nil,
+		"privacy_controls":   true,
+		"moderation":         true,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -603,7 +616,16 @@ func (s *Server) roomMessages(w http.ResponseWriter, r *http.Request) {
 	if limit < 1 || limit > 100 {
 		limit = 50
 	}
-	messages, err := s.repo.ListRoomMessages(r.Context(), code, before, limit)
+	privacy, err := s.repo.GetPrivacy(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, errors.New("could not load privacy settings"))
+		return
+	}
+	if !privacy.AllowRoomChat {
+		writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"messages": []ChatMessage{}}, Msg: "ok"})
+		return
+	}
+	messages, err := s.repo.ListRoomMessages(r.Context(), code, user.ID, before, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, errors.New("could not load room messages"))
 		return
@@ -1097,6 +1119,11 @@ func (s *Server) handleChatMessage(
 		s.sendSocketError(client, roomCode, ErrForbidden)
 		return
 	}
+	privacy, err := s.repo.GetPrivacy(ctx, user.ID)
+	if err != nil || !privacy.AllowRoomChat {
+		s.sendSocketError(client, roomCode, ErrForbidden)
+		return
+	}
 	var incoming struct {
 		Body string `json:"body"`
 	}
@@ -1207,7 +1234,22 @@ func (s *Server) emitEnvelope(ctx context.Context, envelope Envelope) {
 			s.options.Logger.Warn("publish realtime event", "error", err, "type", envelope.Type)
 		}
 	}
-	s.hub.Broadcast(envelope.Room, envelope)
+	s.broadcastLocal(ctx, envelope)
+}
+
+func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
+	if envelope.Type != "chat.message" {
+		s.hub.Broadcast(envelope.Room, envelope)
+		return
+	}
+	s.hub.BroadcastWhere(envelope.Room, envelope, func(recipient User) bool {
+		privacy, err := s.repo.GetPrivacy(ctx, recipient.ID)
+		if err != nil || !privacy.AllowRoomChat {
+			return false
+		}
+		blocked, err := s.repo.UsersBlocked(ctx, recipient.ID, envelope.From)
+		return err == nil && !blocked
+	})
 }
 
 func (s *Server) consumeRedisEvents(ctx context.Context, ready chan<- struct{}) {
@@ -1243,7 +1285,7 @@ func (s *Server) consumeRedisEvents(ctx context.Context, ready chan<- struct{}) 
 					continue
 				}
 				s.applyRedisEnvelope(envelope)
-				s.hub.Broadcast(envelope.Room, envelope)
+				s.broadcastLocal(ctx, envelope)
 			}
 		}
 	reconnect:
@@ -1432,7 +1474,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 			"Access-Control-Expose-Headers",
 			"Accept-Ranges, Content-Length, Content-Range, ETag, Last-Modified, Retry-After, X-RateLimit-Remaining",
 		)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -1472,7 +1514,7 @@ func writeStoreError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrUnauthorized):
 		writeError(w, http.StatusUnauthorized, err)
-	case errors.Is(err, ErrForbidden), errors.Is(err, ErrExpired):
+	case errors.Is(err, ErrForbidden), errors.Is(err, ErrExpired), errors.Is(err, ErrRoomClosed):
 		writeError(w, http.StatusForbidden, err)
 	case errors.Is(err, ErrNotFound):
 		writeError(w, http.StatusNotFound, err)

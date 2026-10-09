@@ -26,6 +26,9 @@ The current foundation contains:
   streaming, and a bounded desktop loopback cache;
 - persistent cross-node room chat, same-directory external subtitles, and
   actionable playback-error classification;
+- bidirectional chat blocking, per-user privacy controls, room/message/user
+  reports, administrator review, room closure, device bans, and chained audit
+  records;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -67,12 +70,15 @@ Windows binaries must be produced on a Windows runner; the workflow in
 ## Current boundary
 
 This is an engineering foundation, not a production release. Production work
-still requires secure client credential storage, a production mail provider,
-device-ban administration, a credential vault, TURN, signed updates,
-moderation, and payment integration.
-Third-party source credentials are never accepted by this milestone.
+still requires platform secure storage for client session tokens, a production
+mail provider, managed-KMS wrapping for the credential vault, TURN, signed
+updates, abuse-operations tooling, and payment integration. Third-party source
+credentials are accepted only by the server-side encrypted media-source vault
+and are never returned to clients.
 
 See `docs/architecture.md` for the topology, `docs/account-security.md` for
 identity controls, and `docs/media-sources.md` for the credential and playback
 data flow. Room messaging and subtitle behavior are in
 `docs/room-interaction.md`.
+Moderation permissions, privacy behavior, and audit-chain operations are in
+`docs/moderation.md`.

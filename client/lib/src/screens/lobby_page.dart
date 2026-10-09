@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import 'privacy_page.dart';
 import 'room_page.dart';
 
 class LobbyPage extends StatefulWidget {
@@ -174,6 +175,16 @@ class _LobbyPageState extends State<LobbyPage> {
         ),
       );
     });
+  }
+
+  void _showPrivacy() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PrivacyPage(api: widget.api, session: session),
+      ),
+    );
   }
 
   Future<void> _showMediaSources() async {
@@ -515,6 +526,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onLogout: _session == null ? null : _logout,
                     onDevices: _session == null ? null : _showDevices,
                     onSources: _session == null ? null : _showMediaSources,
+                    onPrivacy: _session == null ? null : _showPrivacy,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -610,11 +622,13 @@ class _Brand extends StatelessWidget {
     required this.onLogout,
     required this.onDevices,
     required this.onSources,
+    required this.onPrivacy,
   });
   final Session? session;
   final VoidCallback? onLogout;
   final VoidCallback? onDevices;
   final VoidCallback? onSources;
+  final VoidCallback? onPrivacy;
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +663,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onPrivacy != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onPrivacy,
+            tooltip: '隐私与屏蔽',
+            icon: const Icon(Icons.privacy_tip_outlined),
+          ),
+        ],
         if (onSources != null) ...[
           const SizedBox(width: 8),
           IconButton(

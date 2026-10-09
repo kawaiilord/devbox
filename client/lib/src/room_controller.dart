@@ -43,6 +43,7 @@ class RoomController extends ChangeNotifier {
   AlignmentAction? lastAlignment;
   PlaybackFailure? playbackFailure;
   final List<ChatMessage> messages = <ChatMessage>[];
+  final Set<String> blockedUserIds = <String>{};
   String? selectedSubtitlePath;
   String? selectedSubtitleName;
   final Set<String> onlineUserIds = <String>{};
@@ -52,6 +53,9 @@ class RoomController extends ChangeNotifier {
   Future<void> initialize() async {
     try {
       _clockOffset = await api.measureClockOffset();
+      blockedUserIds
+        ..clear()
+        ..addAll((await api.blockedUsers(session)).map((user) => user.id));
       messages
         ..clear()
         ..addAll(await api.roomMessages(session, room.code));
@@ -105,6 +109,38 @@ class RoomController extends ChangeNotifier {
     _socket?.send('chat.message', ++_clientSequence, {'body': trimmed});
   }
 
+  Future<void> blockUser(String userId) async {
+    if (userId == session.user.id) return;
+    await api.blockUser(session, userId);
+    blockedUserIds.add(userId);
+    messages.removeWhere((message) => message.userId == userId);
+    notifyListeners();
+  }
+
+  Future<void> reportMessage(
+    ChatMessage message, {
+    required String reason,
+    String details = '',
+  }) {
+    return api.createReport(
+      session: session,
+      targetType: 'message',
+      targetId: message.id.toString(),
+      reason: reason,
+      details: details,
+    );
+  }
+
+  Future<void> reportRoom({required String reason, String details = ''}) {
+    return api.createReport(
+      session: session,
+      targetType: 'room',
+      targetId: room.code,
+      reason: reason,
+      details: details,
+    );
+  }
+
   Future<List<MediaFile>> availableSubtitles() {
     return api.roomSubtitles(session, room.code);
   }
@@ -135,9 +171,14 @@ class RoomController extends ChangeNotifier {
       room = incoming.mediaSourceId.isNotEmpty && room.sourceUrl.isNotEmpty
           ? incoming.withSourceUrl(room.sourceUrl)
           : incoming;
+      if (room.closed) {
+        error = '房间已被管理员关闭。';
+        _mediaRenewal?.cancel();
+        player.pause();
+      }
       _lastServerSequence = envelope.sequence;
       _queueAlignment(room.playback);
-      _scheduleMediaRenewal();
+      if (!room.closed) _scheduleMediaRenewal();
       notifyListeners();
       return;
     }
@@ -158,6 +199,7 @@ class RoomController extends ChangeNotifier {
     }
     if (envelope.type == 'chat.message') {
       final message = ChatMessage.fromJson(envelope.payload);
+      if (blockedUserIds.contains(message.userId)) return;
       if (!messages.any((existing) => existing.id == message.id)) {
         messages.add(message);
         if (messages.length > 200) {

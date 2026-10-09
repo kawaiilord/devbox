@@ -22,8 +22,10 @@ Players consume a renewable SameFrame media ticket, optionally through the
 desktop loopback Range cache; they never receive provider credentials.
 
 Chat is written to PostgreSQL before a canonical message envelope is published
-through Redis to every WebSocket node. External subtitles reuse the media-ticket
-proxy but are restricted to the room video’s directory.
+through Redis to every WebSocket node. Each node checks both directions of the
+block relationship before delivering a chat event, and history applies the same
+filter in PostgreSQL. External subtitles reuse the media-ticket proxy but are
+restricted to the room video’s directory.
 
 Durable entities are restored from PostgreSQL at startup. Redis holds the hot
 playback hashes, globally increasing room sequences, one-time socket tickets,
@@ -114,14 +116,23 @@ Every server message uses this envelope:
 - Cross-origin HTTP and WebSocket access is allowlisted by configuration.
 - Non-owner playback controls are rejected by the server.
 - Request bodies and WebSocket messages have size limits.
+- Administrator authorization is loaded from the database for every admin
+  request; stale JWT claims cannot grant access and non-admin users are denied
+  by default.
+- Device bans revoke active user-device links and refresh tokens in one
+  transaction. The next authenticated request fails immediately.
+- Administrative mutations append a SHA-256 hash-chained audit record. Free-form
+  report resolutions and ban reasons are deliberately excluded from audit
+  metadata, and sensitive metadata key names are stripped before hashing.
 
 The `*` origin setting in `docker-compose.yml` is for local development only.
 
 ## Next production slices
 
-1. Administrative device bans and audit records; move critical Pub/Sub events
-   to Redis Streams if replay is needed.
+1. Move critical Pub/Sub events to Redis Streams if replay is needed and export
+   audit-chain checkpoints to immutable external storage.
 2. Add Emby and object-storage adapters behind the same encrypted source
    interface; move the static vault master key to a managed KMS envelope.
 3. Embedded-track controls, subtitle style/delay, and richer cache controls.
-4. Moderation, reporting, and privacy controls before public rooms.
+4. Add moderator queues, appeals, retention controls, and abuse analytics before
+   enabling public room discovery.

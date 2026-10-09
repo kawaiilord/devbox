@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,7 +57,21 @@ type Repository interface {
 	GetMediaSource(context.Context, string, string) (MediaSource, error)
 	DeleteMediaSource(context.Context, string, string) error
 	AddRoomMessage(context.Context, ChatMessage) (ChatMessage, error)
-	ListRoomMessages(context.Context, string, int64, int) ([]ChatMessage, error)
+	ListRoomMessages(context.Context, string, string, int64, int) ([]ChatMessage, error)
+	GetPrivacy(context.Context, string) (PrivacySettings, error)
+	UpdatePrivacy(context.Context, string, PrivacySettings) error
+	BlockUser(context.Context, string, string) error
+	UnblockUser(context.Context, string, string) error
+	ListBlockedUsers(context.Context, string) ([]User, error)
+	UsersBlocked(context.Context, string, string) (bool, error)
+	CreateReport(context.Context, Report) (Report, error)
+	ListReports(context.Context, string, int64, int) ([]Report, error)
+	ResolveReport(context.Context, int64, string, string, string) (Report, error)
+	CloseRoom(context.Context, string, string) error
+	BanDevice(context.Context, string, string, string) error
+	SetUserAdmin(context.Context, string, bool) error
+	AppendAudit(context.Context, AuditEvent) (AuditEvent, error)
+	ListAudit(context.Context, int64, int) ([]AuditEvent, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -100,6 +115,12 @@ type MemoryRepository struct {
 	messages      []ChatMessage
 	nextMessageID int64
 	rooms         map[string]Room
+	privacy       map[string]PrivacySettings
+	blocks        map[string]map[string]time.Time
+	reports       []Report
+	nextReportID  int64
+	audit         []AuditEvent
+	nextAuditID   int64
 }
 
 func NewMemoryRepository() *MemoryRepository {
@@ -113,6 +134,10 @@ func NewMemoryRepository() *MemoryRepository {
 		mediaSources:  make(map[string]MediaSource),
 		nextMessageID: 1,
 		rooms:         make(map[string]Room),
+		privacy:       make(map[string]PrivacySettings),
+		blocks:        make(map[string]map[string]time.Time),
+		nextReportID:  1,
+		nextAuditID:   1,
 	}
 }
 
@@ -385,6 +410,7 @@ func (r *MemoryRepository) AddRoomMessage(_ context.Context, message ChatMessage
 func (r *MemoryRepository) ListRoomMessages(
 	_ context.Context,
 	roomCode string,
+	viewerID string,
 	before int64,
 	limit int,
 ) ([]ChatMessage, error) {
@@ -393,12 +419,206 @@ func (r *MemoryRepository) ListRoomMessages(
 	result := make([]ChatMessage, 0, limit)
 	for index := len(r.messages) - 1; index >= 0 && len(result) < limit; index-- {
 		message := r.messages[index]
-		if message.RoomCode == roomCode && (before == 0 || message.ID < before) {
+		blocked := r.blocks[viewerID] != nil && r.blocks[viewerID][message.UserID].IsZero() == false
+		blockedBy := r.blocks[message.UserID] != nil && r.blocks[message.UserID][viewerID].IsZero() == false
+		if message.RoomCode == roomCode && !blocked && !blockedBy &&
+			(before == 0 || message.ID < before) {
 			result = append(result, message)
 		}
 	}
 	for left, right := 0, len(result)-1; left < right; left, right = left+1, right-1 {
 		result[left], result[right] = result[right], result[left]
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) GetPrivacy(_ context.Context, userID string) (PrivacySettings, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	settings, ok := r.privacy[userID]
+	if !ok {
+		return PrivacySettings{AllowRoomChat: true, AllowProfileFind: true, ShowWatchActivity: true}, nil
+	}
+	return settings, nil
+}
+
+func (r *MemoryRepository) UpdatePrivacy(_ context.Context, userID string, settings PrivacySettings) error {
+	r.mu.Lock()
+	r.privacy[userID] = settings
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *MemoryRepository) BlockUser(_ context.Context, blockerID, blockedID string) error {
+	if blockerID == blockedID {
+		return errors.New("cannot block self")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.usersByID[blockedID]; !ok {
+		return ErrNotFound
+	}
+	if r.blocks[blockerID] == nil {
+		r.blocks[blockerID] = make(map[string]time.Time)
+	}
+	r.blocks[blockerID][blockedID] = time.Now()
+	return nil
+}
+
+func (r *MemoryRepository) UnblockUser(_ context.Context, blockerID, blockedID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.blocks[blockerID], blockedID)
+	return nil
+}
+
+func (r *MemoryRepository) ListBlockedUsers(_ context.Context, userID string) ([]User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	users := make([]User, 0, len(r.blocks[userID]))
+	for blockedID := range r.blocks[userID] {
+		if account, ok := r.usersByID[blockedID]; ok {
+			users = append(users, User{ID: account.ID, DisplayName: account.DisplayName})
+		}
+	}
+	sort.Slice(users, func(i, j int) bool { return users[i].DisplayName < users[j].DisplayName })
+	return users, nil
+}
+
+func (r *MemoryRepository) UsersBlocked(_ context.Context, userA, userB string) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, aBlocks := r.blocks[userA][userB]
+	_, bBlocks := r.blocks[userB][userA]
+	return aBlocks || bBlocks, nil
+}
+
+func (r *MemoryRepository) CreateReport(_ context.Context, report Report) (Report, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	report.ID = r.nextReportID
+	r.nextReportID++
+	report.Status = "pending"
+	report.CreatedAt = time.Now().UnixMilli()
+	r.reports = append(r.reports, report)
+	return report, nil
+}
+
+func (r *MemoryRepository) ListReports(_ context.Context, status string, before int64, limit int) ([]Report, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]Report, 0, limit)
+	for index := len(r.reports) - 1; index >= 0 && len(result) < limit; index-- {
+		report := r.reports[index]
+		if (status == "" || report.Status == status) && (before == 0 || report.ID < before) {
+			result = append(result, report)
+		}
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) ResolveReport(_ context.Context, id int64, reviewerID, status, resolution string) (Report, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for index := range r.reports {
+		if r.reports[index].ID == id {
+			r.reports[index].Status = status
+			r.reports[index].Resolution = resolution
+			r.reports[index].ReviewedBy = reviewerID
+			r.reports[index].ReviewedAt = time.Now().UnixMilli()
+			r.appendAuditLocked(AuditEvent{
+				ActorID: reviewerID, Action: "report.resolve", TargetType: "report",
+				TargetID: strconv.FormatInt(id, 10), Metadata: map[string]any{"status": status},
+			})
+			return r.reports[index], nil
+		}
+	}
+	return Report{}, ErrNotFound
+}
+
+func (r *MemoryRepository) CloseRoom(_ context.Context, code, actorID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	room, ok := r.rooms[code]
+	if !ok {
+		return ErrNotFound
+	}
+	room.Closed = true
+	r.rooms[code] = room
+	r.appendAuditLocked(AuditEvent{
+		ActorID: actorID, Action: "room.close", TargetType: "room", TargetID: code,
+	})
+	return nil
+}
+
+func (r *MemoryRepository) BanDevice(_ context.Context, deviceHash, reason, actorID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	device, ok := r.devices[deviceHash]
+	if !ok {
+		return ErrNotFound
+	}
+	device.banned = true
+	r.devices[deviceHash] = device
+	for userID, links := range r.userDevices {
+		if link, ok := links[deviceHash]; ok {
+			link.revoked = true
+			links[deviceHash] = link
+			for hash, token := range r.refresh {
+				if token.userID == userID && token.deviceHash == deviceHash {
+					token.revoked = true
+					r.refresh[hash] = token
+				}
+			}
+		}
+	}
+	r.appendAuditLocked(AuditEvent{
+		ActorID: actorID, Action: "device.ban", TargetType: "device", TargetID: deviceHash,
+	})
+	return nil
+}
+
+func (r *MemoryRepository) SetUserAdmin(_ context.Context, userID string, value bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	account, ok := r.usersByID[userID]
+	if !ok {
+		return ErrNotFound
+	}
+	account.IsAdmin = value
+	r.usersByID[userID] = account
+	return nil
+}
+
+func (r *MemoryRepository) AppendAudit(_ context.Context, event AuditEvent) (AuditEvent, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.appendAuditLocked(event), nil
+}
+
+func (r *MemoryRepository) appendAuditLocked(event AuditEvent) AuditEvent {
+	if len(r.audit) > 0 {
+		event.PreviousHash = r.audit[len(r.audit)-1].EntryHash
+	} else {
+		event.PreviousHash = strings.Repeat("0", 64)
+	}
+	event.ID = r.nextAuditID
+	r.nextAuditID++
+	event.CreatedAt = time.Now().UnixMilli()
+	event = finalizeAuditEvent(event)
+	r.audit = append(r.audit, event)
+	return event
+}
+
+func (r *MemoryRepository) ListAudit(_ context.Context, before int64, limit int) ([]AuditEvent, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]AuditEvent, 0, limit)
+	for index := len(r.audit) - 1; index >= 0 && len(result) < limit; index-- {
+		event := r.audit[index]
+		if before == 0 || event.ID < before {
+			result = append(result, event)
+		}
 	}
 	return result, nil
 }

@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +25,9 @@ var mediaSourcesMigration string
 
 //go:embed migrations/004_room_chat.sql
 var roomChatMigration string
+
+//go:embed migrations/005_moderation.sql
+var moderationMigration string
 
 type PostgresRepository struct {
 	pool *pgxpool.Pool
@@ -50,6 +55,7 @@ func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository,
 func (r *PostgresRepository) Migrate(ctx context.Context) error {
 	for _, migration := range []string{
 		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
+		moderationMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -61,13 +67,14 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 func (r *PostgresRepository) CreateUser(ctx context.Context, account AccountRecord) error {
 	_, err := r.pool.Exec(
 		ctx,
-		`INSERT INTO users (id, email, display_name, password_hash, created_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
+		`INSERT INTO users (id, email, display_name, password_hash, created_at, is_admin)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		account.ID,
 		strings.ToLower(account.Email),
 		account.DisplayName,
 		account.PasswordHash,
 		account.CreatedAt,
+		account.IsAdmin,
 	)
 	var postgresError *pgconn.PgError
 	if errors.As(err, &postgresError) && postgresError.Code == "23505" {
@@ -80,7 +87,7 @@ func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (Acc
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version
+		 email_verified_at IS NOT NULL, session_version, is_admin
 		 FROM users WHERE email = lower($1)`,
 		email,
 	))
@@ -90,7 +97,7 @@ func (r *PostgresRepository) UserByID(ctx context.Context, id string) (AccountRe
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version
+		 email_verified_at IS NOT NULL, session_version, is_admin
 		 FROM users WHERE id = $1`,
 		id,
 	))
@@ -106,6 +113,7 @@ func scanAccount(row pgx.Row) (AccountRecord, error) {
 		&account.CreatedAt,
 		&account.EmailVerified,
 		&account.SessionVersion,
+		&account.IsAdmin,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AccountRecord{}, ErrInvalidCredentials
@@ -174,7 +182,7 @@ func (r *PostgresRepository) RotateRefreshToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version FROM users WHERE id = $1`,
+		 email_verified_at IS NOT NULL, session_version, is_admin FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -398,7 +406,7 @@ func (r *PostgresRepository) ConsumeActionToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version FROM users WHERE id = $1`,
+		 email_verified_at IS NOT NULL, session_version, is_admin FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -545,6 +553,7 @@ func (r *PostgresRepository) AddRoomMessage(
 func (r *PostgresRepository) ListRoomMessages(
 	ctx context.Context,
 	roomCode string,
+	viewerID string,
 	before int64,
 	limit int,
 ) ([]ChatMessage, error) {
@@ -552,10 +561,16 @@ func (r *PostgresRepository) ListRoomMessages(
 		ctx,
 		`SELECT id, room_code, user_id, display_name, body,
 		 (extract(epoch FROM created_at) * 1000)::bigint
-		 FROM room_messages
-		 WHERE room_code = $1 AND ($2::bigint = 0 OR id < $2)
-		 ORDER BY id DESC LIMIT $3`,
+		 FROM room_messages m
+		 WHERE room_code = $1 AND ($3::bigint = 0 OR id < $3)
+		   AND NOT EXISTS (
+		     SELECT 1 FROM user_blocks b
+		     WHERE (b.blocker_id = $2 AND b.blocked_id = m.user_id)
+		        OR (b.blocker_id = m.user_id AND b.blocked_id = $2)
+		   )
+		 ORDER BY id DESC LIMIT $4`,
 		roomCode,
+		viewerID,
 		before,
 		limit,
 	)
@@ -588,6 +603,382 @@ func (r *PostgresRepository) ListRoomMessages(
 	return messages, nil
 }
 
+func (r *PostgresRepository) GetPrivacy(ctx context.Context, userID string) (PrivacySettings, error) {
+	settings := PrivacySettings{
+		AllowRoomChat: true, AllowProfileFind: true, ShowWatchActivity: true,
+	}
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT allow_room_chat, allow_profile_find, show_watch_activity
+		 FROM user_privacy WHERE user_id = $1`,
+		userID,
+	).Scan(&settings.AllowRoomChat, &settings.AllowProfileFind, &settings.ShowWatchActivity)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return settings, nil
+	}
+	return settings, err
+}
+
+func (r *PostgresRepository) UpdatePrivacy(
+	ctx context.Context,
+	userID string,
+	settings PrivacySettings,
+) error {
+	_, err := r.pool.Exec(
+		ctx,
+		`INSERT INTO user_privacy (
+		   user_id, allow_room_chat, allow_profile_find, show_watch_activity, updated_at
+		 ) VALUES ($1,$2,$3,$4,now())
+		 ON CONFLICT (user_id) DO UPDATE SET
+		   allow_room_chat = EXCLUDED.allow_room_chat,
+		   allow_profile_find = EXCLUDED.allow_profile_find,
+		   show_watch_activity = EXCLUDED.show_watch_activity,
+		   updated_at = now()`,
+		userID,
+		settings.AllowRoomChat,
+		settings.AllowProfileFind,
+		settings.ShowWatchActivity,
+	)
+	return err
+}
+
+func (r *PostgresRepository) BlockUser(ctx context.Context, blockerID, blockedID string) error {
+	if blockerID == blockedID {
+		return errors.New("cannot block self")
+	}
+	command, err := r.pool.Exec(
+		ctx,
+		`INSERT INTO user_blocks (blocker_id, blocked_id)
+		 SELECT $1, id FROM users WHERE id = $2
+		 ON CONFLICT (blocker_id, blocked_id) DO UPDATE SET blocker_id = EXCLUDED.blocker_id`,
+		blockerID,
+		blockedID,
+	)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) UnblockUser(ctx context.Context, blockerID, blockedID string) error {
+	_, err := r.pool.Exec(
+		ctx,
+		`DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2`,
+		blockerID,
+		blockedID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListBlockedUsers(ctx context.Context, userID string) ([]User, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT u.id, u.display_name
+		 FROM user_blocks b JOIN users u ON u.id = b.blocked_id
+		 WHERE b.blocker_id = $1 ORDER BY lower(u.display_name), u.id`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	users := make([]User, 0)
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.ID, &user.DisplayName); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
+func (r *PostgresRepository) UsersBlocked(ctx context.Context, userA, userB string) (bool, error) {
+	var blocked bool
+	err := r.pool.QueryRow(
+		ctx,
+		`SELECT EXISTS (
+		   SELECT 1 FROM user_blocks
+		   WHERE (blocker_id = $1 AND blocked_id = $2)
+		      OR (blocker_id = $2 AND blocked_id = $1)
+		 )`,
+		userA,
+		userB,
+	).Scan(&blocked)
+	return blocked, err
+}
+
+func (r *PostgresRepository) CreateReport(ctx context.Context, report Report) (Report, error) {
+	err := r.pool.QueryRow(
+		ctx,
+		`INSERT INTO reports (reporter_id, target_type, target_id, reason, details)
+		 VALUES ($1,$2,$3,$4,$5)
+		 RETURNING id, status, (extract(epoch FROM created_at) * 1000)::bigint`,
+		report.ReporterID,
+		report.TargetType,
+		report.TargetID,
+		report.Reason,
+		report.Details,
+	).Scan(&report.ID, &report.Status, &report.CreatedAt)
+	return report, err
+}
+
+func (r *PostgresRepository) ListReports(
+	ctx context.Context,
+	status string,
+	before int64,
+	limit int,
+) ([]Report, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id, reporter_id, target_type, target_id, reason, details, status,
+		        resolution, (extract(epoch FROM created_at) * 1000)::bigint,
+		        COALESCE(reviewed_by, ''),
+		        COALESCE((extract(epoch FROM reviewed_at) * 1000)::bigint, 0)
+		 FROM reports
+		 WHERE ($1 = '' OR status = $1) AND ($2::bigint = 0 OR id < $2)
+		 ORDER BY id DESC LIMIT $3`,
+		status,
+		before,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	reports := make([]Report, 0, limit)
+	for rows.Next() {
+		var report Report
+		if err := rows.Scan(
+			&report.ID, &report.ReporterID, &report.TargetType, &report.TargetID,
+			&report.Reason, &report.Details, &report.Status, &report.Resolution,
+			&report.CreatedAt, &report.ReviewedBy, &report.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		reports = append(reports, report)
+	}
+	return reports, rows.Err()
+}
+
+func (r *PostgresRepository) ResolveReport(
+	ctx context.Context,
+	id int64,
+	reviewerID, status, resolution string,
+) (Report, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Report{}, err
+	}
+	defer tx.Rollback(ctx)
+	var report Report
+	err = tx.QueryRow(
+		ctx,
+		`UPDATE reports SET status=$3, resolution=$4, reviewed_by=$2, reviewed_at=now()
+		 WHERE id=$1
+		 RETURNING id, reporter_id, target_type, target_id, reason, details, status,
+		           resolution, (extract(epoch FROM created_at) * 1000)::bigint,
+		           reviewed_by, (extract(epoch FROM reviewed_at) * 1000)::bigint`,
+		id,
+		reviewerID,
+		status,
+		resolution,
+	).Scan(
+		&report.ID, &report.ReporterID, &report.TargetType, &report.TargetID,
+		&report.Reason, &report.Details, &report.Status, &report.Resolution,
+		&report.CreatedAt, &report.ReviewedBy, &report.ReviewedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Report{}, ErrNotFound
+	}
+	if err != nil {
+		return Report{}, err
+	}
+	if _, err := appendPostgresAudit(ctx, tx, AuditEvent{
+		ActorID: reviewerID, Action: "report.resolve", TargetType: "report",
+		TargetID: strconv.FormatInt(id, 10), Metadata: map[string]any{"status": status},
+	}); err != nil {
+		return Report{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Report{}, err
+	}
+	return report, nil
+}
+
+func (r *PostgresRepository) CloseRoom(ctx context.Context, code, actorID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	command, err := tx.Exec(
+		ctx,
+		`UPDATE rooms SET closed_at = COALESCE(closed_at, now()) WHERE code = $1`,
+		strings.ToUpper(code),
+	)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	if _, err := appendPostgresAudit(ctx, tx, AuditEvent{
+		ActorID: actorID, Action: "room.close", TargetType: "room", TargetID: strings.ToUpper(code),
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresRepository) BanDevice(ctx context.Context, deviceHash, reason, actorID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	command, err := tx.Exec(
+		ctx,
+		`UPDATE devices SET banned_at = COALESCE(banned_at, now()), ban_reason = $2
+		 WHERE device_hash = $1`,
+		deviceHash,
+		reason,
+	)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	if _, err := tx.Exec(
+		ctx,
+		`UPDATE user_devices SET revoked_at = COALESCE(revoked_at, now())
+		 WHERE device_hash = $1`,
+		deviceHash,
+	); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(
+		ctx,
+		`UPDATE refresh_tokens SET revoked_at = COALESCE(revoked_at, now())
+		 WHERE device_hash = $1`,
+		deviceHash,
+	); err != nil {
+		return err
+	}
+	if _, err := appendPostgresAudit(ctx, tx, AuditEvent{
+		ActorID: actorID, Action: "device.ban", TargetType: "device", TargetID: deviceHash,
+	}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresRepository) SetUserAdmin(ctx context.Context, userID string, value bool) error {
+	command, err := r.pool.Exec(ctx, `UPDATE users SET is_admin = $2 WHERE id = $1`, userID, value)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) AppendAudit(ctx context.Context, event AuditEvent) (AuditEvent, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	defer tx.Rollback(ctx)
+	event, err = appendPostgresAudit(ctx, tx, event)
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return AuditEvent{}, err
+	}
+	return event, nil
+}
+
+func appendPostgresAudit(ctx context.Context, tx pgx.Tx, event AuditEvent) (AuditEvent, error) {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('sameframe-admin-audit'))`); err != nil {
+		return AuditEvent{}, err
+	}
+	err := tx.QueryRow(
+		ctx,
+		`SELECT entry_hash FROM admin_audit_logs ORDER BY id DESC LIMIT 1`,
+	).Scan(&event.PreviousHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		event.PreviousHash = strings.Repeat("0", 64)
+	} else if err != nil {
+		return AuditEvent{}, err
+	}
+	event.CreatedAt = time.Now().UnixMilli()
+	event = finalizeAuditEvent(event)
+	metadata, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	err = tx.QueryRow(
+		ctx,
+		`INSERT INTO admin_audit_logs (
+		   actor_id, action, target_type, target_id, metadata,
+		   previous_hash, entry_hash, created_at
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,to_timestamp($8 / 1000.0)) RETURNING id`,
+		event.ActorID,
+		event.Action,
+		event.TargetType,
+		event.TargetID,
+		metadata,
+		event.PreviousHash,
+		event.EntryHash,
+		event.CreatedAt,
+	).Scan(&event.ID)
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	return event, nil
+}
+
+func (r *PostgresRepository) ListAudit(ctx context.Context, before int64, limit int) ([]AuditEvent, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id, actor_id, action, target_type, target_id, metadata,
+		        previous_hash, entry_hash, (extract(epoch FROM created_at) * 1000)::bigint
+		 FROM admin_audit_logs
+		 WHERE ($1::bigint = 0 OR id < $1) ORDER BY id DESC LIMIT $2`,
+		before,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	events := make([]AuditEvent, 0, limit)
+	for rows.Next() {
+		var event AuditEvent
+		var metadata []byte
+		if err := rows.Scan(
+			&event.ID, &event.ActorID, &event.Action, &event.TargetType,
+			&event.TargetID, &metadata, &event.PreviousHash, &event.EntryHash,
+			&event.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(metadata, &event.Metadata); err != nil {
+			return nil, err
+		}
+		event.PreviousHash = strings.TrimSpace(event.PreviousHash)
+		event.EntryHash = strings.TrimSpace(event.EntryHash)
+		events = append(events, event)
+	}
+	return events, rows.Err()
+}
+
 func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -599,15 +990,16 @@ func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {
 		`INSERT INTO rooms (
 			code, name, owner_id, source_url, media_source_id, media_path,
 			max_members, created_at, expires_at,
-			position, playing, speed, episode, position_ts, source_version
-		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+			position, playing, speed, episode, position_ts, source_version, closed_at
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 		 ON CONFLICT (code) DO UPDATE SET
 			name = EXCLUDED.name, source_url = EXCLUDED.source_url,
 			media_source_id = EXCLUDED.media_source_id, media_path = EXCLUDED.media_path,
 			max_members = EXCLUDED.max_members, expires_at = EXCLUDED.expires_at,
 			position = EXCLUDED.position, playing = EXCLUDED.playing,
 			speed = EXCLUDED.speed, episode = EXCLUDED.episode,
-			position_ts = EXCLUDED.position_ts, source_version = EXCLUDED.source_version`,
+			position_ts = EXCLUDED.position_ts, source_version = EXCLUDED.source_version,
+			closed_at = COALESCE(rooms.closed_at, EXCLUDED.closed_at)`,
 		room.Code,
 		room.Name,
 		room.OwnerID,
@@ -623,6 +1015,7 @@ func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {
 		room.Playback.Episode,
 		room.Playback.PositionTS,
 		room.Playback.SourceVersion,
+		closedAtValue(room.Closed),
 	)
 	if err != nil {
 		return err
@@ -678,7 +1071,8 @@ func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 		`SELECT code, name, owner_id, source_url,
 		 COALESCE(media_source_id, ''), COALESCE(media_path, ''),
 		 max_members, created_at, expires_at,
-		 position, playing, speed, episode, position_ts, source_version FROM rooms`,
+		 position, playing, speed, episode, position_ts, source_version,
+		 closed_at IS NOT NULL FROM rooms`,
 	)
 	if err != nil {
 		return nil, err
@@ -704,6 +1098,7 @@ func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 			&room.Playback.Episode,
 			&room.Playback.PositionTS,
 			&room.Playback.SourceVersion,
+			&room.Closed,
 		); err != nil {
 			return nil, err
 		}
@@ -744,4 +1139,11 @@ func nilIfEmpty(value string) any {
 		return nil
 	}
 	return value
+}
+
+func closedAtValue(closed bool) any {
+	if !closed {
+		return nil
+	}
+	return time.Now()
 }
