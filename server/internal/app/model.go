@@ -100,6 +100,29 @@ type WatchActivity struct {
 	WatchedAt      int64  `json:"watched_at"`
 }
 
+type DanmakuMessage struct {
+	ID          int64   `json:"id"`
+	Fingerprint string  `json:"-"`
+	UserID      string  `json:"user_id"`
+	DisplayName string  `json:"display_name"`
+	Body        string  `json:"body"`
+	Position    float64 `json:"position_seconds"`
+	Color       int     `json:"color"`
+	Mode        string  `json:"mode"`
+	CreatedAt   int64   `json:"created_at"`
+}
+
+type MetadataResult struct {
+	ID          int64   `json:"id"`
+	MediaType   string  `json:"media_type"`
+	Title       string  `json:"title"`
+	Original    string  `json:"original_title,omitempty"`
+	Overview    string  `json:"overview,omitempty"`
+	ReleaseDate string  `json:"release_date,omitempty"`
+	PosterURL   string  `json:"poster_url,omitempty"`
+	Rating      float64 `json:"rating"`
+}
+
 type ChatMessage struct {
 	ID          int64  `json:"id"`
 	RoomCode    string `json:"room_code"`

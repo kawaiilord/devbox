@@ -37,6 +37,7 @@ class RoomController extends ChangeNotifier {
   Timer? _watchProgress;
   bool _renewingMedia = false;
   bool _syncingWatchProgress = false;
+  int _danmakuEpisode = -1;
   int _clientSequence = DateTime.now().microsecondsSinceEpoch;
   int _lastServerSequence = -1;
   bool connected = false;
@@ -45,7 +46,10 @@ class RoomController extends ChangeNotifier {
   AlignmentAction? lastAlignment;
   PlaybackFailure? playbackFailure;
   final List<ChatMessage> messages = <ChatMessage>[];
+  final List<DanmakuMessage> danmakuMessages = <DanmakuMessage>[];
   final Set<String> blockedUserIds = <String>{};
+  final Set<String> blockedDanmakuKeywords = <String>{};
+  bool danmakuEnabled = true;
   String? selectedSubtitlePath;
   String? selectedSubtitleName;
   final Set<String> onlineUserIds = <String>{};
@@ -61,6 +65,16 @@ class RoomController extends ChangeNotifier {
       messages
         ..clear()
         ..addAll(await api.roomMessages(session, room.code));
+      danmakuMessages
+        ..clear()
+        ..addAll(
+          await api.roomDanmaku(
+            session,
+            room.code,
+            episode: room.playback.episode,
+          ),
+        );
+      _danmakuEpisode = room.playback.episode;
       await player.open(
         room.sourceUrl,
         version: room.playback.sourceVersion,
@@ -120,7 +134,45 @@ class RoomController extends ChangeNotifier {
     await api.blockUser(session, userId);
     blockedUserIds.add(userId);
     messages.removeWhere((message) => message.userId == userId);
+    danmakuMessages.removeWhere((message) => message.userId == userId);
     notifyListeners();
+  }
+
+  void sendDanmaku(
+    String body, {
+    int color = 0xffffff,
+    String mode = 'scroll',
+  }) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty || !connected || !danmakuEnabled) return;
+    _socket?.send('danmaku.message', ++_clientSequence, {
+      'body': trimmed,
+      'position_seconds': player.position.inMilliseconds / 1000,
+      'color': color,
+      'mode': mode,
+    });
+  }
+
+  void setDanmakuEnabled(bool value) {
+    danmakuEnabled = value;
+    notifyListeners();
+  }
+
+  void blockDanmakuKeyword(String value) {
+    value = value.trim().toLowerCase();
+    if (value.isEmpty) {
+      return;
+    }
+    blockedDanmakuKeywords.add(value);
+    notifyListeners();
+  }
+
+  bool danmakuVisible(DanmakuMessage message) {
+    if (!danmakuEnabled || blockedUserIds.contains(message.userId)) {
+      return false;
+    }
+    final body = message.body.toLowerCase();
+    return !blockedDanmakuKeywords.any(body.contains);
   }
 
   Future<void> reportMessage(
@@ -182,6 +234,9 @@ class RoomController extends ChangeNotifier {
         _mediaRenewal?.cancel();
         player.pause();
       }
+      if (_danmakuEpisode != room.playback.episode) {
+        unawaited(_loadDanmaku(room.playback.episode));
+      }
       _lastServerSequence = envelope.sequence;
       _queueAlignment(room.playback);
       if (!room.closed) _scheduleMediaRenewal();
@@ -215,12 +270,47 @@ class RoomController extends ChangeNotifier {
       }
       return;
     }
+    if (envelope.type == 'danmaku.message') {
+      final message = DanmakuMessage.fromJson(envelope.payload);
+      if (!blockedUserIds.contains(message.userId) &&
+          !danmakuMessages.any((existing) => existing.id == message.id)) {
+        danmakuMessages.add(message);
+        if (danmakuMessages.length > 5000) {
+          danmakuMessages.removeAt(0);
+        }
+        notifyListeners();
+      }
+      return;
+    }
     if (envelope.type != 'playback.snapshot' ||
         envelope.sequence <= _lastServerSequence) {
       return;
     }
     _lastServerSequence = envelope.sequence;
-    _queueAlignment(PlaybackSnapshot.fromJson(envelope.payload));
+    final snapshot = PlaybackSnapshot.fromJson(envelope.payload);
+    room = room.withPlayback(snapshot);
+    if (_danmakuEpisode != snapshot.episode) {
+      unawaited(_loadDanmaku(snapshot.episode));
+    }
+    _queueAlignment(snapshot);
+  }
+
+  Future<void> _loadDanmaku(int episode) async {
+    try {
+      final incoming = await api.roomDanmaku(
+        session,
+        room.code,
+        episode: episode,
+      );
+      if (room.playback.episode != episode) return;
+      danmakuMessages
+        ..clear()
+        ..addAll(incoming);
+      _danmakuEpisode = episode;
+      notifyListeners();
+    } catch (_) {
+      // Danmaku history failure does not interrupt playback.
+    }
   }
 
   void _queueAlignment(PlaybackSnapshot snapshot) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../models.dart';
 import 'library_page.dart';
+import 'metadata_search_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
 
@@ -194,6 +195,16 @@ class _LobbyPageState extends State<LobbyPage> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LibraryPage(api: widget.api, session: session),
+      ),
+    );
+  }
+
+  void _showMetadataSearch() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MetadataSearchPage(api: widget.api, session: session),
       ),
     );
   }
@@ -667,6 +678,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onSources: _session == null ? null : _showMediaSources,
                     onPrivacy: _session == null ? null : _showPrivacy,
                     onLibrary: _session == null ? null : _showLibrary,
+                    onMetadata: _session == null ? null : _showMetadataSearch,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -764,6 +776,7 @@ class _Brand extends StatelessWidget {
     required this.onSources,
     required this.onPrivacy,
     required this.onLibrary,
+    required this.onMetadata,
   });
   final Session? session;
   final VoidCallback? onLogout;
@@ -771,6 +784,7 @@ class _Brand extends StatelessWidget {
   final VoidCallback? onSources;
   final VoidCallback? onPrivacy;
   final VoidCallback? onLibrary;
+  final VoidCallback? onMetadata;
 
   @override
   Widget build(BuildContext context) {
@@ -805,6 +819,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onMetadata != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onMetadata,
+            tooltip: '影视搜索',
+            icon: const Icon(Icons.manage_search_rounded),
+          ),
+        ],
         if (onLibrary != null) ...[
           const SizedBox(width: 8),
           IconButton(

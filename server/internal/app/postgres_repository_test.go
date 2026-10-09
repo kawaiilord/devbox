@@ -382,4 +382,16 @@ func TestPostgresPersonalLibraryPersistenceAndSourceDeletion(t *testing.T) {
 	if err := repository.DeleteWatchRecord(ctx, user.User.ID, record.ID); err != nil {
 		t.Fatal(err)
 	}
+	danmaku, err := repository.AddDanmaku(ctx, DanmakuMessage{
+		Fingerprint: strings.Repeat("d", 64), UserID: user.User.ID,
+		DisplayName: user.User.DisplayName, Body: "persistent danmaku",
+		Position: 12.5, Color: 0xffffff, Mode: "scroll",
+	})
+	if err != nil || danmaku.ID == 0 {
+		t.Fatalf("danmaku=%+v error=%v", danmaku, err)
+	}
+	danmakuPage, err := repository.ListDanmaku(ctx, strings.Repeat("d", 64), user.User.ID, 10, 20, 50)
+	if err != nil || len(danmakuPage) != 1 || danmakuPage[0].ID != danmaku.ID {
+		t.Fatalf("danmaku page=%+v error=%v", danmakuPage, err)
+	}
 }

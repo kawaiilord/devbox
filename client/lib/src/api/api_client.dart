@@ -352,6 +352,36 @@ class ApiClient {
         .toList(growable: false);
   }
 
+  Future<List<DanmakuMessage>> roomDanmaku(
+    Session session,
+    String roomCode, {
+    int episode = 0,
+  }) async {
+    final uri = Uri(
+      path: '/api/v1/rooms/$roomCode/danmaku',
+      queryParameters: {'episode': '$episode', 'limit': '2000'},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['messages'] as List<dynamic>)
+        .map((value) => DanmakuMessage.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<List<MetadataResult>> searchMetadata(
+    Session session,
+    String query, {
+    String language = 'zh-CN',
+  }) async {
+    final uri = Uri(
+      path: '/api/v1/metadata/search',
+      queryParameters: {'q': query, 'language': language},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['results'] as List<dynamic>)
+        .map((value) => MetadataResult.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   Future<void> deleteWatchRecord(Session session, int id) async {
     await _request('DELETE', '/api/v1/history/$id', session: session);
   }

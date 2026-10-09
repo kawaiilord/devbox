@@ -32,6 +32,7 @@ type Options struct {
 	RequireVerifiedEmail bool
 	Sources              *MediaSourceManager
 	PublicBaseURL        string
+	Metadata             *MetadataClient
 }
 
 type Server struct {
@@ -81,6 +82,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/config", s.config)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
+	mux.HandleFunc("GET /api/v1/metadata/search", s.searchMetadata)
 	mux.HandleFunc("POST /api/v1/auth/register", s.register)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", s.refresh)
@@ -124,6 +126,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/media-ticket", s.issueRoomMediaTicket)
 	mux.HandleFunc("GET /api/v1/rooms/{code}/messages", s.roomMessages)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/danmaku", s.roomDanmaku)
 	mux.HandleFunc("GET /api/v1/rooms/{code}/subtitles", s.roomSubtitles)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/subtitle-ticket", s.issueRoomSubtitleTicket)
 	mux.HandleFunc("GET /api/v1/rooms/{code}", s.getRoom)
@@ -177,6 +180,8 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"privacy_controls":   true,
 		"moderation":         true,
 		"personal_library":   true,
+		"danmaku":            true,
+		"metadata_search":    s.options.Metadata != nil,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -1130,6 +1135,10 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 			s.handleChatMessage(ctx, client, code, user, envelope.Payload)
 			continue
 		}
+		if envelope.Type == "danmaku.message" {
+			s.handleDanmakuMessage(ctx, client, code, user, envelope.Payload)
+			continue
+		}
 		if envelope.Type != "playback.control" {
 			continue
 		}
@@ -1297,7 +1306,7 @@ func (s *Server) emitEnvelope(ctx context.Context, envelope Envelope) {
 }
 
 func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
-	if envelope.Type != "chat.message" {
+	if envelope.Type != "chat.message" && envelope.Type != "danmaku.message" {
 		s.hub.Broadcast(envelope.Room, envelope)
 		return
 	}

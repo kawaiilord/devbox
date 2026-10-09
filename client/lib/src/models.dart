@@ -204,6 +204,72 @@ class WatchRecord {
   );
 }
 
+class DanmakuMessage {
+  const DanmakuMessage({
+    required this.id,
+    required this.userId,
+    required this.displayName,
+    required this.body,
+    required this.positionSeconds,
+    required this.color,
+    required this.mode,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String userId;
+  final String displayName;
+  final String body;
+  final double positionSeconds;
+  final int color;
+  final String mode;
+  final int createdAt;
+
+  factory DanmakuMessage.fromJson(Map<String, dynamic> json) => DanmakuMessage(
+    id: (json['id'] as num).toInt(),
+    userId: json['user_id'] as String,
+    displayName: json['display_name'] as String,
+    body: json['body'] as String,
+    positionSeconds: (json['position_seconds'] as num).toDouble(),
+    color: (json['color'] as num).toInt(),
+    mode: json['mode'] as String,
+    createdAt: (json['created_at'] as num).toInt(),
+  );
+}
+
+class MetadataResult {
+  const MetadataResult({
+    required this.id,
+    required this.mediaType,
+    required this.title,
+    required this.originalTitle,
+    required this.overview,
+    required this.releaseDate,
+    required this.posterUrl,
+    required this.rating,
+  });
+
+  final int id;
+  final String mediaType;
+  final String title;
+  final String originalTitle;
+  final String overview;
+  final String releaseDate;
+  final String posterUrl;
+  final double rating;
+
+  factory MetadataResult.fromJson(Map<String, dynamic> json) => MetadataResult(
+    id: (json['id'] as num).toInt(),
+    mediaType: json['media_type'] as String,
+    title: json['title'] as String,
+    originalTitle: json['original_title']?.toString() ?? '',
+    overview: json['overview']?.toString() ?? '',
+    releaseDate: json['release_date']?.toString() ?? '',
+    posterUrl: json['poster_url']?.toString() ?? '',
+    rating: (json['rating'] as num).toDouble(),
+  );
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -364,6 +430,20 @@ class Room {
     expiresAt: expiresAt,
     members: members,
     playback: playback,
+    closed: closed,
+  );
+
+  Room withPlayback(PlaybackSnapshot value) => Room(
+    code: code,
+    name: name,
+    ownerId: ownerId,
+    sourceUrl: sourceUrl,
+    mediaSourceId: mediaSourceId,
+    mediaPath: mediaPath,
+    maxMembers: maxMembers,
+    expiresAt: expiresAt,
+    members: members,
+    playback: value,
     closed: closed,
   );
 }

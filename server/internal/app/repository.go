@@ -62,6 +62,8 @@ type Repository interface {
 	UpsertWatchRecord(context.Context, WatchRecord) (WatchRecord, error)
 	ListWatchRecords(context.Context, string, int64, int) ([]WatchRecord, error)
 	DeleteWatchRecord(context.Context, string, int64) error
+	AddDanmaku(context.Context, DanmakuMessage) (DanmakuMessage, error)
+	ListDanmaku(context.Context, string, string, float64, float64, int) ([]DanmakuMessage, error)
 	AddRoomMessage(context.Context, ChatMessage) (ChatMessage, error)
 	ListRoomMessages(context.Context, string, string, int64, int) ([]ChatMessage, error)
 	GetPrivacy(context.Context, string) (PrivacySettings, error)
@@ -124,6 +126,8 @@ type MemoryRepository struct {
 	watchRecords  map[int64]WatchRecord
 	watchKeys     map[string]int64
 	nextWatch     int64
+	danmaku       []DanmakuMessage
+	nextDanmaku   int64
 	messages      []ChatMessage
 	nextMessageID int64
 	rooms         map[string]Room
@@ -150,6 +154,7 @@ func NewMemoryRepository() *MemoryRepository {
 		watchRecords:  make(map[int64]WatchRecord),
 		watchKeys:     make(map[string]int64),
 		nextWatch:     1,
+		nextDanmaku:   1,
 		nextMessageID: 1,
 		rooms:         make(map[string]Room),
 		privacy:       make(map[string]PrivacySettings),
@@ -560,6 +565,46 @@ func (r *MemoryRepository) DeleteWatchRecord(_ context.Context, userID string, i
 
 func memoryFavoriteKey(userID, sourceID, mediaPath string) string {
 	return userID + "\x00" + sourceID + "\x00" + mediaPath
+}
+
+func (r *MemoryRepository) AddDanmaku(_ context.Context, message DanmakuMessage) (DanmakuMessage, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	message.ID = r.nextDanmaku
+	r.nextDanmaku++
+	message.CreatedAt = time.Now().UnixMilli()
+	r.danmaku = append(r.danmaku, message)
+	return message, nil
+}
+
+func (r *MemoryRepository) ListDanmaku(
+	_ context.Context,
+	fingerprint string,
+	viewerID string,
+	from, to float64,
+	limit int,
+) ([]DanmakuMessage, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]DanmakuMessage, 0)
+	for _, message := range r.danmaku {
+		_, viewerBlocks := r.blocks[viewerID][message.UserID]
+		_, blockedBy := r.blocks[message.UserID][viewerID]
+		if message.Fingerprint == fingerprint && message.Position >= from && message.Position <= to &&
+			!viewerBlocks && !blockedBy {
+			result = append(result, message)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Position == result[j].Position {
+			return result[i].ID < result[j].ID
+		}
+		return result[i].Position < result[j].Position
+	})
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
 }
 
 func (r *MemoryRepository) AddRoomMessage(_ context.Context, message ChatMessage) (ChatMessage, error) {

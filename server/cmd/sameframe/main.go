@@ -112,6 +112,14 @@ func main() {
 			}
 		}
 	}
+	var metadataClient *app.MetadataClient
+	if tmdbToken := os.Getenv("SAMEFRAME_TMDB_TOKEN"); tmdbToken != "" {
+		metadataClient, err = app.NewMetadataClient(tmdbToken)
+		if err != nil {
+			logger.Error("configure metadata search", "error", err)
+			os.Exit(1)
+		}
+	}
 	server := app.NewServer(app.Options{
 		Address:              addr,
 		AllowedOrigins:       origins,
@@ -124,6 +132,7 @@ func main() {
 		RequireVerifiedEmail: requireVerifiedEmail,
 		Sources:              sourceManager,
 		PublicBaseURL:        os.Getenv("SAMEFRAME_PUBLIC_BASE_URL"),
+		Metadata:             metadataClient,
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

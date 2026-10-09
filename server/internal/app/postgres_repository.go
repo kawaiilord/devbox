@@ -35,6 +35,9 @@ var embySourcesMigration string
 //go:embed migrations/007_personal_library.sql
 var personalLibraryMigration string
 
+//go:embed migrations/008_danmaku.sql
+var danmakuMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -61,7 +64,7 @@ func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository,
 func (r *PostgresRepository) Migrate(ctx context.Context) error {
 	for _, migration := range []string{
 		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
-		moderationMigration, embySourcesMigration, personalLibraryMigration,
+		moderationMigration, embySourcesMigration, personalLibraryMigration, danmakuMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -720,6 +723,74 @@ func (r *PostgresRepository) DeleteWatchRecord(ctx context.Context, userID strin
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (r *PostgresRepository) AddDanmaku(
+	ctx context.Context,
+	message DanmakuMessage,
+) (DanmakuMessage, error) {
+	err := r.pool.QueryRow(
+		ctx,
+		`INSERT INTO danmaku_messages (
+		   media_fingerprint, user_id, display_name, body,
+		   position_seconds, color, mode
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+		 RETURNING id, (extract(epoch FROM created_at) * 1000)::bigint`,
+		message.Fingerprint,
+		message.UserID,
+		message.DisplayName,
+		message.Body,
+		message.Position,
+		message.Color,
+		message.Mode,
+	).Scan(&message.ID, &message.CreatedAt)
+	return message, err
+}
+
+func (r *PostgresRepository) ListDanmaku(
+	ctx context.Context,
+	fingerprint string,
+	viewerID string,
+	from, to float64,
+	limit int,
+) ([]DanmakuMessage, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id, media_fingerprint, user_id, display_name, body,
+		        position_seconds, color, mode,
+		        (extract(epoch FROM created_at) * 1000)::bigint
+		 FROM danmaku_messages
+		 WHERE media_fingerprint=$1 AND position_seconds >= $3 AND position_seconds <= $4
+		   AND NOT EXISTS (
+		     SELECT 1 FROM user_blocks b
+		     WHERE (b.blocker_id=$2 AND b.blocked_id=danmaku_messages.user_id)
+		        OR (b.blocker_id=danmaku_messages.user_id AND b.blocked_id=$2)
+		   )
+		 ORDER BY position_seconds, id LIMIT $5`,
+		fingerprint,
+		viewerID,
+		from,
+		to,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]DanmakuMessage, 0, limit)
+	for rows.Next() {
+		var message DanmakuMessage
+		if err := rows.Scan(
+			&message.ID, &message.Fingerprint, &message.UserID,
+			&message.DisplayName, &message.Body, &message.Position,
+			&message.Color, &message.Mode, &message.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		message.Fingerprint = strings.TrimSpace(message.Fingerprint)
+		result = append(result, message)
+	}
+	return result, rows.Err()
 }
 
 func (r *PostgresRepository) AddRoomMessage(

@@ -31,6 +31,8 @@ The current foundation contains:
   records;
 - cross-device favorites, authoritative watch-progress history, resumable room
   creation, companion counts, and privacy-gated public watch activity;
+- persistent source-fingerprinted danmaku with realtime block filtering and a
+  server-side optional TMDB metadata search proxy;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -85,3 +87,4 @@ data flow. Room messaging and subtitle behavior are in
 Moderation permissions, privacy behavior, and audit-chain operations are in
 `docs/moderation.md`.
 Favorites, history, and resume behavior are in `docs/personal-library.md`.
+Danmaku matching and TMDB proxy behavior are in `docs/danmaku-metadata.md`.

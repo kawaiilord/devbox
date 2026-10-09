@@ -172,6 +172,103 @@ class _RoomPageState extends State<RoomPage> {
     input.dispose();
   }
 
+  Future<void> _showDanmaku() async {
+    final input = TextEditingController();
+    final keyword = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('弹幕'),
+        content: SizedBox(
+          width: 520,
+          height: 440,
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) => Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('显示弹幕'),
+                  value: controller.danmakuEnabled,
+                  onChanged: controller.setDanmakuEnabled,
+                ),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      for (final message
+                          in controller.danmakuMessages.reversed.take(100))
+                        ListTile(
+                          dense: true,
+                          title: Text(message.body),
+                          subtitle: Text(
+                            '${message.displayName} · ${message.positionSeconds.toStringAsFixed(1)} 秒',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: input,
+                        maxLength: 100,
+                        decoration: const InputDecoration(
+                          labelText: '在当前时间发送弹幕',
+                          counterText: '',
+                        ),
+                        onSubmitted: (_) {
+                          controller.sendDanmaku(input.text);
+                          input.clear();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: controller.danmakuEnabled
+                          ? () {
+                              controller.sendDanmaku(input.text);
+                              input.clear();
+                            }
+                          : null,
+                      icon: const Icon(Icons.send_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: keyword,
+                        decoration: const InputDecoration(labelText: '添加本地屏蔽词'),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        controller.blockDanmakuKeyword(keyword.text);
+                        keyword.clear();
+                      },
+                      child: const Text('屏蔽'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+    keyword.dispose();
+  }
+
   Future<void> _handleMessageAction(String action, ChatMessage message) async {
     if (action == 'block') {
       final confirmed = await showDialog<bool>(
@@ -376,6 +473,11 @@ class _RoomPageState extends State<RoomPage> {
                   icon: const Icon(Icons.subtitles_rounded),
                 ),
               IconButton(
+                tooltip: '弹幕',
+                onPressed: controller.room.closed ? null : _showDanmaku,
+                icon: const Icon(Icons.slow_motion_video_rounded),
+              ),
+              IconButton(
                 tooltip: '房间聊天',
                 onPressed: controller.room.closed ? null : _showChat,
                 icon: const Icon(Icons.chat_bubble_outline_rounded),
@@ -431,10 +533,16 @@ class _PlayerPanel extends StatelessWidget {
             aspectRatio: 16 / 9,
             child: ColoredBox(
               color: Colors.black,
-              child: Video(
-                controller: controller.player.videoController,
-                controls: NoVideoControls,
-                pauseUponEnteringBackgroundMode: false,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Video(
+                    controller: controller.player.videoController,
+                    controls: NoVideoControls,
+                    pauseUponEnteringBackgroundMode: false,
+                  ),
+                  _DanmakuOverlay(controller: controller),
+                ],
               ),
             ),
           ),
@@ -517,6 +625,90 @@ class _PlayerPanel extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DanmakuOverlay extends StatelessWidget {
+  const _DanmakuOverlay({required this.controller});
+  final RoomController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: StreamBuilder<Duration>(
+        stream: controller.player.positionStream,
+        initialData: controller.player.position,
+        builder: (context, snapshot) {
+          if (!controller.danmakuEnabled) return const SizedBox.shrink();
+          final position =
+              (snapshot.data ?? Duration.zero).inMilliseconds / 1000;
+          final visible = controller.danmakuMessages
+              .where(
+                (message) =>
+                    controller.danmakuVisible(message) &&
+                    message.positionSeconds <= position + 0.25 &&
+                    message.positionSeconds >= position - 6,
+              )
+              .toList(growable: false);
+          return LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              clipBehavior: Clip.none,
+              children: [
+                for (final message in visible.take(24))
+                  Positioned(
+                    top: message.mode == 'bottom'
+                        ? constraints.maxHeight - 42 - (message.id % 2) * 28
+                        : 12 + (message.id % 6) * 30,
+                    left: 0,
+                    right: 0,
+                    child: message.mode == 'scroll'
+                        ? TweenAnimationBuilder<double>(
+                            key: ValueKey(message.id),
+                            tween: Tween(
+                              begin: constraints.maxWidth,
+                              end: -constraints.maxWidth,
+                            ),
+                            duration: const Duration(seconds: 6),
+                            builder: (context, offset, child) =>
+                                Transform.translate(
+                                  offset: Offset(offset, 0),
+                                  child: child,
+                                ),
+                            child: _DanmakuText(message: message),
+                          )
+                        : Align(
+                            alignment: Alignment.center,
+                            child: _DanmakuText(message: message),
+                          ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DanmakuText extends StatelessWidget {
+  const _DanmakuText({required this.message});
+  final DanmakuMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      message.body,
+      maxLines: 1,
+      style: TextStyle(
+        color: Color(0xff000000 | message.color),
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        shadows: const [
+          Shadow(color: Colors.black, blurRadius: 3),
+          Shadow(color: Colors.black, offset: Offset(1, 1)),
         ],
       ),
     );

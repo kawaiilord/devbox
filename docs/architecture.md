@@ -39,6 +39,11 @@ authoritative room position rather than trusting a client-supplied position.
 Source-backed history is resumable only when the source belongs to that user and
 still exists; room members never inherit the owner's source credentials.
 
+Danmaku uses a SHA-256 fingerprint of source identity plus episode. Messages are
+persisted before Redis publication, so separate rooms playing the same source
+and episode share a timeline without exposing the source URL. Realtime and
+history delivery apply the same bidirectional block policy as chat.
+
 ## Authentication
 
 - Passwords are normalized only at the email boundary and hashed with Argon2id

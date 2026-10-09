@@ -384,6 +384,64 @@ void main() {
     ]);
     api.close();
   });
+
+  test('loads room danmaku and metadata search results', () async {
+    final client = MockClient((request) async {
+      if (request.url.path.endsWith('/danmaku')) {
+        expect(request.url.queryParameters['episode'], '2');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'messages': [
+                {
+                  'id': 1,
+                  'user_id': 'viewer',
+                  'display_name': 'Viewer',
+                  'body': 'Hello',
+                  'position_seconds': 12.5,
+                  'color': 16777215,
+                  'mode': 'scroll',
+                  'created_at': 1000,
+                },
+              ],
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      if (request.url.path == '/api/v1/metadata/search') {
+        expect(request.url.queryParameters['q'], 'Movie');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'results': [
+                {
+                  'id': 42,
+                  'media_type': 'movie',
+                  'title': 'Movie',
+                  'rating': 8.5,
+                },
+              ],
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      return http.Response('not found', 404);
+    });
+    final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+    final session = _session();
+    final danmaku = await api.roomDanmaku(session, 'ABC123', episode: 2);
+    final metadata = await api.searchMetadata(session, 'Movie');
+    expect(danmaku.single.positionSeconds, 12.5);
+    expect(metadata.single.id, 42);
+    expect(metadata.single.rating, 8.5);
+    api.close();
+  });
 }
 
 Session _session() => Session(
