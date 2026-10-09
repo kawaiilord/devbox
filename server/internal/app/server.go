@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -106,6 +105,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/admin/devices/{hash}/ban", s.adminBanDevice)
 	mux.HandleFunc("GET /api/v1/admin/audit", s.adminAudit)
 	mux.HandleFunc("POST /api/v1/sources/webdav", s.createWebDAVSource)
+	mux.HandleFunc("POST /api/v1/sources/emby", s.createEmbySource)
 	mux.HandleFunc("GET /api/v1/sources", s.listMediaSources)
 	mux.HandleFunc("DELETE /api/v1/sources/{id}", s.deleteMediaSource)
 	mux.HandleFunc("GET /api/v1/sources/{id}/files", s.browseMediaSource)
@@ -166,6 +166,7 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"device_management": true, "email_verification": s.options.RequireVerifiedEmail,
 		"media_sources":      s.sources != nil,
 		"external_subtitles": s.sources != nil,
+		"emby_sources":       s.sources != nil,
 		"privacy_controls":   true,
 		"moderation":         true,
 	}
@@ -467,6 +468,43 @@ func (s *Server) createWebDAVSource(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: source, Msg: "created"})
 }
 
+func (s *Server) createEmbySource(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if s.options.RequireVerifiedEmail && !user.EmailVerified {
+		writeError(w, http.StatusForbidden, errors.New("email verification required"))
+		return
+	}
+	if !s.enforceRateLimit(w, r, "source-create", user.ID, 10, time.Hour) {
+		return
+	}
+	var request struct {
+		Name     string `json:"name"`
+		BaseURL  string `json:"base_url"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	source, err := s.sources.CreateEmby(
+		r.Context(), user, request.Name, request.BaseURL, request.Username, request.Password,
+	)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: source, Msg: "created"})
+}
+
 func (s *Server) listMediaSources(w http.ResponseWriter, r *http.Request) {
 	if s.sources == nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
@@ -545,17 +583,18 @@ func (s *Server) issueMediaTicket(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if _, err := s.repo.GetMediaSource(r.Context(), user.ID, r.PathValue("id")); err != nil {
-		writeStoreError(w, err)
+	ticket, err := s.sources.PrepareMediaTicket(
+		r.Context(), user.ID, r.PathValue("id"), request.Path,
+	)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			writeStoreError(w, err)
+		} else {
+			writeError(w, http.StatusBadGateway, err)
+		}
 		return
 	}
-	if _, err := resolveSourcePath("https://validation.invalid/", request.Path, false); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), MediaTicket{
-		UserID: user.ID, SourceID: r.PathValue("id"), Path: cleanMediaPath(request.Path),
-	}, 5*time.Minute)
+	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), ticket, 5*time.Minute)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue media ticket"))
 		return
@@ -657,19 +696,14 @@ func (s *Server) roomSubtitles(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"files": []MediaFile{}}, Msg: "ok"})
 		return
 	}
-	directory := path.Dir(room.MediaPath)
-	files, err := s.sources.Browse(r.Context(), room.OwnerID, room.MediaSourceID, directory)
+	files, err := s.sources.Subtitles(
+		r.Context(), room.OwnerID, room.MediaSourceID, room.MediaPath,
+	)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
 	}
-	subtitles := make([]MediaFile, 0)
-	for _, file := range files {
-		if !file.IsDirectory && isSubtitlePath(file.Path) {
-			subtitles = append(subtitles, file)
-		}
-	}
-	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"files": subtitles}, Msg: "ok"})
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"files": files}, Msg: "ok"})
 }
 
 func (s *Server) issueRoomSubtitleTicket(w http.ResponseWriter, r *http.Request) {
@@ -699,14 +733,18 @@ func (s *Server) issueRoomSubtitleTicket(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	clean := cleanMediaPath(request.Path)
-	if room.MediaSourceID == "" || !isSubtitlePath(clean) || path.Dir(clean) != path.Dir(room.MediaPath) {
+	if room.MediaSourceID == "" {
 		writeError(w, http.StatusForbidden, errors.New("subtitle is outside the room media directory"))
 		return
 	}
-	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), MediaTicket{
-		UserID: room.OwnerID, SourceID: room.MediaSourceID, Path: clean,
-	}, 15*time.Minute)
+	ticket, err := s.sources.PrepareSubtitleTicket(
+		r.Context(), room.OwnerID, room.MediaSourceID, room.MediaPath, request.Path,
+	)
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), ticket, 15*time.Minute)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue subtitle ticket"))
 		return
@@ -714,15 +752,6 @@ func (s *Server) issueRoomSubtitleTicket(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: map[string]any{
 		"url": s.mediaPlaybackURL(raw), "expires_at": expiresAt.UnixMilli(),
 	}, Msg: "created"})
-}
-
-func isSubtitlePath(value string) bool {
-	switch strings.ToLower(path.Ext(value)) {
-	case ".srt", ".vtt", ".ass", ".ssa":
-		return true
-	default:
-		return false
-	}
 }
 
 func (s *Server) hydrateRoomMediaURL(ctx context.Context, room Room) (Room, error) {
@@ -740,12 +769,13 @@ func (s *Server) issueTicketForRoom(
 	if s.redis == nil || s.sources == nil {
 		return Room{}, time.Time{}, errors.New("media tickets unavailable")
 	}
-	if _, err := s.repo.GetMediaSource(ctx, room.OwnerID, room.MediaSourceID); err != nil {
+	ticket, err := s.sources.PrepareMediaTicket(
+		ctx, room.OwnerID, room.MediaSourceID, room.MediaPath,
+	)
+	if err != nil {
 		return Room{}, time.Time{}, err
 	}
-	raw, expiresAt, err := s.redis.IssueMediaTicket(ctx, MediaTicket{
-		UserID: room.OwnerID, SourceID: room.MediaSourceID, Path: room.MediaPath,
-	}, 5*time.Minute)
+	raw, expiresAt, err := s.redis.IssueMediaTicket(ctx, ticket, 5*time.Minute)
 	if err != nil {
 		return Room{}, time.Time{}, err
 	}
@@ -843,8 +873,14 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
 			return
 		}
-		if _, err := s.repo.GetMediaSource(r.Context(), user.ID, request.MediaSourceID); err != nil {
-			writeStoreError(w, err)
+		if _, err := s.sources.PrepareMediaTicket(
+			r.Context(), user.ID, request.MediaSourceID, request.MediaPath,
+		); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				writeStoreError(w, err)
+			} else {
+				writeError(w, http.StatusBadGateway, err)
+			}
 			return
 		}
 		room, err = s.store.CreateMediaRoom(

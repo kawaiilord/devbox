@@ -87,6 +87,11 @@ func (m *MediaSourceManager) List(ctx context.Context, userID string) ([]MediaSo
 }
 
 func (m *MediaSourceManager) Delete(ctx context.Context, userID, sourceID string) error {
+	if source, secret, err := m.loadSourceSecret(ctx, userID, sourceID); err == nil && source.Type == "emby" {
+		logoutContext, cancel := context.WithTimeout(ctx, 2*time.Second)
+		m.logoutEmby(logoutContext, source, secret)
+		cancel()
+	}
 	return m.repository.DeleteMediaSource(ctx, userID, sourceID)
 }
 
@@ -94,10 +99,30 @@ func (m *MediaSourceManager) Browse(
 	ctx context.Context,
 	userID, sourceID, requestedPath string,
 ) ([]MediaFile, error) {
-	source, credentials, err := m.load(ctx, userID, sourceID)
+	source, secret, err := m.loadSourceSecret(ctx, userID, sourceID)
 	if err != nil {
 		return nil, err
 	}
+	switch source.Type {
+	case "webdav":
+		credentials, err := decodeWebDAVCredentials(secret)
+		if err != nil {
+			return nil, err
+		}
+		return m.browseWebDAV(ctx, source, credentials, requestedPath)
+	case "emby":
+		return m.browseEmby(ctx, source, secret, requestedPath)
+	default:
+		return nil, errors.New("unsupported media source type")
+	}
+}
+
+func (m *MediaSourceManager) browseWebDAV(
+	ctx context.Context,
+	source MediaSource,
+	credentials webDAVCredentials,
+	requestedPath string,
+) ([]MediaFile, error) {
 	target, err := resolveSourcePath(source.BaseURL, requestedPath, true)
 	if err != nil {
 		return nil, err
@@ -147,10 +172,34 @@ func (m *MediaSourceManager) Open(
 	ticket MediaTicket,
 	method, rangeHeader, ifRange string,
 ) (*http.Response, error) {
-	source, credentials, err := m.load(ctx, ticket.UserID, ticket.SourceID)
+	source, secret, err := m.loadSourceSecret(ctx, ticket.UserID, ticket.SourceID)
 	if err != nil {
 		return nil, err
 	}
+	switch source.Type {
+	case "webdav":
+		if ticket.Kind != "" && ticket.Kind != "webdav" {
+			return nil, errors.New("invalid media ticket")
+		}
+		credentials, err := decodeWebDAVCredentials(secret)
+		if err != nil {
+			return nil, err
+		}
+		return m.openWebDAV(ctx, source, credentials, ticket, method, rangeHeader, ifRange)
+	case "emby":
+		return m.openEmby(ctx, source, secret, ticket, method, rangeHeader, ifRange)
+	default:
+		return nil, errors.New("unsupported media source type")
+	}
+}
+
+func (m *MediaSourceManager) openWebDAV(
+	ctx context.Context,
+	source MediaSource,
+	credentials webDAVCredentials,
+	ticket MediaTicket,
+	method, rangeHeader, ifRange string,
+) (*http.Response, error) {
 	target, err := resolveSourcePath(source.BaseURL, ticket.Path, false)
 	if err != nil {
 		return nil, err
@@ -169,25 +218,111 @@ func (m *MediaSourceManager) Open(
 	return m.client.Do(request)
 }
 
-func (m *MediaSourceManager) load(
+func (m *MediaSourceManager) PrepareMediaTicket(
+	ctx context.Context,
+	userID, sourceID, requestedPath string,
+) (MediaTicket, error) {
+	source, secret, err := m.loadSourceSecret(ctx, userID, sourceID)
+	if err != nil {
+		return MediaTicket{}, err
+	}
+	switch source.Type {
+	case "webdav":
+		if _, err := resolveSourcePath(source.BaseURL, requestedPath, false); err != nil {
+			return MediaTicket{}, err
+		}
+		return MediaTicket{
+			UserID: userID, SourceID: sourceID, Path: cleanMediaPath(requestedPath), Kind: "webdav",
+		}, nil
+	case "emby":
+		return m.prepareEmbyMediaTicket(ctx, source, secret, userID, requestedPath)
+	default:
+		return MediaTicket{}, errors.New("unsupported media source type")
+	}
+}
+
+func (m *MediaSourceManager) Subtitles(
+	ctx context.Context,
+	userID, sourceID, mediaPath string,
+) ([]MediaFile, error) {
+	source, secret, err := m.loadSourceSecret(ctx, userID, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	switch source.Type {
+	case "webdav":
+		credentials, err := decodeWebDAVCredentials(secret)
+		if err != nil {
+			return nil, err
+		}
+		files, err := m.browseWebDAV(ctx, source, credentials, path.Dir(mediaPath))
+		if err != nil {
+			return nil, err
+		}
+		subtitles := make([]MediaFile, 0)
+		for _, file := range files {
+			if !file.IsDirectory && isSubtitlePath(file.Path) {
+				subtitles = append(subtitles, file)
+			}
+		}
+		return subtitles, nil
+	case "emby":
+		return m.embySubtitles(ctx, source, secret, mediaPath)
+	default:
+		return nil, errors.New("unsupported media source type")
+	}
+}
+
+func (m *MediaSourceManager) PrepareSubtitleTicket(
+	ctx context.Context,
+	userID, sourceID, mediaPath, subtitlePath string,
+) (MediaTicket, error) {
+	source, secret, err := m.loadSourceSecret(ctx, userID, sourceID)
+	if err != nil {
+		return MediaTicket{}, err
+	}
+	switch source.Type {
+	case "webdav":
+		clean := cleanMediaPath(subtitlePath)
+		if !isSubtitlePath(clean) || path.Dir(clean) != path.Dir(cleanMediaPath(mediaPath)) {
+			return MediaTicket{}, ErrForbidden
+		}
+		if _, err := resolveSourcePath(source.BaseURL, clean, false); err != nil {
+			return MediaTicket{}, err
+		}
+		return MediaTicket{
+			UserID: userID, SourceID: sourceID, Path: clean, Kind: "webdav",
+		}, nil
+	case "emby":
+		return m.prepareEmbySubtitleTicket(ctx, source, secret, userID, mediaPath, subtitlePath)
+	default:
+		return MediaTicket{}, errors.New("unsupported media source type")
+	}
+}
+
+func (m *MediaSourceManager) loadSourceSecret(
 	ctx context.Context,
 	userID, sourceID string,
-) (MediaSource, webDAVCredentials, error) {
+) (MediaSource, []byte, error) {
 	source, err := m.repository.GetMediaSource(ctx, userID, sourceID)
 	if err != nil {
-		return MediaSource{}, webDAVCredentials{}, err
+		return MediaSource{}, nil, err
 	}
 	plaintext, err := m.vault.Decrypt(
 		source.CredentialsCiphertext, sourceAAD(userID, sourceID),
 	)
 	if err != nil {
-		return MediaSource{}, webDAVCredentials{}, err
+		return MediaSource{}, nil, err
 	}
+	return source, plaintext, nil
+}
+
+func decodeWebDAVCredentials(plaintext []byte) (webDAVCredentials, error) {
 	var credentials webDAVCredentials
 	if err := json.Unmarshal(plaintext, &credentials); err != nil {
-		return MediaSource{}, webDAVCredentials{}, errors.New("invalid stored credentials")
+		return webDAVCredentials{}, errors.New("invalid stored credentials")
 	}
-	return source, credentials, nil
+	return credentials, nil
 }
 
 func sourceAAD(userID, sourceID string) string { return userID + ":" + sourceID }
@@ -278,7 +413,7 @@ func newSourceHTTPClient(allowPrivate bool) *http.Client {
 			if len(via) >= 3 {
 				return errors.New("too many source redirects")
 			}
-			if len(via) > 0 && !strings.EqualFold(request.URL.Hostname(), via[0].URL.Hostname()) {
+			if len(via) > 0 && sourceAuthority(request.URL) != sourceAuthority(via[0].URL) {
 				return errors.New("cross-host source redirect blocked")
 			}
 			if request.URL.User != nil ||
@@ -291,6 +426,19 @@ func newSourceHTTPClient(allowPrivate bool) *http.Client {
 			return validateSourceHost(request.Context(), request.URL.Hostname(), allowPrivate)
 		},
 	}
+}
+
+func sourceAuthority(value *url.URL) string {
+	port := value.Port()
+	if port == "" {
+		switch strings.ToLower(value.Scheme) {
+		case "https":
+			port = "443"
+		case "http":
+			port = "80"
+		}
+	}
+	return strings.ToLower(value.Hostname()) + ":" + port
 }
 
 func resolveSourcePath(baseURL, requestedPath string, directory bool) (*url.URL, error) {
@@ -321,6 +469,15 @@ func resolveSourcePath(baseURL, requestedPath string, directory bool) (*url.URL,
 
 func cleanMediaPath(value string) string {
 	return "/" + strings.TrimPrefix(path.Clean("/"+strings.ReplaceAll(value, "\\", "/")), "/")
+}
+
+func isSubtitlePath(value string) bool {
+	switch strings.ToLower(path.Ext(value)) {
+	case ".srt", ".vtt", ".ass", ".ssa":
+		return true
+	default:
+		return false
+	}
 }
 
 type davMultiStatus struct {

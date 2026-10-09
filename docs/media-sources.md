@@ -18,11 +18,40 @@ Private source addresses and plain HTTP can be enabled only with
 `SAMEFRAME_ALLOW_PRIVATE_SOURCES=true`; this is intended for isolated local
 development networks, not an internet-facing deployment.
 
+## Emby lifecycle
+
+1. The owner submits an HTTPS Emby API base URL, username, and password. The API
+   base may include a reverse-proxy prefix such as `/emby/`.
+2. SameFrame sends the password once to Emby's documented
+   `POST /Users/AuthenticateByName` endpoint with a server-generated device ID.
+3. Only the returned user ID, device ID, server ID, and access token are
+   encrypted in the credential vault. The password is never persisted.
+4. Library browsing calls `GET /Users/{UserId}/Items` and maps folders and video
+   items into the same `MediaFile` tree used by WebDAV. Opaque item IDs form the
+   virtual path; upstream filesystem paths are never exposed.
+5. Ticket creation re-fetches the selected item, chooses its first valid media
+   source, and stores the item/media-source/container tuple only inside the
+   short-lived Redis ticket.
+6. Playback uses Emby's static `/Videos/{Id}/stream.{Container}` endpoint through
+   SameFrame's proxy. Text subtitle streams use Emby's documented subtitle
+   endpoint and are requested as WebVTT.
+7. Deleting an Emby source attempts `POST /Sessions/Logout` before destroying the
+   encrypted local record.
+
+SameFrame supports direct/static streams in this milestone. It intentionally
+does not expose Emby tokens to the player and does not yet request server-side
+transcoding or HLS. The implementation follows Emby's official
+[user authentication](https://dev.emby.media/doc/restapi/User-Authentication.html),
+[library browsing](https://dev.emby.media/doc/restapi/Browsing-the-Library.html),
+[video streaming](https://dev.emby.media/doc/restapi/Video-Streaming.html), and
+[subtitle](https://dev.emby.media/doc/restapi/Subtitles.html) contracts.
+
 ## Room playback tickets
 
-Rooms persist `media_source_id` and `media_path`, never a provider credential or
-long-lived playback URL. Any active room member may request a five-minute opaque
-ticket. Redis stores the ticket mapping to the room owner's source and path.
+Rooms persist `media_source_id` and a virtual `media_path`, never a provider
+credential or long-lived playback URL. Any active room member may request a
+five-minute opaque ticket. Redis stores the ticket mapping to the room owner's
+source and validated upstream media identity.
 The public `/media/{ticket}` endpoint:
 
 - accepts only GET and HEAD;
@@ -43,7 +72,7 @@ cache is capped at 512 MiB with oldest-entry eviction. Web builds use the
 upstream URL directly.
 
 The local route contains a random UUID and accepts only GET/HEAD. It never
-stores WebDAV credentials because the upstream is already a short-lived
+stores WebDAV or Emby credentials because the upstream is already a short-lived
 SameFrame media ticket.
 
 ## Configuration

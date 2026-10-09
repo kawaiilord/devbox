@@ -73,14 +73,18 @@ func TestRedisCoordinatesPlaybackTicketsPresenceAndEvents(t *testing.T) {
 		t.Fatalf("replayed ticket error=%v", err)
 	}
 	mediaRaw, expiresAt, err := nodeA.IssueMediaTicket(ctx, MediaTicket{
-		UserID: owner.ID, SourceID: "source-a", Path: "/movie.mp4",
+		UserID: owner.ID, SourceID: "source-a", Path: "/library/movie1",
+		Kind: "emby-video", ItemID: "movie1", MediaSourceID: "media-source-1",
+		Container: "mkv", PlaySessionID: "play-session-1",
 	}, time.Minute)
 	if err != nil || !expiresAt.After(time.Now()) {
 		t.Fatalf("media ticket expires=%v error=%v", expiresAt, err)
 	}
 	for attempt := 0; attempt < 2; attempt++ {
 		mediaTicket, err := nodeB.MediaTicket(ctx, mediaRaw)
-		if err != nil || mediaTicket.Path != "/movie.mp4" {
+		if err != nil || mediaTicket.Path != "/library/movie1" ||
+			mediaTicket.Kind != "emby-video" || mediaTicket.ItemID != "movie1" ||
+			mediaTicket.MediaSourceID != "media-source-1" || mediaTicket.PlaySessionID != "play-session-1" {
 			t.Fatalf("media ticket=%+v error=%v", mediaTicket, err)
 		}
 	}

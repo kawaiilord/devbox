@@ -29,6 +29,9 @@ var roomChatMigration string
 //go:embed migrations/005_moderation.sql
 var moderationMigration string
 
+//go:embed migrations/006_emby_sources.sql
+var embySourcesMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -55,7 +58,7 @@ func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository,
 func (r *PostgresRepository) Migrate(ctx context.Context) error {
 	for _, migration := range []string{
 		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
-		moderationMigration,
+		moderationMigration, embySourcesMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err

@@ -206,9 +206,15 @@ class _LobbyPageState extends State<LobbyPage> {
                     children: [
                       for (final source in sources)
                         ListTile(
-                          leading: const Icon(Icons.cloud_rounded),
+                          leading: Icon(
+                            source.type == 'emby'
+                                ? Icons.dns_rounded
+                                : Icons.cloud_rounded,
+                          ),
                           title: Text(source.name),
-                          subtitle: Text(source.baseUrl),
+                          subtitle: Text(
+                            '${source.type == 'emby' ? 'Emby' : 'WebDAV'} · ${source.baseUrl}',
+                          ),
                           onTap: () => _browseMediaSource(source),
                           trailing: IconButton(
                             tooltip: '删除媒体源',
@@ -232,6 +238,17 @@ class _LobbyPageState extends State<LobbyPage> {
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('关闭'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final created = await _promptAddEmby();
+                if (created && dialogContext.mounted) {
+                  sources = await widget.api.listMediaSources(session);
+                  setDialogState(() {});
+                }
+              },
+              icon: const Icon(Icons.dns_rounded),
+              label: const Text('添加 Emby'),
             ),
             FilledButton.icon(
               onPressed: () async {
@@ -319,6 +336,83 @@ class _LobbyPageState extends State<LobbyPage> {
     return created;
   }
 
+  Future<bool> _promptAddEmby() async {
+    final session = _session;
+    if (session == null) return false;
+    final name = TextEditingController();
+    final baseUrl = TextEditingController();
+    final username = TextEditingController();
+    final password = TextEditingController();
+    var created = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('添加 Emby'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: '名称'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: baseUrl,
+                decoration: const InputDecoration(
+                  labelText: 'HTTPS Emby API 地址',
+                  hintText: 'https://emby.example.com/emby/',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: username,
+                decoration: const InputDecoration(labelText: 'Emby 用户名'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: password,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Emby 密码'),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '密码仅用于本次登录；服务端只加密保存 Emby 会话令牌。',
+                style: TextStyle(color: Colors.white60),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await widget.api.createEmbySource(
+                session: session,
+                name: name.text,
+                baseUrl: baseUrl.text,
+                username: username.text,
+                password: password.text,
+              );
+              created = true;
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: const Text('登录并保存'),
+          ),
+        ],
+      ),
+    );
+    name.dispose();
+    baseUrl.dispose();
+    username.dispose();
+    password.dispose();
+    return created;
+  }
+
   Future<void> _browseMediaSource(MediaSource source) async {
     final session = _session;
     if (session == null) return;
@@ -383,7 +477,11 @@ class _LobbyPageState extends State<LobbyPage> {
                       }
                       _selectedMediaSourceId = source.id;
                       _selectedMediaPath = file.path;
-                      _source.text = 'WebDAV · ${source.name} · ${file.name}';
+                      final sourceType = source.type == 'emby'
+                          ? 'Emby'
+                          : 'WebDAV';
+                      _source.text =
+                          '$sourceType · ${source.name} · ${file.name}';
                       if (dialogContext.mounted) {
                         Navigator.of(dialogContext).pop();
                       }

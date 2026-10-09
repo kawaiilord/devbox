@@ -50,9 +50,16 @@ type MediaFile struct {
 }
 
 type MediaTicket struct {
-	UserID   string `json:"user_id"`
-	SourceID string `json:"source_id"`
-	Path     string `json:"path"`
+	UserID         string `json:"user_id"`
+	SourceID       string `json:"source_id"`
+	Path           string `json:"path"`
+	Kind           string `json:"kind,omitempty"`
+	ItemID         string `json:"item_id,omitempty"`
+	MediaSourceID  string `json:"media_source_id,omitempty"`
+	Container      string `json:"container,omitempty"`
+	PlaySessionID  string `json:"play_session_id,omitempty"`
+	SubtitleIndex  int    `json:"subtitle_index,omitempty"`
+	SubtitleFormat string `json:"subtitle_format,omitempty"`
 }
 
 type ChatMessage struct {

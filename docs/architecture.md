@@ -16,10 +16,11 @@ Flutter client ── HTTPS ──► Go API nodes ──► PostgreSQL
        └── direct HTTP media     │    hot playback / PubSub / presence
 ```
 
-WebDAV credentials are an encrypted PostgreSQL record. API nodes decrypt them
-only while making an outbound request through an SSRF-restricted transport.
-Players consume a renewable SameFrame media ticket, optionally through the
-desktop loopback Range cache; they never receive provider credentials.
+WebDAV credentials and Emby session tokens are encrypted PostgreSQL records.
+API nodes decrypt them only while making an outbound request through an
+SSRF-restricted transport. Players consume a renewable SameFrame media ticket,
+optionally through the desktop loopback Range cache; they never receive provider
+credentials.
 
 Chat is written to PostgreSQL before a canonical message envelope is published
 through Redis to every WebSocket node. Each node checks both directions of the
@@ -131,8 +132,8 @@ The `*` origin setting in `docker-compose.yml` is for local development only.
 
 1. Move critical Pub/Sub events to Redis Streams if replay is needed and export
    audit-chain checkpoints to immutable external storage.
-2. Add Emby and object-storage adapters behind the same encrypted source
-   interface; move the static vault master key to a managed KMS envelope.
+2. Add object-storage adapters behind the same encrypted source interface; move
+   the static vault master key to a managed KMS envelope.
 3. Embedded-track controls, subtitle style/delay, and richer cache controls.
 4. Add moderator queues, appeals, retention controls, and abuse analytics before
    enabling public room discovery.

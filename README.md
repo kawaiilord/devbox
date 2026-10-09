@@ -22,8 +22,8 @@ The current foundation contains:
   and password recovery;
 - single-use email verification and password-reset tokens delivered through a
   configurable authenticated webhook;
-- encrypted WebDAV sources, renewable five-minute media tickets, Range
-  streaming, and a bounded desktop loopback cache;
+- encrypted WebDAV and Emby sources, renewable five-minute media tickets,
+  Range streaming, and a bounded desktop loopback cache;
 - persistent cross-node room chat, same-directory external subtitles, and
   actionable playback-error classification;
 - bidirectional chat blocking, per-user privacy controls, room/message/user

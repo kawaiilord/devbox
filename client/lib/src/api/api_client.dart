@@ -183,6 +183,27 @@ class ApiClient {
     return MediaSource.fromJson(data);
   }
 
+  Future<MediaSource> createEmbySource({
+    required Session session,
+    required String name,
+    required String baseUrl,
+    required String username,
+    required String password,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/sources/emby',
+      session: session,
+      body: {
+        'name': name,
+        'base_url': baseUrl,
+        'username': username,
+        'password': password,
+      },
+    );
+    return MediaSource.fromJson(data);
+  }
+
   Future<List<MediaSource>> listMediaSources(Session session) async {
     final data = await _request('GET', '/api/v1/sources', session: session);
     return (data['sources'] as List<dynamic>)

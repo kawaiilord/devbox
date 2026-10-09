@@ -64,6 +64,20 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	embyEncrypted, err := vault.Encrypt(
+		[]byte(`{"user_id":"emby-user","access_token":"encrypted-token","device_id":"device-id"}`),
+		sourceAAD(owner.User.ID, "source-emby"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateMediaSource(ctx, MediaSource{
+		ID: "source-emby", UserID: owner.User.ID, Type: "emby", Name: "Persistent Emby",
+		BaseURL: "https://emby.example.com/emby/", CredentialsCiphertext: embyEncrypted,
+		CreatedAt: time.Now().UnixMilli(), UpdatedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		t.Fatal(err)
+	}
 	store := NewStore()
 	room, err := store.CreateMediaRoom(
 		owner.User, "Persistent room", "source-postgres", "/movie.mp4", 4,
@@ -131,7 +145,9 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 		t.Fatalf("restored messages=%+v error=%v", messages, err)
 	}
 	sources, err := reopened.ListMediaSources(ctx, owner.User.ID)
-	if err != nil || len(sources) != 1 || sources[0].CredentialsCiphertext != encrypted {
+	if err != nil || len(sources) != 2 ||
+		(sources[0].CredentialsCiphertext != encrypted && sources[1].CredentialsCiphertext != encrypted) ||
+		(sources[0].CredentialsCiphertext != embyEncrypted && sources[1].CredentialsCiphertext != embyEncrypted) {
 		t.Fatalf("restored sources=%+v error=%v", sources, err)
 	}
 	freshAuth := NewAuthService(reopened, tokens)

@@ -241,6 +241,45 @@ void main() {
       api.close();
     },
   );
+
+  test('creates an Emby source through the authenticated API', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/v1/sources/emby');
+      expect(request.headers['Authorization'], 'Bearer old-access');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body, {
+        'name': 'Home Emby',
+        'base_url': 'https://emby.example.com/emby/',
+        'username': 'viewer',
+        'password': 'temporary-password',
+      });
+      return http.Response(
+        jsonEncode({
+          'code': 0,
+          'data': {
+            'id': 'source-emby',
+            'type': 'emby',
+            'name': 'Home Emby',
+            'base_url': 'https://emby.example.com/emby/',
+          },
+          'msg': 'created',
+        }),
+        201,
+      );
+    });
+    final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+    final source = await api.createEmbySource(
+      session: _session(),
+      name: 'Home Emby',
+      baseUrl: 'https://emby.example.com/emby/',
+      username: 'viewer',
+      password: 'temporary-password',
+    );
+    expect(source.type, 'emby');
+    expect(source.id, 'source-emby');
+    api.close();
+  });
 }
 
 Session _session() => Session(
