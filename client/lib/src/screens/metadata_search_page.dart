@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import 'reviews_page.dart';
 
 class MetadataSearchPage extends StatefulWidget {
   const MetadataSearchPage({
@@ -114,6 +115,18 @@ class _MetadataSearchPageState extends State<MetadataSearchPage> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           isThreeLine: true,
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ReviewsPage(
+                                api: widget.api,
+                                session: widget.session,
+                                targetType: result.mediaType,
+                                targetId: result.id.toString(),
+                                title: result.title,
+                              ),
+                            ),
+                          ),
                         ),
                       );
                     },

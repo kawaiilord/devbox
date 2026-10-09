@@ -536,6 +536,78 @@ void main() {
     await api.unfollowUser(session, 'peer');
     api.close();
   });
+
+  test('review API signs upload, uploads bytes, and parses reviews', () async {
+    final requests = <String>[];
+    final client = MockClient((request) async {
+      requests.add('${request.method} ${request.url}');
+      if (request.url.host == 'objects.example.com') {
+        expect(request.method, 'PUT');
+        expect(request.headers['content-type'], 'image/png');
+        expect(request.bodyBytes, [1, 2, 3]);
+        return http.Response('', 200);
+      }
+      expect(request.headers['Authorization'], 'Bearer old-access');
+      if (request.url.path == '/api/v1/reviews/uploads') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'object_key': 'reviews/owner/picture.png',
+              'upload_url': 'https://objects.example.com/signed-put',
+              'expires_at': 1000,
+            },
+            'msg': 'created',
+          }),
+          201,
+        );
+      }
+      if (request.url.path == '/api/v1/reviews' && request.method == 'POST') {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['image_keys'], ['reviews/owner/picture.png']);
+        return _reviewResponse();
+      }
+      if (request.url.path == '/api/v1/reviews') {
+        expect(request.url.queryParameters['target_type'], 'movie');
+        expect(request.url.queryParameters['target_id'], '42');
+        final review = jsonDecode(_reviewResponse().body)['data'];
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'reviews': [review],
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      return http.Response('not found', 404);
+    });
+    final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+    final session = _session();
+
+    final key = await api.uploadReviewImage(
+      session: session,
+      filename: 'picture.png',
+      contentType: 'image/png',
+      bytes: [1, 2, 3],
+    );
+    expect(key, 'reviews/owner/picture.png');
+    final saved = await api.saveReview(
+      session: session,
+      targetType: 'movie',
+      targetId: '42',
+      title: 'Movie',
+      rating: 9,
+      content: 'Excellent',
+      imageKeys: [key],
+    );
+    expect(saved.rating, 9);
+    expect((await api.reviews(session, 'movie', '42')).single.id, 12);
+    expect(requests, hasLength(4));
+    api.close();
+  });
 }
 
 Session _session() => Session(
@@ -593,4 +665,32 @@ http.Response _roomResponse() => http.Response(
     'msg': 'created',
   }),
   201,
+);
+
+http.Response _reviewResponse() => http.Response(
+  jsonEncode({
+    'code': 0,
+    'data': {
+      'id': 12,
+      'author': {
+        'id': 'owner',
+        'display_name': 'Owner',
+        'signature': '',
+        'following': false,
+        'follows_viewer': false,
+        'follower_count': 0,
+        'following_count': 0,
+      },
+      'target_type': 'movie',
+      'target_id': '42',
+      'title': 'Movie',
+      'rating': 9,
+      'content': 'Excellent',
+      'image_urls': ['https://objects.example.com/signed-get'],
+      'created_at': 1000,
+      'updated_at': 1000,
+    },
+    'msg': 'ok',
+  }),
+  200,
 );

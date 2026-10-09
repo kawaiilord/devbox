@@ -382,6 +382,115 @@ class ApiClient {
         .toList(growable: false);
   }
 
+  Future<ObjectUpload> createReviewUpload({
+    required Session session,
+    required String filename,
+    required String contentType,
+    required int size,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/reviews/uploads',
+      session: session,
+      body: {'filename': filename, 'content_type': contentType, 'size': size},
+    );
+    return ObjectUpload.fromJson(data);
+  }
+
+  Future<String> uploadReviewImage({
+    required Session session,
+    required String filename,
+    required String contentType,
+    required List<int> bytes,
+  }) async {
+    final upload = await createReviewUpload(
+      session: session,
+      filename: filename,
+      contentType: contentType,
+      size: bytes.length,
+    );
+    final response = await _client.put(
+      Uri.parse(upload.uploadUrl),
+      headers: {'Content-Type': contentType},
+      body: bytes,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const ApiException('图片上传失败');
+    }
+    return upload.objectKey;
+  }
+
+  Future<Review> saveReview({
+    required Session session,
+    required String targetType,
+    required String targetId,
+    required String title,
+    required int rating,
+    required String content,
+    List<String> imageKeys = const [],
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/reviews',
+      session: session,
+      body: {
+        'target_type': targetType,
+        'target_id': targetId,
+        'title': title,
+        'rating': rating,
+        'content': content,
+        'image_keys': imageKeys,
+      },
+    );
+    return Review.fromJson(data);
+  }
+
+  Future<List<Review>> reviews(
+    Session session,
+    String targetType,
+    String targetId,
+  ) async {
+    final uri = Uri(
+      path: '/api/v1/reviews',
+      queryParameters: {'target_type': targetType, 'target_id': targetId},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['reviews'] as List<dynamic>)
+        .map((value) => Review.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> deleteReview(Session session, int id) =>
+      _request('DELETE', '/api/v1/reviews/$id', session: session);
+
+  Future<ReviewComment> addReviewComment(
+    Session session,
+    int reviewId,
+    String body,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/reviews/$reviewId/comments',
+      session: session,
+      body: {'body': body},
+    );
+    return ReviewComment.fromJson(data);
+  }
+
+  Future<List<ReviewComment>> reviewComments(
+    Session session,
+    int reviewId,
+  ) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/reviews/$reviewId/comments',
+      session: session,
+    );
+    return (data['comments'] as List<dynamic>)
+        .map((value) => ReviewComment.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   Future<List<SocialProfile>> searchSocialUsers(
     Session session,
     String query,

@@ -128,6 +128,15 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	var objectStore app.ObjectStore
+	if endpoint := os.Getenv("SAMEFRAME_S3_ENDPOINT"); endpoint != "" {
+		store, storeErr := app.NewS3ObjectStore(endpoint, os.Getenv("SAMEFRAME_S3_ACCESS_KEY"), os.Getenv("SAMEFRAME_S3_SECRET_KEY"), os.Getenv("SAMEFRAME_S3_BUCKET"))
+		if storeErr != nil {
+			logger.Error("configure object storage", "error", storeErr)
+			os.Exit(1)
+		}
+		objectStore = store
+	}
 	server := app.NewServer(app.Options{
 		Address:              addr,
 		AllowedOrigins:       origins,
@@ -142,6 +151,7 @@ func main() {
 		PublicBaseURL:        os.Getenv("SAMEFRAME_PUBLIC_BASE_URL"),
 		Metadata:             metadataClient,
 		RTC:                  rtcManager,
+		Objects:              objectStore,
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

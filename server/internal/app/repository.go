@@ -101,6 +101,11 @@ type Repository interface {
 	AddCoupleMoment(context.Context, string, string) (CoupleMoment, error)
 	ListCoupleMoments(context.Context, string, int64, int) ([]CoupleMoment, error)
 	ListCoupleEvents(context.Context, string, int) ([]CoupleEvent, error)
+	UpsertReview(context.Context, Review) (Review, []string, error)
+	ListReviews(context.Context, string, string, string, int64, int) ([]Review, error)
+	DeleteReview(context.Context, string, int64) ([]string, error)
+	AddReviewComment(context.Context, ReviewComment) (ReviewComment, error)
+	ListReviewComments(context.Context, string, int64, int64, int) ([]ReviewComment, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -173,6 +178,11 @@ type MemoryRepository struct {
 	nextCoupleMoment  int64
 	coupleEvents      map[int64][]CoupleEvent
 	nextCoupleEvent   int64
+	reviews           map[int64]Review
+	reviewKeys        map[string]int64
+	nextReview        int64
+	reviewComments    map[int64][]ReviewComment
+	nextReviewComment int64
 }
 
 type memoryConversation struct {
@@ -230,6 +240,8 @@ func NewMemoryRepository() *MemoryRepository {
 		couples: make(map[int64]memoryCouple), nextCouple: 1,
 		coupleMoments: make(map[int64][]memoryCoupleMoment), nextCoupleMoment: 1,
 		coupleEvents: make(map[int64][]CoupleEvent), nextCoupleEvent: 1,
+		reviews: make(map[int64]Review), reviewKeys: make(map[string]int64), nextReview: 1,
+		reviewComments: make(map[int64][]ReviewComment), nextReviewComment: 1,
 	}
 }
 

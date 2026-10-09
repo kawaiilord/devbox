@@ -34,6 +34,7 @@ type Options struct {
 	PublicBaseURL        string
 	Metadata             *MetadataClient
 	RTC                  *RTCConfigManager
+	Objects              ObjectStore
 }
 
 type Server struct {
@@ -95,6 +96,12 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/social/unread", s.directUnread)
 	mux.HandleFunc("POST /api/v1/social/socket-ticket", s.socialSocketTicket)
 	mux.HandleFunc("GET /ws/v1/social", s.socialSocket)
+	mux.HandleFunc("POST /api/v1/reviews/uploads", s.createReviewUpload)
+	mux.HandleFunc("POST /api/v1/reviews", s.upsertReview)
+	mux.HandleFunc("GET /api/v1/reviews", s.listReviews)
+	mux.HandleFunc("DELETE /api/v1/reviews/{id}", s.deleteReview)
+	mux.HandleFunc("POST /api/v1/reviews/{id}/comments", s.addReviewComment)
+	mux.HandleFunc("GET /api/v1/reviews/{id}/comments", s.listReviewComments)
 	mux.HandleFunc("GET /api/v1/couple", s.coupleInfo)
 	mux.HandleFunc("POST /api/v1/couple/requests", s.requestCouple)
 	mux.HandleFunc("GET /api/v1/couple/requests", s.coupleRequests)
@@ -208,6 +215,8 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"metadata_search":    s.options.Metadata != nil,
 		"social_messaging":   true,
 		"couple_space":       true,
+		"reviews":            true,
+		"object_storage":     s.options.Objects != nil,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,

@@ -121,6 +121,27 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	if err != nil || chat.ID == 0 {
 		t.Fatalf("chat=%+v error=%v", chat, err)
 	}
+	review, removed, err := repository.UpsertReview(ctx, Review{
+		UserID: owner.User.ID, TargetType: "movie", TargetID: "tmdb:42",
+		Title: "Persistent review", Rating: 9, Content: "Survives a repository reopen",
+		ImageKeys: []string{"reviews/" + owner.User.ID + "/first.jpg"},
+	})
+	if err != nil || review.ID == 0 || len(removed) != 0 {
+		t.Fatalf("review=%+v removed=%v error=%v", review, removed, err)
+	}
+	review, removed, err = repository.UpsertReview(ctx, Review{
+		UserID: owner.User.ID, TargetType: "movie", TargetID: "tmdb:42",
+		Title: "Persistent review", Rating: 10, Content: "Updated review",
+	})
+	if err != nil || len(removed) != 1 {
+		t.Fatalf("updated review=%+v removed=%v error=%v", review, removed, err)
+	}
+	comment, err := repository.AddReviewComment(ctx, ReviewComment{
+		ReviewID: review.ID, UserID: member.User.ID, Body: "Persistent comment",
+	})
+	if err != nil || comment.ID == 0 {
+		t.Fatalf("review comment=%+v error=%v", comment, err)
+	}
 	repository.Close()
 
 	reopened, err := OpenPostgres(ctx, databaseURL)
@@ -144,6 +165,14 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	messages, err := reopened.ListRoomMessages(ctx, room.Code, owner.User.ID, 0, 50)
 	if err != nil || len(messages) != 1 || messages[0].Body != "persistent hello" {
 		t.Fatalf("restored messages=%+v error=%v", messages, err)
+	}
+	reviews, err := reopened.ListReviews(ctx, member.User.ID, "movie", "tmdb:42", 0, 10)
+	if err != nil || len(reviews) != 1 || reviews[0].Rating != 10 {
+		t.Fatalf("restored reviews=%+v error=%v", reviews, err)
+	}
+	comments, err := reopened.ListReviewComments(ctx, owner.User.ID, review.ID, 0, 10)
+	if err != nil || len(comments) != 1 || comments[0].Body != "Persistent comment" {
+		t.Fatalf("restored review comments=%+v error=%v", comments, err)
 	}
 	sources, err := reopened.ListMediaSources(ctx, owner.User.ID)
 	if err != nil || len(sources) != 2 ||

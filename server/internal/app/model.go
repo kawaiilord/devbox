@@ -197,6 +197,34 @@ type CoupleEvent struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+type Review struct {
+	ID         int64         `json:"id"`
+	UserID     string        `json:"-"`
+	Author     SocialProfile `json:"author"`
+	TargetType string        `json:"target_type"`
+	TargetID   string        `json:"target_id"`
+	Title      string        `json:"title"`
+	Rating     int           `json:"rating"`
+	Content    string        `json:"content"`
+	ImageKeys  []string      `json:"-"`
+	ImageURLs  []string      `json:"image_urls"`
+	CreatedAt  int64         `json:"created_at"`
+	UpdatedAt  int64         `json:"updated_at"`
+}
+type ReviewComment struct {
+	ID        int64         `json:"id"`
+	ReviewID  int64         `json:"review_id"`
+	UserID    string        `json:"-"`
+	Author    SocialProfile `json:"author"`
+	Body      string        `json:"body"`
+	CreatedAt int64         `json:"created_at"`
+}
+type ObjectUpload struct {
+	ObjectKey string `json:"object_key"`
+	UploadURL string `json:"upload_url"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
 type Report struct {
 	ID         int64  `json:"id"`
 	ReporterID string `json:"reporter_id"`

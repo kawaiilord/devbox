@@ -274,6 +274,89 @@ class MetadataResult {
   );
 }
 
+class Review {
+  const Review({
+    required this.id,
+    required this.author,
+    required this.targetType,
+    required this.targetId,
+    required this.title,
+    required this.rating,
+    required this.content,
+    required this.imageUrls,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final int id;
+  final SocialProfile author;
+  final String targetType;
+  final String targetId;
+  final String title;
+  final int rating;
+  final String content;
+  final List<String> imageUrls;
+  final int createdAt;
+  final int updatedAt;
+
+  factory Review.fromJson(Map<String, dynamic> json) => Review(
+    id: (json['id'] as num).toInt(),
+    author: SocialProfile.fromJson(json['author'] as Map<String, dynamic>),
+    targetType: json['target_type'] as String,
+    targetId: json['target_id'] as String,
+    title: json['title'] as String,
+    rating: (json['rating'] as num).toInt(),
+    content: json['content'] as String,
+    imageUrls: (json['image_urls'] as List<dynamic>? ?? const [])
+        .map((value) => value.toString())
+        .toList(growable: false),
+    createdAt: (json['created_at'] as num).toInt(),
+    updatedAt: (json['updated_at'] as num).toInt(),
+  );
+}
+
+class ReviewComment {
+  const ReviewComment({
+    required this.id,
+    required this.reviewId,
+    required this.author,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int reviewId;
+  final SocialProfile author;
+  final String body;
+  final int createdAt;
+
+  factory ReviewComment.fromJson(Map<String, dynamic> json) => ReviewComment(
+    id: (json['id'] as num).toInt(),
+    reviewId: (json['review_id'] as num).toInt(),
+    author: SocialProfile.fromJson(json['author'] as Map<String, dynamic>),
+    body: json['body'] as String,
+    createdAt: (json['created_at'] as num).toInt(),
+  );
+}
+
+class ObjectUpload {
+  const ObjectUpload({
+    required this.objectKey,
+    required this.uploadUrl,
+    required this.expiresAt,
+  });
+
+  final String objectKey;
+  final String uploadUrl;
+  final int expiresAt;
+
+  factory ObjectUpload.fromJson(Map<String, dynamic> json) => ObjectUpload(
+    objectKey: json['object_key'] as String,
+    uploadUrl: json['upload_url'] as String,
+    expiresAt: (json['expires_at'] as num).toInt(),
+  );
+}
+
 class SocialProfile {
   const SocialProfile({
     required this.id,
