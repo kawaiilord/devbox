@@ -382,6 +382,96 @@ class ApiClient {
         .toList(growable: false);
   }
 
+  Future<List<SocialProfile>> searchSocialUsers(
+    Session session,
+    String query,
+  ) async {
+    final uri = Uri(
+      path: '/api/v1/social/users',
+      queryParameters: {'q': query},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['users'] as List<dynamic>)
+        .map((value) => SocialProfile.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> followUser(Session session, String id) =>
+      _request('POST', '/api/v1/social/users/$id/follow', session: session);
+  Future<void> unfollowUser(Session session, String id) =>
+      _request('DELETE', '/api/v1/social/users/$id/follow', session: session);
+  Future<Conversation> createConversation(
+    Session session,
+    String userId,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/social/conversations',
+      session: session,
+      body: {'user_id': userId},
+    );
+    return Conversation.fromJson(data);
+  }
+
+  Future<List<Conversation>> conversations(Session session) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/social/conversations',
+      session: session,
+    );
+    return (data['conversations'] as List<dynamic>)
+        .map((value) => Conversation.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<List<DirectMessage>> directMessages(Session session, int id) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/social/conversations/$id/messages',
+      session: session,
+    );
+    return (data['messages'] as List<dynamic>)
+        .map((value) => DirectMessage.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<DirectMessage> sendDirectMessage(
+    Session session,
+    int id,
+    String body,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/social/conversations/$id/messages',
+      session: session,
+      body: {'body': body},
+    );
+    return DirectMessage.fromJson(data);
+  }
+
+  Future<int> directUnread(Session session) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/social/unread',
+      session: session,
+    );
+    return (data['count'] as num).toInt();
+  }
+
+  Future<Uri> socialSocketUri(Session session) async {
+    final ticket = await _request(
+      'POST',
+      '/api/v1/social/socket-ticket',
+      session: session,
+    );
+    final httpUri = Uri.parse(baseUrl);
+    return httpUri.replace(
+      scheme: httpUri.scheme == 'https' ? 'wss' : 'ws',
+      path: '/ws/v1/social',
+      queryParameters: {'ticket': ticket['ticket'] as String},
+    );
+  }
+
   Future<void> deleteWatchRecord(Session session, int id) async {
     await _request('DELETE', '/api/v1/history/$id', session: session);
   }

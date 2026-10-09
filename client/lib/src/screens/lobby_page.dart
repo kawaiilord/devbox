@@ -6,6 +6,7 @@ import 'library_page.dart';
 import 'metadata_search_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
+import 'social_page.dart';
 
 class LobbyPage extends StatefulWidget {
   const LobbyPage({super.key, required this.api});
@@ -205,6 +206,16 @@ class _LobbyPageState extends State<LobbyPage> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MetadataSearchPage(api: widget.api, session: session),
+      ),
+    );
+  }
+
+  void _showSocial() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SocialPage(api: widget.api, session: session),
       ),
     );
   }
@@ -679,6 +690,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onPrivacy: _session == null ? null : _showPrivacy,
                     onLibrary: _session == null ? null : _showLibrary,
                     onMetadata: _session == null ? null : _showMetadataSearch,
+                    onSocial: _session == null ? null : _showSocial,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -777,6 +789,7 @@ class _Brand extends StatelessWidget {
     required this.onPrivacy,
     required this.onLibrary,
     required this.onMetadata,
+    required this.onSocial,
   });
   final Session? session;
   final VoidCallback? onLogout;
@@ -785,6 +798,7 @@ class _Brand extends StatelessWidget {
   final VoidCallback? onPrivacy;
   final VoidCallback? onLibrary;
   final VoidCallback? onMetadata;
+  final VoidCallback? onSocial;
 
   @override
   Widget build(BuildContext context) {
@@ -819,6 +833,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onSocial != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onSocial,
+            tooltip: '社交与私聊',
+            icon: const Icon(Icons.people_outline_rounded),
+          ),
+        ],
         if (onMetadata != null) ...[
           const SizedBox(width: 8),
           IconButton(

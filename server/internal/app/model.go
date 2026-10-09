@@ -12,6 +12,7 @@ type User struct {
 	EmailVerified  bool   `json:"email_verified"`
 	SessionVersion int64  `json:"-"`
 	IsAdmin        bool   `json:"is_admin"`
+	Signature      string `json:"signature,omitempty"`
 }
 
 type DeviceInfo struct {
@@ -134,8 +135,35 @@ type ChatMessage struct {
 
 type PrivacySettings struct {
 	AllowRoomChat     bool `json:"allow_room_chat"`
+	AllowPrivateChat  bool `json:"allow_private_chat"`
 	AllowProfileFind  bool `json:"allow_profile_find"`
 	ShowWatchActivity bool `json:"show_watch_activity"`
+}
+
+type SocialProfile struct {
+	ID             string `json:"id"`
+	DisplayName    string `json:"display_name"`
+	Signature      string `json:"signature,omitempty"`
+	Following      bool   `json:"following"`
+	FollowsViewer  bool   `json:"follows_viewer"`
+	FollowerCount  int    `json:"follower_count"`
+	FollowingCount int    `json:"following_count"`
+}
+
+type Conversation struct {
+	ID            int64         `json:"id"`
+	Peer          SocialProfile `json:"peer"`
+	LastMessage   string        `json:"last_message,omitempty"`
+	LastMessageAt int64         `json:"last_message_at,omitempty"`
+	UnreadCount   int           `json:"unread_count"`
+}
+
+type DirectMessage struct {
+	ID             int64  `json:"id"`
+	ConversationID int64  `json:"conversation_id"`
+	SenderID       string `json:"sender_id"`
+	Body           string `json:"body"`
+	CreatedAt      int64  `json:"created_at"`
 }
 
 type Report struct {

@@ -38,6 +38,9 @@ var personalLibraryMigration string
 //go:embed migrations/008_danmaku.sql
 var danmakuMigration string
 
+//go:embed migrations/009_social_messaging.sql
+var socialMessagingMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -65,6 +68,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 	for _, migration := range []string{
 		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
 		moderationMigration, embySourcesMigration, personalLibraryMigration, danmakuMigration,
+		socialMessagingMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -96,7 +100,7 @@ func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (Acc
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature
 		 FROM users WHERE email = lower($1)`,
 		email,
 	))
@@ -106,7 +110,7 @@ func (r *PostgresRepository) UserByID(ctx context.Context, id string) (AccountRe
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature
 		 FROM users WHERE id = $1`,
 		id,
 	))
@@ -123,6 +127,7 @@ func scanAccount(row pgx.Row) (AccountRecord, error) {
 		&account.EmailVerified,
 		&account.SessionVersion,
 		&account.IsAdmin,
+		&account.Signature,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AccountRecord{}, ErrInvalidCredentials
@@ -191,7 +196,7 @@ func (r *PostgresRepository) RotateRefreshToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin FROM users WHERE id = $1`,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -415,7 +420,7 @@ func (r *PostgresRepository) ConsumeActionToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin FROM users WHERE id = $1`,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -865,14 +870,18 @@ func (r *PostgresRepository) ListRoomMessages(
 
 func (r *PostgresRepository) GetPrivacy(ctx context.Context, userID string) (PrivacySettings, error) {
 	settings := PrivacySettings{
-		AllowRoomChat: true, AllowProfileFind: true, ShowWatchActivity: true,
+		AllowRoomChat: true, AllowPrivateChat: true,
+		AllowProfileFind: true, ShowWatchActivity: true,
 	}
 	err := r.pool.QueryRow(
 		ctx,
-		`SELECT allow_room_chat, allow_profile_find, show_watch_activity
+		`SELECT allow_room_chat, allow_private_chat, allow_profile_find, show_watch_activity
 		 FROM user_privacy WHERE user_id = $1`,
 		userID,
-	).Scan(&settings.AllowRoomChat, &settings.AllowProfileFind, &settings.ShowWatchActivity)
+	).Scan(
+		&settings.AllowRoomChat, &settings.AllowPrivateChat,
+		&settings.AllowProfileFind, &settings.ShowWatchActivity,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return settings, nil
 	}
@@ -887,15 +896,18 @@ func (r *PostgresRepository) UpdatePrivacy(
 	_, err := r.pool.Exec(
 		ctx,
 		`INSERT INTO user_privacy (
-		   user_id, allow_room_chat, allow_profile_find, show_watch_activity, updated_at
-		 ) VALUES ($1,$2,$3,$4,now())
+		   user_id, allow_room_chat, allow_private_chat,
+		   allow_profile_find, show_watch_activity, updated_at
+		 ) VALUES ($1,$2,$3,$4,$5,now())
 		 ON CONFLICT (user_id) DO UPDATE SET
 		   allow_room_chat = EXCLUDED.allow_room_chat,
+		   allow_private_chat = EXCLUDED.allow_private_chat,
 		   allow_profile_find = EXCLUDED.allow_profile_find,
 		   show_watch_activity = EXCLUDED.show_watch_activity,
 		   updated_at = now()`,
 		userID,
 		settings.AllowRoomChat,
+		settings.AllowPrivateChat,
 		settings.AllowProfileFind,
 		settings.ShowWatchActivity,
 	)

@@ -80,6 +80,17 @@ type Repository interface {
 	SetUserAdmin(context.Context, string, bool) error
 	AppendAudit(context.Context, AuditEvent) (AuditEvent, error)
 	ListAudit(context.Context, int64, int) ([]AuditEvent, error)
+	SearchSocialProfiles(context.Context, string, string, int) ([]SocialProfile, error)
+	GetSocialProfile(context.Context, string, string) (SocialProfile, error)
+	FollowUser(context.Context, string, string) error
+	UnfollowUser(context.Context, string, string) error
+	CreateConversation(context.Context, string, string) (Conversation, error)
+	ListConversations(context.Context, string, int) ([]Conversation, error)
+	ListDirectMessages(context.Context, string, int64, int64, int) ([]DirectMessage, error)
+	ConversationPeer(context.Context, string, int64) (string, error)
+	AddDirectMessage(context.Context, string, int64, string) (DirectMessage, string, error)
+	MarkConversationRead(context.Context, string, int64, int64) error
+	UnreadDirectCount(context.Context, string) (int, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -112,55 +123,76 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
-	mu            sync.RWMutex
-	usersByID     map[string]AccountRecord
-	usersByMail   map[string]string
-	refresh       map[string]memoryRefreshToken
-	devices       map[string]memoryDevice
-	userDevices   map[string]map[string]memoryUserDevice
-	actionTokens  map[string]memoryActionToken
-	mediaSources  map[string]MediaSource
-	favorites     map[int64]Favorite
-	favoriteKeys  map[string]int64
-	nextFavorite  int64
-	watchRecords  map[int64]WatchRecord
-	watchKeys     map[string]int64
-	nextWatch     int64
-	danmaku       []DanmakuMessage
-	nextDanmaku   int64
-	messages      []ChatMessage
-	nextMessageID int64
-	rooms         map[string]Room
-	privacy       map[string]PrivacySettings
-	blocks        map[string]map[string]time.Time
-	reports       []Report
-	nextReportID  int64
-	audit         []AuditEvent
-	nextAuditID   int64
+	mu                sync.RWMutex
+	usersByID         map[string]AccountRecord
+	usersByMail       map[string]string
+	refresh           map[string]memoryRefreshToken
+	devices           map[string]memoryDevice
+	userDevices       map[string]map[string]memoryUserDevice
+	actionTokens      map[string]memoryActionToken
+	mediaSources      map[string]MediaSource
+	favorites         map[int64]Favorite
+	favoriteKeys      map[string]int64
+	nextFavorite      int64
+	watchRecords      map[int64]WatchRecord
+	watchKeys         map[string]int64
+	nextWatch         int64
+	danmaku           []DanmakuMessage
+	nextDanmaku       int64
+	messages          []ChatMessage
+	nextMessageID     int64
+	rooms             map[string]Room
+	privacy           map[string]PrivacySettings
+	blocks            map[string]map[string]time.Time
+	reports           []Report
+	nextReportID      int64
+	audit             []AuditEvent
+	nextAuditID       int64
+	follows           map[string]map[string]time.Time
+	conversations     map[int64]memoryConversation
+	conversationKeys  map[string]int64
+	nextConversation  int64
+	directMessages    map[int64][]DirectMessage
+	nextDirectMessage int64
+	conversationReads map[int64]map[string]int64
+}
+
+type memoryConversation struct {
+	id       int64
+	userLow  string
+	userHigh string
+	updated  time.Time
 }
 
 func NewMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{
-		usersByID:     make(map[string]AccountRecord),
-		usersByMail:   make(map[string]string),
-		refresh:       make(map[string]memoryRefreshToken),
-		devices:       make(map[string]memoryDevice),
-		userDevices:   make(map[string]map[string]memoryUserDevice),
-		actionTokens:  make(map[string]memoryActionToken),
-		mediaSources:  make(map[string]MediaSource),
-		favorites:     make(map[int64]Favorite),
-		favoriteKeys:  make(map[string]int64),
-		nextFavorite:  1,
-		watchRecords:  make(map[int64]WatchRecord),
-		watchKeys:     make(map[string]int64),
-		nextWatch:     1,
-		nextDanmaku:   1,
-		nextMessageID: 1,
-		rooms:         make(map[string]Room),
-		privacy:       make(map[string]PrivacySettings),
-		blocks:        make(map[string]map[string]time.Time),
-		nextReportID:  1,
-		nextAuditID:   1,
+		usersByID:         make(map[string]AccountRecord),
+		usersByMail:       make(map[string]string),
+		refresh:           make(map[string]memoryRefreshToken),
+		devices:           make(map[string]memoryDevice),
+		userDevices:       make(map[string]map[string]memoryUserDevice),
+		actionTokens:      make(map[string]memoryActionToken),
+		mediaSources:      make(map[string]MediaSource),
+		favorites:         make(map[int64]Favorite),
+		favoriteKeys:      make(map[string]int64),
+		nextFavorite:      1,
+		watchRecords:      make(map[int64]WatchRecord),
+		watchKeys:         make(map[string]int64),
+		nextWatch:         1,
+		nextDanmaku:       1,
+		nextMessageID:     1,
+		rooms:             make(map[string]Room),
+		privacy:           make(map[string]PrivacySettings),
+		blocks:            make(map[string]map[string]time.Time),
+		nextReportID:      1,
+		nextAuditID:       1,
+		follows:           make(map[string]map[string]time.Time),
+		conversations:     make(map[int64]memoryConversation),
+		conversationKeys:  make(map[string]int64),
+		nextConversation:  1,
+		directMessages:    make(map[int64][]DirectMessage),
+		nextDirectMessage: 1,
+		conversationReads: make(map[int64]map[string]int64),
 	}
 }
 
@@ -649,7 +681,10 @@ func (r *MemoryRepository) GetPrivacy(_ context.Context, userID string) (Privacy
 	defer r.mu.RUnlock()
 	settings, ok := r.privacy[userID]
 	if !ok {
-		return PrivacySettings{AllowRoomChat: true, AllowProfileFind: true, ShowWatchActivity: true}, nil
+		return PrivacySettings{
+			AllowRoomChat: true, AllowPrivateChat: true,
+			AllowProfileFind: true, ShowWatchActivity: true,
+		}, nil
 	}
 	return settings, nil
 }
@@ -833,6 +868,271 @@ func (r *MemoryRepository) ListAudit(_ context.Context, before int64, limit int)
 		}
 	}
 	return result, nil
+}
+
+func (r *MemoryRepository) SearchSocialProfiles(
+	_ context.Context, viewerID, query string, limit int,
+) ([]SocialProfile, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	query = strings.ToLower(strings.TrimSpace(query))
+	result := make([]SocialProfile, 0)
+	for id, account := range r.usersByID {
+		if id == viewerID || memoryUsersBlocked(r.blocks, viewerID, id) {
+			continue
+		}
+		privacy, ok := r.privacy[id]
+		if ok && !privacy.AllowProfileFind {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(account.DisplayName), query) &&
+			strings.ToLower(account.Email) != query {
+			continue
+		}
+		result = append(result, r.socialProfileLocked(viewerID, id))
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return strings.ToLower(result[i].DisplayName) < strings.ToLower(result[j].DisplayName)
+	})
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) GetSocialProfile(_ context.Context, viewerID, targetID string) (SocialProfile, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if _, ok := r.usersByID[targetID]; !ok || memoryUsersBlocked(r.blocks, viewerID, targetID) {
+		return SocialProfile{}, ErrNotFound
+	}
+	return r.socialProfileLocked(viewerID, targetID), nil
+}
+
+func (r *MemoryRepository) FollowUser(_ context.Context, followerID, followedID string) error {
+	if followerID == followedID {
+		return errors.New("cannot follow self")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.usersByID[followedID]; !ok || memoryUsersBlocked(r.blocks, followerID, followedID) {
+		return ErrNotFound
+	}
+	if r.follows[followerID] == nil {
+		r.follows[followerID] = make(map[string]time.Time)
+	}
+	r.follows[followerID][followedID] = time.Now()
+	return nil
+}
+
+func (r *MemoryRepository) UnfollowUser(_ context.Context, followerID, followedID string) error {
+	r.mu.Lock()
+	delete(r.follows[followerID], followedID)
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *MemoryRepository) CreateConversation(_ context.Context, userID, peerID string) (Conversation, error) {
+	if userID == peerID {
+		return Conversation{}, errors.New("cannot message self")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.usersByID[peerID]; !ok || memoryUsersBlocked(r.blocks, userID, peerID) {
+		return Conversation{}, ErrNotFound
+	}
+	low, high := socialPair(userID, peerID)
+	key := low + "\x00" + high
+	id, ok := r.conversationKeys[key]
+	if !ok {
+		id = r.nextConversation
+		r.nextConversation++
+		now := time.Now()
+		r.conversations[id] = memoryConversation{id: id, userLow: low, userHigh: high, updated: now}
+		r.conversationKeys[key] = id
+		r.conversationReads[id] = map[string]int64{low: 0, high: 0}
+	}
+	return r.memoryConversationViewLocked(userID, r.conversations[id]), nil
+}
+
+func (r *MemoryRepository) ListConversations(_ context.Context, userID string, limit int) ([]Conversation, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]Conversation, 0)
+	for _, conversation := range r.conversations {
+		if conversation.userLow == userID || conversation.userHigh == userID {
+			peer := conversation.userLow
+			if peer == userID {
+				peer = conversation.userHigh
+			}
+			if !memoryUsersBlocked(r.blocks, userID, peer) {
+				result = append(result, r.memoryConversationViewLocked(userID, conversation))
+			}
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].LastMessageAt > result[j].LastMessageAt })
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) ListDirectMessages(
+	_ context.Context, userID string, conversationID, before int64, limit int,
+) ([]DirectMessage, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	conversation, ok := r.conversations[conversationID]
+	if !ok || (conversation.userLow != userID && conversation.userHigh != userID) {
+		return nil, ErrNotFound
+	}
+	peer := conversation.userLow
+	if peer == userID {
+		peer = conversation.userHigh
+	}
+	if memoryUsersBlocked(r.blocks, userID, peer) {
+		return nil, ErrForbidden
+	}
+	messages := r.directMessages[conversationID]
+	result := make([]DirectMessage, 0, limit)
+	for index := len(messages) - 1; index >= 0 && len(result) < limit; index-- {
+		if before == 0 || messages[index].ID < before {
+			result = append(result, messages[index])
+		}
+	}
+	for left, right := 0, len(result)-1; left < right; left, right = left+1, right-1 {
+		result[left], result[right] = result[right], result[left]
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) AddDirectMessage(
+	_ context.Context, senderID string, conversationID int64, body string,
+) (DirectMessage, string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	conversation, ok := r.conversations[conversationID]
+	if !ok || (conversation.userLow != senderID && conversation.userHigh != senderID) {
+		return DirectMessage{}, "", ErrNotFound
+	}
+	recipientID := conversation.userLow
+	if recipientID == senderID {
+		recipientID = conversation.userHigh
+	}
+	if memoryUsersBlocked(r.blocks, senderID, recipientID) {
+		return DirectMessage{}, "", ErrForbidden
+	}
+	message := DirectMessage{
+		ID: r.nextDirectMessage, ConversationID: conversationID,
+		SenderID: senderID, Body: body, CreatedAt: time.Now().UnixMilli(),
+	}
+	r.nextDirectMessage++
+	r.directMessages[conversationID] = append(r.directMessages[conversationID], message)
+	conversation.updated = time.Now()
+	r.conversations[conversationID] = conversation
+	r.conversationReads[conversationID][senderID] = message.ID
+	return message, recipientID, nil
+}
+
+func (r *MemoryRepository) ConversationPeer(_ context.Context, userID string, conversationID int64) (string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	conversation, ok := r.conversations[conversationID]
+	if !ok || (conversation.userLow != userID && conversation.userHigh != userID) {
+		return "", ErrNotFound
+	}
+	if conversation.userLow == userID {
+		return conversation.userHigh, nil
+	}
+	return conversation.userLow, nil
+}
+
+func (r *MemoryRepository) MarkConversationRead(_ context.Context, userID string, conversationID, messageID int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	conversation, ok := r.conversations[conversationID]
+	if !ok || (conversation.userLow != userID && conversation.userHigh != userID) {
+		return ErrNotFound
+	}
+	if messageID > r.conversationReads[conversationID][userID] {
+		r.conversationReads[conversationID][userID] = messageID
+	}
+	return nil
+}
+
+func (r *MemoryRepository) UnreadDirectCount(_ context.Context, userID string) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	count := 0
+	for id, conversation := range r.conversations {
+		if conversation.userLow != userID && conversation.userHigh != userID {
+			continue
+		}
+		peer := conversation.userLow
+		if peer == userID {
+			peer = conversation.userHigh
+		}
+		if memoryUsersBlocked(r.blocks, userID, peer) {
+			continue
+		}
+		lastRead := r.conversationReads[id][userID]
+		for _, message := range r.directMessages[id] {
+			if message.SenderID != userID && message.ID > lastRead {
+				count++
+			}
+		}
+	}
+	return count, nil
+}
+
+func (r *MemoryRepository) socialProfileLocked(viewerID, targetID string) SocialProfile {
+	account := r.usersByID[targetID]
+	profile := SocialProfile{
+		ID: targetID, DisplayName: account.DisplayName, Signature: account.Signature,
+	}
+	_, profile.Following = r.follows[viewerID][targetID]
+	_, profile.FollowsViewer = r.follows[targetID][viewerID]
+	profile.FollowingCount = len(r.follows[targetID])
+	for _, followed := range r.follows {
+		if _, ok := followed[targetID]; ok {
+			profile.FollowerCount++
+		}
+	}
+	return profile
+}
+
+func (r *MemoryRepository) memoryConversationViewLocked(userID string, conversation memoryConversation) Conversation {
+	peerID := conversation.userLow
+	if peerID == userID {
+		peerID = conversation.userHigh
+	}
+	view := Conversation{ID: conversation.id, Peer: r.socialProfileLocked(userID, peerID)}
+	messages := r.directMessages[conversation.id]
+	if len(messages) > 0 {
+		last := messages[len(messages)-1]
+		view.LastMessage = last.Body
+		view.LastMessageAt = last.CreatedAt
+		lastRead := r.conversationReads[conversation.id][userID]
+		for _, message := range messages {
+			if message.SenderID != userID && message.ID > lastRead {
+				view.UnreadCount++
+			}
+		}
+	}
+	return view
+}
+
+func memoryUsersBlocked(blocks map[string]map[string]time.Time, userA, userB string) bool {
+	_, aBlocks := blocks[userA][userB]
+	_, bBlocks := blocks[userB][userA]
+	return aBlocks || bBlocks
+}
+
+func socialPair(userA, userB string) (string, string) {
+	if userA < userB {
+		return userA, userB
+	}
+	return userB, userA
 }
 
 func (r *MemoryRepository) SaveRoom(_ context.Context, room Room) error {

@@ -83,6 +83,17 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/config", s.config)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.HandleFunc("GET /api/v1/metadata/search", s.searchMetadata)
+	mux.HandleFunc("GET /api/v1/social/users", s.searchSocialUsers)
+	mux.HandleFunc("GET /api/v1/social/users/{id}", s.socialProfile)
+	mux.HandleFunc("POST /api/v1/social/users/{id}/follow", s.followSocialUser)
+	mux.HandleFunc("DELETE /api/v1/social/users/{id}/follow", s.unfollowSocialUser)
+	mux.HandleFunc("POST /api/v1/social/conversations", s.createDirectConversation)
+	mux.HandleFunc("GET /api/v1/social/conversations", s.listDirectConversations)
+	mux.HandleFunc("GET /api/v1/social/conversations/{id}/messages", s.directMessages)
+	mux.HandleFunc("POST /api/v1/social/conversations/{id}/messages", s.sendDirectMessage)
+	mux.HandleFunc("GET /api/v1/social/unread", s.directUnread)
+	mux.HandleFunc("POST /api/v1/social/socket-ticket", s.socialSocketTicket)
+	mux.HandleFunc("GET /ws/v1/social", s.socialSocket)
 	mux.HandleFunc("POST /api/v1/auth/register", s.register)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", s.refresh)
@@ -182,6 +193,7 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"personal_library":   true,
 		"danmaku":            true,
 		"metadata_search":    s.options.Metadata != nil,
+		"social_messaging":   true,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,

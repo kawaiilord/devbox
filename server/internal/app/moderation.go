@@ -36,6 +36,7 @@ func (s *Server) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 	}
 	var request struct {
 		AllowRoomChat     *bool `json:"allow_room_chat"`
+		AllowPrivateChat  *bool `json:"allow_private_chat"`
 		AllowProfileFind  *bool `json:"allow_profile_find"`
 		ShowWatchActivity *bool `json:"show_watch_activity"`
 	}
@@ -50,6 +51,9 @@ func (s *Server) updatePrivacy(w http.ResponseWriter, r *http.Request) {
 	}
 	if request.AllowRoomChat != nil {
 		settings.AllowRoomChat = *request.AllowRoomChat
+	}
+	if request.AllowPrivateChat != nil {
+		settings.AllowPrivateChat = *request.AllowPrivateChat
 	}
 	if request.AllowProfileFind != nil {
 		settings.AllowProfileFind = *request.AllowProfileFind

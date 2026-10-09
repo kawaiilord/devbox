@@ -25,23 +25,27 @@ class AppUser {
 class PrivacySettings {
   const PrivacySettings({
     required this.allowRoomChat,
+    required this.allowPrivateChat,
     required this.allowProfileFind,
     required this.showWatchActivity,
   });
 
   final bool allowRoomChat;
+  final bool allowPrivateChat;
   final bool allowProfileFind;
   final bool showWatchActivity;
 
   factory PrivacySettings.fromJson(Map<String, dynamic> json) =>
       PrivacySettings(
         allowRoomChat: json['allow_room_chat'] as bool? ?? true,
+        allowPrivateChat: json['allow_private_chat'] as bool? ?? true,
         allowProfileFind: json['allow_profile_find'] as bool? ?? true,
         showWatchActivity: json['show_watch_activity'] as bool? ?? true,
       );
 
   Map<String, dynamic> toJson() => {
     'allow_room_chat': allowRoomChat,
+    'allow_private_chat': allowPrivateChat,
     'allow_profile_find': allowProfileFind,
     'show_watch_activity': showWatchActivity,
   };
@@ -267,6 +271,78 @@ class MetadataResult {
     releaseDate: json['release_date']?.toString() ?? '',
     posterUrl: json['poster_url']?.toString() ?? '',
     rating: (json['rating'] as num).toDouble(),
+  );
+}
+
+class SocialProfile {
+  const SocialProfile({
+    required this.id,
+    required this.displayName,
+    required this.signature,
+    required this.following,
+    required this.followsViewer,
+    required this.followerCount,
+    required this.followingCount,
+  });
+  final String id;
+  final String displayName;
+  final String signature;
+  final bool following;
+  final bool followsViewer;
+  final int followerCount;
+  final int followingCount;
+  factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
+    id: json['id'] as String,
+    displayName: json['display_name'] as String,
+    signature: json['signature']?.toString() ?? '',
+    following: json['following'] as bool? ?? false,
+    followsViewer: json['follows_viewer'] as bool? ?? false,
+    followerCount: (json['follower_count'] as num).toInt(),
+    followingCount: (json['following_count'] as num).toInt(),
+  );
+}
+
+class Conversation {
+  const Conversation({
+    required this.id,
+    required this.peer,
+    required this.lastMessage,
+    required this.lastMessageAt,
+    required this.unreadCount,
+  });
+  final int id;
+  final SocialProfile peer;
+  final String lastMessage;
+  final int lastMessageAt;
+  final int unreadCount;
+  factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
+    id: (json['id'] as num).toInt(),
+    peer: SocialProfile.fromJson(json['peer'] as Map<String, dynamic>),
+    lastMessage: json['last_message']?.toString() ?? '',
+    lastMessageAt: (json['last_message_at'] as num?)?.toInt() ?? 0,
+    unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class DirectMessage {
+  const DirectMessage({
+    required this.id,
+    required this.conversationId,
+    required this.senderId,
+    required this.body,
+    required this.createdAt,
+  });
+  final int id;
+  final int conversationId;
+  final String senderId;
+  final String body;
+  final int createdAt;
+  factory DirectMessage.fromJson(Map<String, dynamic> json) => DirectMessage(
+    id: (json['id'] as num).toInt(),
+    conversationId: (json['conversation_id'] as num).toInt(),
+    senderId: json['sender_id'] as String,
+    body: json['body'] as String,
+    createdAt: (json['created_at'] as num).toInt(),
   );
 }
 

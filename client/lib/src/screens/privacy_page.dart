@@ -87,6 +87,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
 
   void _replace({
     bool? allowRoomChat,
+    bool? allowPrivateChat,
     bool? allowProfileFind,
     bool? showWatchActivity,
   }) {
@@ -95,6 +96,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
     setState(() {
       _settings = PrivacySettings(
         allowRoomChat: allowRoomChat ?? current.allowRoomChat,
+        allowPrivateChat: allowPrivateChat ?? current.allowPrivateChat,
         allowProfileFind: allowProfileFind ?? current.allowProfileFind,
         showWatchActivity: showWatchActivity ?? current.showWatchActivity,
       );
@@ -133,6 +135,16 @@ class _PrivacyPageState extends State<PrivacyPage> {
                               onChanged: _busy
                                   ? null
                                   : (value) => _replace(allowRoomChat: value),
+                            ),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('允许私聊'),
+                              subtitle: const Text('关闭后其他用户不能创建新的私聊会话。'),
+                              value: settings.allowPrivateChat,
+                              onChanged: _busy
+                                  ? null
+                                  : (value) =>
+                                        _replace(allowPrivateChat: value),
                             ),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,

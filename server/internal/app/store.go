@@ -147,6 +147,21 @@ func (s *Store) ConsumeSocketTicket(ticket, code string) (User, error) {
 	return issued.user, nil
 }
 
+func (s *Store) IssueIdentityTicket(user User) (string, error) {
+	ticket, err := randomString(24)
+	if err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	s.tickets[ticket] = socketTicket{user: user, roomCode: "@SOCIAL", expiresAt: s.now().Add(30 * time.Second)}
+	s.mu.Unlock()
+	return ticket, nil
+}
+
+func (s *Store) ConsumeIdentityTicket(ticket string) (User, error) {
+	return s.ConsumeSocketTicket(ticket, "@SOCIAL")
+}
+
 func (s *Store) CreateRoom(owner User, name, sourceURL string, maxMembers int) (Room, error) {
 	return s.createRoom(owner, name, sourceURL, "", "", maxMembers)
 }

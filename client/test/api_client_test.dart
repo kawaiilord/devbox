@@ -152,6 +152,7 @@ void main() {
               'code': 0,
               'data': {
                 'allow_room_chat': true,
+                'allow_private_chat': true,
                 'allow_profile_find': false,
                 'show_watch_activity': true,
               },
@@ -214,6 +215,7 @@ void main() {
         session,
         const PrivacySettings(
           allowRoomChat: false,
+          allowPrivateChat: true,
           allowProfileFind: true,
           showWatchActivity: false,
         ),
@@ -440,6 +442,98 @@ void main() {
     expect(danmaku.single.positionSeconds, 12.5);
     expect(metadata.single.id, 42);
     expect(metadata.single.rating, 8.5);
+    api.close();
+  });
+
+  test('loads social profiles, conversations, and direct messages', () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/social/users') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'users': [
+                {
+                  'id': 'peer',
+                  'display_name': 'Peer',
+                  'following': false,
+                  'follows_viewer': true,
+                  'follower_count': 2,
+                  'following_count': 1,
+                },
+              ],
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      if (request.url.path == '/api/v1/social/conversations' &&
+          request.method == 'POST') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'id': 7,
+              'peer': {
+                'id': 'peer',
+                'display_name': 'Peer',
+                'following': false,
+                'follows_viewer': true,
+                'follower_count': 2,
+                'following_count': 1,
+              },
+              'unread_count': 0,
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/messages') && request.method == 'GET') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'messages': [
+                {
+                  'id': 9,
+                  'conversation_id': 7,
+                  'sender_id': 'peer',
+                  'body': 'hello',
+                  'created_at': 1000,
+                },
+              ],
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      if (request.url.path == '/api/v1/social/unread') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {'count': 1},
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      return http.Response(
+        jsonEncode({'code': 0, 'data': <String, dynamic>{}, 'msg': 'ok'}),
+        200,
+      );
+    });
+    final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+    final session = _session();
+    expect((await api.searchSocialUsers(session, 'Peer')).single.id, 'peer');
+    final conversation = await api.createConversation(session, 'peer');
+    expect(conversation.id, 7);
+    expect((await api.directMessages(session, 7)).single.body, 'hello');
+    expect(await api.directUnread(session), 1);
+    await api.followUser(session, 'peer');
+    await api.unfollowUser(session, 'peer');
     api.close();
   });
 }

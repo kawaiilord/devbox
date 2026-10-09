@@ -33,6 +33,8 @@ The current foundation contains:
   creation, companion counts, and privacy-gated public watch activity;
 - persistent source-fingerprinted danmaku with realtime block filtering and a
   server-side optional TMDB metadata search proxy;
+- privacy-aware user discovery, follows, durable direct conversations, unread
+  cursors, and one-time-ticket WebSocket message notifications;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -88,3 +90,4 @@ Moderation permissions, privacy behavior, and audit-chain operations are in
 `docs/moderation.md`.
 Favorites, history, and resume behavior are in `docs/personal-library.md`.
 Danmaku matching and TMDB proxy behavior are in `docs/danmaku-metadata.md`.
+Social discovery and private messaging are in `docs/social-messaging.md`.

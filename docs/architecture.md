@@ -44,6 +44,11 @@ persisted before Redis publication, so separate rooms playing the same source
 and episode share a timeline without exposing the source URL. Realtime and
 history delivery apply the same bidirectional block policy as chat.
 
+Direct messages are durable conversation-scoped rows with per-user read cursors.
+New messages and unread counts are pushed over a dedicated WebSocket authenticated
+by a 30-second one-time ticket. Offline clients recover from PostgreSQL rather
+than depending on Pub/Sub replay.
+
 ## Authentication
 
 - Passwords are normalized only at the email boundary and hashed with Argon2id

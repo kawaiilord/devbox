@@ -395,3 +395,63 @@ func TestPostgresPersonalLibraryPersistenceAndSourceDeletion(t *testing.T) {
 		t.Fatalf("danmaku page=%+v error=%v", danmakuPage, err)
 	}
 }
+
+func TestPostgresSocialMessagingPersistence(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	repository, err := OpenPostgres(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repository.Close()
+	if err := repository.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.pool.Exec(ctx, "TRUNCATE users CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	tokens, _ := NewTokenManager("postgres-social-secret-with-32-characters", "postgres-social-test")
+	auth := NewAuthService(repository, tokens)
+	alice, err := auth.Register(ctx, "pg-alice@social.test", "Alice", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, err := auth.Register(ctx, "pg-bob@social.test", "Bob", "another strong password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.FollowUser(ctx, alice.User.ID, bob.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	profiles, err := repository.SearchSocialProfiles(ctx, alice.User.ID, "Bob", 10)
+	if err != nil || len(profiles) != 1 || !profiles[0].Following {
+		t.Fatalf("profiles=%+v error=%v", profiles, err)
+	}
+	conversation, err := repository.CreateConversation(ctx, alice.User.ID, bob.User.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	message, recipient, err := repository.AddDirectMessage(ctx, alice.User.ID, conversation.ID, "persistent hello")
+	if err != nil || recipient != bob.User.ID {
+		t.Fatalf("message=%+v recipient=%s error=%v", message, recipient, err)
+	}
+	unread, err := repository.UnreadDirectCount(ctx, bob.User.ID)
+	if err != nil || unread != 1 {
+		t.Fatalf("unread=%d error=%v", unread, err)
+	}
+	messages, err := repository.ListDirectMessages(ctx, bob.User.ID, conversation.ID, 0, 50)
+	if err != nil || len(messages) != 1 {
+		t.Fatalf("messages=%+v error=%v", messages, err)
+	}
+	if err := repository.MarkConversationRead(ctx, bob.User.ID, conversation.ID, message.ID); err != nil {
+		t.Fatal(err)
+	}
+	unread, err = repository.UnreadDirectCount(ctx, bob.User.ID)
+	if err != nil || unread != 0 {
+		t.Fatalf("read unread=%d error=%v", unread, err)
+	}
+}
