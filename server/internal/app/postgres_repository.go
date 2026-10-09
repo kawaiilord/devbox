@@ -41,6 +41,9 @@ var danmakuMigration string
 //go:embed migrations/009_social_messaging.sql
 var socialMessagingMigration string
 
+//go:embed migrations/010_couple_space.sql
+var coupleSpaceMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -69,6 +72,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
 		moderationMigration, embySourcesMigration, personalLibraryMigration, danmakuMigration,
 		socialMessagingMigration,
+		coupleSpaceMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -100,7 +104,8 @@ func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (Acc
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0)
 		 FROM users WHERE email = lower($1)`,
 		email,
 	))
@@ -110,7 +115,8 @@ func (r *PostgresRepository) UserByID(ctx context.Context, id string) (AccountRe
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0)
 		 FROM users WHERE id = $1`,
 		id,
 	))
@@ -128,6 +134,7 @@ func scanAccount(row pgx.Row) (AccountRecord, error) {
 		&account.SessionVersion,
 		&account.IsAdmin,
 		&account.Signature,
+		&account.VIPExpiresAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AccountRecord{}, ErrInvalidCredentials
@@ -196,7 +203,8 @@ func (r *PostgresRepository) RotateRefreshToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature FROM users WHERE id = $1`,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0) FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -420,7 +428,8 @@ func (r *PostgresRepository) ConsumeActionToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature FROM users WHERE id = $1`,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0) FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -1151,6 +1160,17 @@ func (r *PostgresRepository) BanDevice(ctx context.Context, deviceHash, reason, 
 
 func (r *PostgresRepository) SetUserAdmin(ctx context.Context, userID string, value bool) error {
 	command, err := r.pool.Exec(ctx, `UPDATE users SET is_admin = $2 WHERE id = $1`, userID, value)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) SetUserVIP(ctx context.Context, userID string, expiresAt int64) error {
+	command, err := r.pool.Exec(ctx, `UPDATE users SET vip_expires_at=CASE WHEN $2::bigint=0 THEN NULL ELSE to_timestamp($2/1000.0) END WHERE id=$1`, userID, expiresAt)
 	if err != nil {
 		return err
 	}

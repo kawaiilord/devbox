@@ -346,6 +346,71 @@ class DirectMessage {
   );
 }
 
+class Couple {
+  const Couple({
+    required this.id,
+    required this.partner,
+    required this.status,
+    required this.boundAt,
+    required this.separatedAt,
+    required this.coolingPeriodEnd,
+  });
+  final int id;
+  final SocialProfile partner;
+  final String status;
+  final int boundAt;
+  final int separatedAt;
+  final int coolingPeriodEnd;
+  factory Couple.fromJson(Map<String, dynamic> json) => Couple(
+    id: (json['id'] as num).toInt(),
+    partner: SocialProfile.fromJson(json['partner'] as Map<String, dynamic>),
+    status: json['status'] as String,
+    boundAt: (json['bound_at'] as num).toInt(),
+    separatedAt: (json['separated_at'] as num?)?.toInt() ?? 0,
+    coolingPeriodEnd: (json['cooling_period_end'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class CoupleRequest {
+  const CoupleRequest({
+    required this.id,
+    required this.requester,
+    required this.status,
+    required this.createdAt,
+  });
+  final int id;
+  final SocialProfile requester;
+  final String status;
+  final int createdAt;
+  factory CoupleRequest.fromJson(Map<String, dynamic> json) => CoupleRequest(
+    id: (json['id'] as num).toInt(),
+    requester: SocialProfile.fromJson(
+      json['requester'] as Map<String, dynamic>,
+    ),
+    status: json['status'] as String,
+    createdAt: (json['created_at'] as num).toInt(),
+  );
+}
+
+class CoupleMoment {
+  const CoupleMoment({
+    required this.id,
+    required this.author,
+    required this.body,
+    required this.createdAt,
+  });
+  final int id;
+  final SocialProfile author;
+  final String body;
+  final int createdAt;
+  factory CoupleMoment.fromJson(Map<String, dynamic> json) => CoupleMoment(
+    id: (json['id'] as num).toInt(),
+    author: SocialProfile.fromJson(json['author'] as Map<String, dynamic>),
+    body: json['body'] as String,
+    createdAt: (json['created_at'] as num).toInt(),
+  );
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,

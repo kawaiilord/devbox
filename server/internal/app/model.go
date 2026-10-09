@@ -13,6 +13,7 @@ type User struct {
 	SessionVersion int64  `json:"-"`
 	IsAdmin        bool   `json:"is_admin"`
 	Signature      string `json:"signature,omitempty"`
+	VIPExpiresAt   int64  `json:"vip_expires_at,omitempty"`
 }
 
 type DeviceInfo struct {
@@ -164,6 +165,36 @@ type DirectMessage struct {
 	SenderID       string `json:"sender_id"`
 	Body           string `json:"body"`
 	CreatedAt      int64  `json:"created_at"`
+}
+
+type Couple struct {
+	ID               int64         `json:"id"`
+	Partner          SocialProfile `json:"partner"`
+	Status           string        `json:"status"`
+	BoundAt          int64         `json:"bound_at"`
+	SeparatedAt      int64         `json:"separated_at,omitempty"`
+	CoolingPeriodEnd int64         `json:"cooling_period_end,omitempty"`
+}
+
+type CoupleRequest struct {
+	ID          int64         `json:"id"`
+	Requester   SocialProfile `json:"requester"`
+	RecipientID string        `json:"recipient_id,omitempty"`
+	Status      string        `json:"status"`
+	CreatedAt   int64         `json:"created_at"`
+}
+
+type CoupleMoment struct {
+	ID        int64         `json:"id"`
+	Author    SocialProfile `json:"author"`
+	Body      string        `json:"body"`
+	CreatedAt int64         `json:"created_at"`
+}
+
+type CoupleEvent struct {
+	ID        int64  `json:"id"`
+	Type      string `json:"type"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 type Report struct {

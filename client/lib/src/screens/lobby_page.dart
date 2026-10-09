@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../models.dart';
 import 'library_page.dart';
+import 'couple_page.dart';
 import 'metadata_search_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
@@ -216,6 +217,16 @@ class _LobbyPageState extends State<LobbyPage> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SocialPage(api: widget.api, session: session),
+      ),
+    );
+  }
+
+  void _showCouple() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CouplePage(api: widget.api, session: session),
       ),
     );
   }
@@ -691,6 +702,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onLibrary: _session == null ? null : _showLibrary,
                     onMetadata: _session == null ? null : _showMetadataSearch,
                     onSocial: _session == null ? null : _showSocial,
+                    onCouple: _session == null ? null : _showCouple,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -790,6 +802,7 @@ class _Brand extends StatelessWidget {
     required this.onLibrary,
     required this.onMetadata,
     required this.onSocial,
+    required this.onCouple,
   });
   final Session? session;
   final VoidCallback? onLogout;
@@ -799,6 +812,7 @@ class _Brand extends StatelessWidget {
   final VoidCallback? onLibrary;
   final VoidCallback? onMetadata;
   final VoidCallback? onSocial;
+  final VoidCallback? onCouple;
 
   @override
   Widget build(BuildContext context) {
@@ -833,6 +847,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onCouple != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onCouple,
+            tooltip: '情侣空间',
+            icon: const Icon(Icons.favorite_border_rounded),
+          ),
+        ],
         if (onSocial != null) ...[
           const SizedBox(width: 8),
           IconButton(

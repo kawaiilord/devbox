@@ -78,6 +78,7 @@ type Repository interface {
 	CloseRoom(context.Context, string, string) error
 	BanDevice(context.Context, string, string, string) error
 	SetUserAdmin(context.Context, string, bool) error
+	SetUserVIP(context.Context, string, int64) error
 	AppendAudit(context.Context, AuditEvent) (AuditEvent, error)
 	ListAudit(context.Context, int64, int) ([]AuditEvent, error)
 	SearchSocialProfiles(context.Context, string, string, int) ([]SocialProfile, error)
@@ -91,6 +92,15 @@ type Repository interface {
 	AddDirectMessage(context.Context, string, int64, string) (DirectMessage, string, error)
 	MarkConversationRead(context.Context, string, int64, int64) error
 	UnreadDirectCount(context.Context, string) (int, error)
+	CreateCoupleRequest(context.Context, string, string) (CoupleRequest, error)
+	ListCoupleRequests(context.Context, string) ([]CoupleRequest, error)
+	RespondCoupleRequest(context.Context, string, int64, bool) (Couple, error)
+	GetCouple(context.Context, string) (Couple, error)
+	SeparateCouple(context.Context, string) (Couple, error)
+	RestoreCouple(context.Context, string) (Couple, error)
+	AddCoupleMoment(context.Context, string, string) (CoupleMoment, error)
+	ListCoupleMoments(context.Context, string, int64, int) ([]CoupleMoment, error)
+	ListCoupleEvents(context.Context, string, int) ([]CoupleEvent, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -155,6 +165,14 @@ type MemoryRepository struct {
 	directMessages    map[int64][]DirectMessage
 	nextDirectMessage int64
 	conversationReads map[int64]map[string]int64
+	coupleRequests    map[int64]memoryCoupleRequest
+	nextCoupleRequest int64
+	couples           map[int64]memoryCouple
+	nextCouple        int64
+	coupleMoments     map[int64][]memoryCoupleMoment
+	nextCoupleMoment  int64
+	coupleEvents      map[int64][]CoupleEvent
+	nextCoupleEvent   int64
 }
 
 type memoryConversation struct {
@@ -162,6 +180,21 @@ type memoryConversation struct {
 	userLow  string
 	userHigh string
 	updated  time.Time
+}
+type memoryCoupleRequest struct {
+	id                           int64
+	requester, recipient, status string
+	created                      time.Time
+}
+type memoryCouple struct {
+	id                        int64
+	low, high, status         string
+	bound, separated, cooling time.Time
+}
+type memoryCoupleMoment struct {
+	id           int64
+	author, body string
+	created      time.Time
 }
 
 func NewMemoryRepository() *MemoryRepository {
@@ -193,6 +226,10 @@ func NewMemoryRepository() *MemoryRepository {
 		directMessages:    make(map[int64][]DirectMessage),
 		nextDirectMessage: 1,
 		conversationReads: make(map[int64]map[string]int64),
+		coupleRequests:    make(map[int64]memoryCoupleRequest), nextCoupleRequest: 1,
+		couples: make(map[int64]memoryCouple), nextCouple: 1,
+		coupleMoments: make(map[int64][]memoryCoupleMoment), nextCoupleMoment: 1,
+		coupleEvents: make(map[int64][]CoupleEvent), nextCoupleEvent: 1,
 	}
 }
 
@@ -833,6 +870,18 @@ func (r *MemoryRepository) SetUserAdmin(_ context.Context, userID string, value 
 		return ErrNotFound
 	}
 	account.IsAdmin = value
+	r.usersByID[userID] = account
+	return nil
+}
+
+func (r *MemoryRepository) SetUserVIP(_ context.Context, userID string, expiresAt int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	account, ok := r.usersByID[userID]
+	if !ok {
+		return ErrNotFound
+	}
+	account.VIPExpiresAt = expiresAt
 	r.usersByID[userID] = account
 	return nil
 }

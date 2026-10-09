@@ -35,6 +35,8 @@ The current foundation contains:
   server-side optional TMDB metadata search proxy;
 - privacy-aware user discovery, follows, durable direct conversations, unread
   cursors, and one-time-ticket WebSocket message notifications;
+- membership-gated couple requests, anniversary timeline, shared moments,
+  seven-day cooling/restoration, shared favorites, and common watch history;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -91,3 +93,4 @@ Moderation permissions, privacy behavior, and audit-chain operations are in
 Favorites, history, and resume behavior are in `docs/personal-library.md`.
 Danmaku matching and TMDB proxy behavior are in `docs/danmaku-metadata.md`.
 Social discovery and private messaging are in `docs/social-messaging.md`.
+Couple relationship invariants are in `docs/couple-space.md`.

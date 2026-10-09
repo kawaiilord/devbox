@@ -455,3 +455,60 @@ func TestPostgresSocialMessagingPersistence(t *testing.T) {
 		t.Fatalf("read unread=%d error=%v", unread, err)
 	}
 }
+
+func TestPostgresCoupleSpacePersistence(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	repo, err := OpenPostgres(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	if err := repo.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, "TRUNCATE users CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	tokens, _ := NewTokenManager("postgres-couple-secret-with-32-characters", "pg-couple")
+	auth := NewAuthService(repo, tokens)
+	a, err := auth.Register(ctx, "a@pg-couple.test", "Alice", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := auth.Register(ctx, "b@pg-couple.test", "Bob", "another strong password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SetUserVIP(ctx, a.User.ID, time.Now().Add(24*time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	account, err := repo.UserByID(ctx, a.User.ID)
+	if err != nil || account.VIPExpiresAt <= time.Now().UnixMilli() {
+		t.Fatalf("vip=%+v error=%v", account, err)
+	}
+	request, err := repo.CreateCoupleRequest(ctx, a.User.ID, b.User.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	couple, err := repo.RespondCoupleRequest(ctx, b.User.ID, request.ID, true)
+	if err != nil || couple.Status != "active" {
+		t.Fatalf("couple=%+v error=%v", couple, err)
+	}
+	moment, err := repo.AddCoupleMoment(ctx, a.User.ID, "persistent moment")
+	if err != nil || moment.ID == 0 {
+		t.Fatalf("moment=%+v error=%v", moment, err)
+	}
+	couple, err = repo.SeparateCouple(ctx, a.User.ID)
+	if err != nil || couple.Status != "separated" {
+		t.Fatalf("separate=%+v error=%v", couple, err)
+	}
+	couple, err = repo.RestoreCouple(ctx, b.User.ID)
+	if err != nil || couple.Status != "active" {
+		t.Fatalf("restore=%+v error=%v", couple, err)
+	}
+}

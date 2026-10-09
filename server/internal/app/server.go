@@ -94,6 +94,17 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/social/unread", s.directUnread)
 	mux.HandleFunc("POST /api/v1/social/socket-ticket", s.socialSocketTicket)
 	mux.HandleFunc("GET /ws/v1/social", s.socialSocket)
+	mux.HandleFunc("GET /api/v1/couple", s.coupleInfo)
+	mux.HandleFunc("POST /api/v1/couple/requests", s.requestCouple)
+	mux.HandleFunc("GET /api/v1/couple/requests", s.coupleRequests)
+	mux.HandleFunc("POST /api/v1/couple/requests/{id}/respond", s.respondCouple)
+	mux.HandleFunc("POST /api/v1/couple/separate", s.separateCouple)
+	mux.HandleFunc("POST /api/v1/couple/restore", s.restoreCouple)
+	mux.HandleFunc("POST /api/v1/couple/moments", s.addCoupleMoment)
+	mux.HandleFunc("GET /api/v1/couple/moments", s.coupleMoments)
+	mux.HandleFunc("GET /api/v1/couple/timeline", s.coupleTimeline)
+	mux.HandleFunc("GET /api/v1/couple/shared-favorites", s.coupleSharedFavorites)
+	mux.HandleFunc("GET /api/v1/couple/shared-movies", s.coupleSharedMovies)
 	mux.HandleFunc("POST /api/v1/auth/register", s.register)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", s.refresh)
@@ -194,6 +205,7 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"danmaku":            true,
 		"metadata_search":    s.options.Metadata != nil,
 		"social_messaging":   true,
+		"couple_space":       true,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,

@@ -472,6 +472,69 @@ class ApiClient {
     );
   }
 
+  Future<Couple?> coupleInfo(Session session) async {
+    final data = await _request('GET', '/api/v1/couple', session: session);
+    if (data['has_couple'] != true) return null;
+    return Couple.fromJson(data['couple'] as Map<String, dynamic>);
+  }
+
+  Future<void> requestCouple(Session session, String userId) async {
+    await _request(
+      'POST',
+      '/api/v1/couple/requests',
+      session: session,
+      body: {'user_id': userId},
+    );
+  }
+
+  Future<List<CoupleRequest>> coupleRequests(Session session) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/couple/requests',
+      session: session,
+    );
+    return (data['requests'] as List<dynamic>)
+        .map((v) => CoupleRequest.fromJson(v as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> respondCouple(Session session, int id, bool accept) async {
+    await _request(
+      'POST',
+      '/api/v1/couple/requests/$id/respond',
+      session: session,
+      body: {'accept': accept},
+    );
+  }
+
+  Future<void> separateCouple(Session session) async {
+    await _request('POST', '/api/v1/couple/separate', session: session);
+  }
+
+  Future<void> restoreCouple(Session session) async {
+    await _request('POST', '/api/v1/couple/restore', session: session);
+  }
+
+  Future<List<CoupleMoment>> coupleMoments(Session session) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/couple/moments',
+      session: session,
+    );
+    return (data['moments'] as List<dynamic>)
+        .map((v) => CoupleMoment.fromJson(v as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> addCoupleMoment(Session session, String body) async {
+    await _request(
+      'POST',
+      '/api/v1/couple/moments',
+      session: session,
+      body: {'body': body},
+    );
+  }
+
   Future<void> deleteWatchRecord(Session session, int id) async {
     await _request('DELETE', '/api/v1/history/$id', session: session);
   }

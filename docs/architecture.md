@@ -49,6 +49,11 @@ New messages and unread counts are pushed over a dedicated WebSocket authenticat
 by a 30-second one-time ticket. Offline clients recover from PostgreSQL rather
 than depending on Pub/Sub replay.
 
+Couple relationships are canonical one-to-one pairs with durable requests,
+anniversary events, shared moments, and a seven-day separation cooling period.
+Acceptance uses transaction-scoped advisory locks over both users to prevent
+concurrent requests from creating multiple active relationships.
+
 ## Authentication
 
 - Passwords are normalized only at the email boundary and hashed with Argon2id
