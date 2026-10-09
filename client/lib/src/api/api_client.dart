@@ -2,21 +2,26 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../device_identity.dart';
 import '../models.dart';
 
 class ApiClient {
-  ApiClient({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
-      baseUrl =
-          (baseUrl ??
-                  const String.fromEnvironment(
-                    'API_BASE_URL',
-                    defaultValue: 'http://localhost:8080',
-                  ))
-              .replaceFirst(RegExp(r'/$'), '');
+  ApiClient({
+    http.Client? client,
+    String? baseUrl,
+    this.device = DeviceIdentity.test,
+  }) : _client = client ?? http.Client(),
+       baseUrl =
+           (baseUrl ??
+                   const String.fromEnvironment(
+                     'API_BASE_URL',
+                     defaultValue: 'http://localhost:8080',
+                   ))
+               .replaceFirst(RegExp(r'/$'), '');
 
   final http.Client _client;
   final String baseUrl;
+  final DeviceIdentity device;
   Future<Session>? _refreshInFlight;
 
   Future<Session> createDemoSession(String displayName) async {
@@ -60,6 +65,48 @@ class ApiClient {
       body: {'refresh_token': session.refreshToken},
       allowRefresh: false,
     );
+  }
+
+  Future<void> requestEmailVerification(Session session) async {
+    await _request(
+      'POST',
+      '/api/v1/auth/email/verify-request',
+      session: session,
+    );
+  }
+
+  Future<void> verifyEmail(String token) async {
+    await _request('POST', '/api/v1/auth/email/verify', body: {'token': token});
+  }
+
+  Future<void> requestPasswordReset(String email) async {
+    await _request(
+      'POST',
+      '/api/v1/auth/password/request',
+      body: {'email': email},
+    );
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    await _request(
+      'POST',
+      '/api/v1/auth/password/reset',
+      body: {'token': token, 'password': password},
+    );
+  }
+
+  Future<List<UserDevice>> listDevices(Session session) async {
+    final data = await _request('GET', '/api/v1/devices', session: session);
+    return (data['devices'] as List<dynamic>)
+        .map((value) => UserDevice.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> revokeDevice(Session session, String deviceId) async {
+    await _request('DELETE', '/api/v1/devices/$deviceId', session: session);
   }
 
   Future<Room> createRoom({
@@ -129,6 +176,9 @@ class ApiClient {
   }) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'));
     request.headers['Content-Type'] = 'application/json';
+    request.headers['X-Device-ID'] = device.id;
+    request.headers['X-Device-Name'] = device.label;
+    request.headers['X-Device-Platform'] = device.platform;
     final requestAccessToken = session?.accessToken;
     if (session != null) {
       request.headers['Authorization'] = 'Bearer $requestAccessToken';

@@ -32,6 +32,7 @@ services:
       SAMEFRAME_ALLOW_DEMO_AUTH: "false"
       DATABASE_URL: postgres://sameframe:sameframe-dev-only@postgres:5432/sameframe?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      SAMEFRAME_REQUIRE_VERIFIED_EMAIL: "false"
     depends_on:
       postgres:
         condition: service_healthy

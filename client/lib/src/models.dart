@@ -3,16 +3,43 @@ class AppUser {
     required this.id,
     required this.displayName,
     required this.email,
+    required this.emailVerified,
   });
 
   final String id;
   final String displayName;
   final String email;
+  final bool emailVerified;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
     displayName: json['display_name'] as String,
     email: json['email']?.toString() ?? '',
+    emailVerified: json['email_verified'] as bool? ?? false,
+  );
+}
+
+class UserDevice {
+  const UserDevice({
+    required this.id,
+    required this.label,
+    required this.platform,
+    required this.current,
+    required this.lastSeen,
+  });
+
+  final String id;
+  final String label;
+  final String platform;
+  final bool current;
+  final int lastSeen;
+
+  factory UserDevice.fromJson(Map<String, dynamic> json) => UserDevice(
+    id: json['id'] as String,
+    label: json['label'] as String,
+    platform: json['platform'] as String,
+    current: json['current'] as bool? ?? false,
+    lastSeen: (json['last_seen'] as num).toInt(),
   );
 }
 

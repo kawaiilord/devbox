@@ -66,17 +66,33 @@ func main() {
 		logger.Error("configure tokens", "error", err)
 		os.Exit(1)
 	}
+	requireVerifiedEmail := envBool("SAMEFRAME_REQUIRE_VERIFIED_EMAIL", false)
+	var mailer app.Mailer = app.NoopMailer{}
+	if webhookURL := os.Getenv("SAMEFRAME_MAIL_WEBHOOK_URL"); webhookURL != "" {
+		webhookMailer, mailErr := app.NewWebhookMailer(
+			webhookURL, os.Getenv("SAMEFRAME_MAIL_WEBHOOK_SECRET"),
+		)
+		if mailErr != nil {
+			logger.Error("configure mail webhook", "error", mailErr)
+			os.Exit(1)
+		}
+		mailer = webhookMailer
+	} else if requireVerifiedEmail {
+		logger.Error("mail webhook is required when verified email is enforced")
+		os.Exit(1)
+	}
 	addr := envOr("SAMEFRAME_ADDR", ":8080")
 	origins := strings.Split(envOr("SAMEFRAME_ALLOWED_ORIGINS", "http://localhost:*"), ",")
 	server := app.NewServer(app.Options{
-		Address:        addr,
-		AllowedOrigins: origins,
-		Logger:         logger,
-		Repository:     repository,
-		Auth:           app.NewAuthService(repository, tokens),
-		InitialRooms:   initialRooms,
-		AllowDemoAuth:  envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),
-		Redis:          redisCoordinator,
+		Address:              addr,
+		AllowedOrigins:       origins,
+		Logger:               logger,
+		Repository:           repository,
+		Auth:                 app.NewAuthService(repository, tokens, mailer),
+		InitialRooms:         initialRooms,
+		AllowDemoAuth:        envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),
+		Redis:                redisCoordinator,
+		RequireVerifiedEmail: requireVerifiedEmail,
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

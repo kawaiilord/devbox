@@ -13,6 +13,7 @@ void main() {
       var roomAttempts = 0;
       final client = MockClient((request) async {
         if (request.url.path == '/api/v1/auth/refresh') {
+          expect(request.headers['X-Device-ID'], 'test-device-0001');
           expect(jsonDecode(request.body)['refresh_token'], 'old-refresh');
           return http.Response(
             jsonEncode({
@@ -80,6 +81,7 @@ void main() {
           id: 'owner',
           displayName: 'Owner',
           email: 'owner@example.com',
+          emailVerified: true,
         ),
       );
 
@@ -147,6 +149,7 @@ Session _session() => Session(
     id: 'owner',
     displayName: 'Owner',
     email: 'owner@example.com',
+    emailVerified: true,
   ),
 );
 

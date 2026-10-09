@@ -17,6 +17,11 @@ The current foundation contains:
 - PostgreSQL persistence for users, rooms, members, and playback state;
 - Redis atomic hot-room state, distributed sequencing, Pub/Sub, presence, and
   one-time WebSocket tickets;
+- persistent device identities with access-token binding and remote revocation;
+- Redis-backed cross-node limits for registration, login, refresh, verification,
+  and password recovery;
+- single-use email verification and password-reset tokens delivered through a
+  configurable authenticated webhook;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -58,7 +63,10 @@ Windows binaries must be produced on a Windows runner; the workflow in
 ## Current boundary
 
 This is an engineering foundation, not a production release. Production work
-still requires secure client credential storage, email verification, account
-recovery, device controls, a credential vault, TURN, signed updates, rate
-limiting, moderation, and payment integration.
+still requires secure client credential storage, a production mail provider,
+device-ban administration, a credential vault, TURN, signed updates,
+moderation, and payment integration.
 Third-party source credentials are never accepted by this milestone.
+
+See `docs/architecture.md` for the topology and `docs/account-security.md` for
+device headers, recovery endpoints, webhook payloads, and rate-limit values.

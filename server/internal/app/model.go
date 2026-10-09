@@ -6,9 +6,26 @@ import (
 )
 
 type User struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"display_name"`
-	Email       string `json:"email,omitempty"`
+	ID             string `json:"id"`
+	DisplayName    string `json:"display_name"`
+	Email          string `json:"email,omitempty"`
+	EmailVerified  bool   `json:"email_verified"`
+	SessionVersion int64  `json:"-"`
+}
+
+type DeviceInfo struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Platform string `json:"platform"`
+}
+
+type UserDevice struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Platform  string `json:"platform"`
+	Current   bool   `json:"current"`
+	LastSeen  int64  `json:"last_seen"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 type Session struct {

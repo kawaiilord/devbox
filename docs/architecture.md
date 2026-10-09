@@ -34,6 +34,34 @@ ephemeral data, room state is reconstructed from PostgreSQL on service startup.
 - Login performs a dummy Argon2id verification for unknown emails to reduce
   obvious account-enumeration timing differences.
 
+## Account and device security
+
+- Each installation creates a random UUID in local preferences. It is not a
+  secret, but every API request carries it alongside a user-facing device label
+  and platform. The server stores only its SHA-256 digest.
+- Access tokens contain the device digest. Requests must present the matching
+  raw device ID and an active user-device link; revocation therefore blocks an
+  access token immediately instead of waiting 15 minutes for expiry.
+- Refresh tokens are also bound to a device digest. Revoking a device revokes
+  its refresh tokens, and a revoked device cannot silently relink by logging in.
+- Verification and recovery identifiers are 256-bit random values. Only their
+  digests are stored; replacing a token invalidates its predecessor and
+  consuming it is a transactionally enforced one-time operation.
+- Password-reset requests always return the same response. Delivery is queued
+  outside the request path to reduce account-enumeration timing signals.
+- Redis Lua scripts atomically increment fixed-window counters and set their
+  expiration. Limits combine the direct peer address, device ID, and normalized
+  account identifier as appropriate. Deployments behind a proxy should enforce
+  additional edge limits and configure the proxy so clients cannot spoof source
+  addresses.
+- Raw verification/reset tokens are sent only to an authenticated HTTPS mail
+  webhook. They are never written to application logs or returned by APIs.
+
+Local Compose sets `SAMEFRAME_REQUIRE_VERIFIED_EMAIL=false` so the demo remains
+usable without a mail service. Production should set it to `true` and provide
+`SAMEFRAME_MAIL_WEBHOOK_URL` plus `SAMEFRAME_MAIL_WEBHOOK_SECRET`; startup fails
+closed if enforcement is enabled without delivery configuration.
+
 ## Playback protocol
 
 Every server message uses this envelope:
@@ -82,8 +110,8 @@ The `*` origin setting in `docker-compose.yml` is for local development only.
 
 ## Next production slices
 
-1. Device IDs, request rate limits, email verification, recovery, and audit
-   records; move critical Pub/Sub events to Redis Streams if replay is needed.
+1. Administrative device bans and audit records; move critical Pub/Sub events
+   to Redis Streams if replay is needed.
 2. Source adapters beginning with direct URLs and WebDAV. Provider credentials
    go into a KMS-backed vault; clients receive short-lived media tickets.
 3. Local Range-aware cache proxy, subtitles, error classification, and source

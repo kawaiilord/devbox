@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,14 +18,15 @@ import (
 )
 
 type Options struct {
-	Address        string
-	AllowedOrigins []string
-	Logger         *slog.Logger
-	Repository     Repository
-	Auth           *AuthService
-	InitialRooms   []Room
-	AllowDemoAuth  bool
-	Redis          *RedisCoordinator
+	Address              string
+	AllowedOrigins       []string
+	Logger               *slog.Logger
+	Repository           Repository
+	Auth                 *AuthService
+	InitialRooms         []Room
+	AllowDemoAuth        bool
+	Redis                *RedisCoordinator
+	RequireVerifiedEmail bool
 }
 
 type Server struct {
@@ -33,6 +36,7 @@ type Server struct {
 	repo    Repository
 	auth    *AuthService
 	redis   *RedisCoordinator
+	limiter *RateLimiter
 	http    *http.Server
 	start   sync.Once
 }
@@ -63,6 +67,9 @@ func NewServer(options Options) *Server {
 		options: options, store: store, hub: NewHub(), repo: options.Repository,
 		auth: options.Auth, redis: options.Redis,
 	}
+	if options.Redis != nil {
+		s.limiter = options.Redis.RateLimiter()
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/config", s.config)
@@ -71,8 +78,14 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", s.refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
+	mux.HandleFunc("POST /api/v1/auth/email/verify-request", s.verificationRequest)
+	mux.HandleFunc("POST /api/v1/auth/email/verify", s.verifyEmail)
+	mux.HandleFunc("POST /api/v1/auth/password/request", s.passwordResetRequest)
+	mux.HandleFunc("POST /api/v1/auth/password/reset", s.passwordReset)
 	mux.HandleFunc("POST /api/v1/session/demo", s.demoSession)
 	mux.HandleFunc("GET /api/v1/users/me", s.currentUser)
+	mux.HandleFunc("GET /api/v1/devices", s.listDevices)
+	mux.HandleFunc("DELETE /api/v1/devices/{id}", s.revokeDevice)
 	mux.HandleFunc("POST /api/v1/rooms", s.createRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/join", s.joinRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
@@ -119,6 +132,7 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 	features := map[string]bool{
 		"room": true, "direct_source": true, "chat": false, "voice": false,
 		"multi_node_realtime": s.redis != nil, "presence": s.redis != nil,
+		"device_management": true, "email_verification": s.options.RequireVerifiedEmail,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -143,7 +157,12 @@ func (s *Server) demoSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	session, err := s.auth.CreateDemo(r.Context(), request.DisplayName)
+	device, err := deviceFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	session, err := s.auth.CreateDemo(r.Context(), request.DisplayName, device)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -161,7 +180,18 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	session, err := s.auth.Register(r.Context(), request.Email, request.DisplayName, request.Password)
+	device, err := deviceFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "register-source", sourceIdentity(r), 20, time.Hour) ||
+		!s.enforceRateLimit(w, r, "register-device", device.ID, 5, time.Hour) {
+		return
+	}
+	session, err := s.auth.Register(
+		r.Context(), request.Email, request.DisplayName, request.Password, device,
+	)
 	if errors.Is(err, ErrEmailExists) {
 		writeError(w, http.StatusConflict, err)
 		return
@@ -182,7 +212,17 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	session, err := s.auth.Login(r.Context(), request.Email, request.Password)
+	device, err := deviceFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	normalizedEmail := strings.ToLower(strings.TrimSpace(request.Email))
+	if !s.enforceRateLimit(w, r, "login-source", clientIdentity(r), 10, 15*time.Minute) ||
+		!s.enforceRateLimit(w, r, "login-account", normalizedEmail, 20, 15*time.Minute) {
+		return
+	}
+	session, err := s.auth.Login(r.Context(), request.Email, request.Password, device)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, ErrInvalidCredentials)
 		return
@@ -198,7 +238,16 @@ func (s *Server) refresh(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	session, err := s.auth.Refresh(r.Context(), request.RefreshToken)
+	device, err := deviceFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "refresh-device", device.ID, 30, time.Minute) ||
+		!s.enforceRateLimit(w, r, "refresh-source", sourceIdentity(r), 100, time.Minute) {
+		return
+	}
+	session, err := s.auth.Refresh(r.Context(), request.RefreshToken, device)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, ErrInvalidRefresh)
 		return
@@ -230,10 +279,130 @@ func (s *Server) currentUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: user, Msg: "ok"})
 }
 
+func (s *Server) verificationRequest(w http.ResponseWriter, r *http.Request) {
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "verify-email", user.ID, 5, time.Hour) {
+		return
+	}
+	if err := s.auth.RequestEmailVerification(r.Context(), user); err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("verification message unavailable"))
+		return
+	}
+	writeJSON(w, http.StatusAccepted, apiResponse{Code: 0, Msg: "verification requested"})
+}
+
+func (s *Server) verifyEmail(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Token string `json:"token"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "verify-token", clientIdentity(r), 15, 15*time.Minute) {
+		return
+	}
+	if err := s.auth.VerifyEmail(r.Context(), request.Token); err != nil {
+		writeError(w, http.StatusBadRequest, ErrInvalidActionToken)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Msg: "email verified"})
+}
+
+func (s *Server) passwordResetRequest(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Email string `json:"email"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	normalizedEmail := strings.ToLower(strings.TrimSpace(request.Email))
+	if !s.enforceRateLimit(w, r, "password-request-account", normalizedEmail, 5, time.Hour) ||
+		!s.enforceRateLimit(w, r, "password-request-source", sourceIdentity(r), 20, time.Hour) {
+		return
+	}
+	s.auth.RequestPasswordReset(r.Context(), request.Email)
+	writeJSON(w, http.StatusAccepted, apiResponse{
+		Code: 0, Msg: "if the account exists, a reset message will be sent",
+	})
+}
+
+func (s *Server) passwordReset(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !s.enforceRateLimit(w, r, "password-reset", clientIdentity(r), 10, 30*time.Minute) {
+		return
+	}
+	if err := s.auth.ResetPassword(r.Context(), request.Token, request.Password); err != nil {
+		if errors.Is(err, ErrInvalidActionToken) {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Msg: "password updated"})
+}
+
+func (s *Server) listDevices(w http.ResponseWriter, r *http.Request) {
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	devices, err := s.repo.UserDevices(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, errors.New("could not load devices"))
+		return
+	}
+	currentHash := hashDeviceID(r.Header.Get("X-Device-ID"))
+	for index := range devices {
+		devices[index].Current = devices[index].ID == currentHash
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"devices": devices}, Msg: "ok"})
+}
+
+func (s *Server) revokeDevice(w http.ResponseWriter, r *http.Request) {
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	deviceHash := strings.ToLower(strings.TrimSpace(r.PathValue("id")))
+	if len(deviceHash) != 64 {
+		writeError(w, http.StatusBadRequest, errors.New("invalid device"))
+		return
+	}
+	if deviceHash == hashDeviceID(r.Header.Get("X-Device-ID")) {
+		writeError(w, http.StatusBadRequest, errors.New("current device cannot be revoked here"))
+		return
+	}
+	if err := s.repo.RevokeUserDevice(r.Context(), user.ID, deviceHash); err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Msg: "device revoked"})
+}
+
 func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	user, err := s.userFromRequest(r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if s.options.RequireVerifiedEmail && !user.EmailVerified {
+		writeError(w, http.StatusForbidden, errors.New("email verification required"))
 		return
 	}
 	var request struct {
@@ -696,7 +865,61 @@ func (s *Server) userFromRequest(r *http.Request) (User, error) {
 	if !strings.HasPrefix(auth, prefix) {
 		return User{}, ErrUnauthorized
 	}
-	return s.auth.AuthenticateAccess(r.Context(), strings.TrimSpace(strings.TrimPrefix(auth, prefix)))
+	return s.auth.AuthenticateAccess(
+		r.Context(),
+		strings.TrimSpace(strings.TrimPrefix(auth, prefix)),
+		r.Header.Get("X-Device-ID"),
+	)
+}
+
+func deviceFromRequest(r *http.Request) (DeviceInfo, error) {
+	device := DeviceInfo{
+		ID: r.Header.Get("X-Device-ID"), Label: r.Header.Get("X-Device-Name"),
+		Platform: r.Header.Get("X-Device-Platform"),
+	}
+	normalized, _, err := normalizeDevice(device)
+	return normalized, err
+}
+
+func clientIdentity(r *http.Request) string {
+	return sourceIdentity(r) + ":" + r.Header.Get("X-Device-ID")
+}
+
+func sourceIdentity(r *http.Request) string {
+	host := r.RemoteAddr
+	if parsedHost, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		host = parsedHost
+	}
+	return host
+}
+
+func (s *Server) enforceRateLimit(
+	w http.ResponseWriter,
+	r *http.Request,
+	bucket, identity string,
+	limit int64,
+	window time.Duration,
+) bool {
+	if s.limiter == nil {
+		return true
+	}
+	decision, err := s.limiter.Allow(r.Context(), bucket, identity, limit, window)
+	if err != nil {
+		s.options.Logger.Error("rate limiter unavailable", "error", err, "bucket", bucket)
+		writeError(w, http.StatusServiceUnavailable, errors.New("rate limiter unavailable"))
+		return false
+	}
+	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(decision.Remaining, 10))
+	if decision.Allowed {
+		return true
+	}
+	retrySeconds := int64(decision.RetryAfter.Round(time.Second) / time.Second)
+	if retrySeconds < 1 {
+		retrySeconds = 1
+	}
+	w.Header().Set("Retry-After", strconv.FormatInt(retrySeconds, 10))
+	writeError(w, http.StatusTooManyRequests, errors.New("too many requests"))
+	return false
 }
 
 func (s *Server) withCORS(next http.Handler) http.Handler {
@@ -706,8 +929,11 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 		}
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set(
+			"Access-Control-Allow-Headers",
+			"Authorization, Content-Type, X-Device-ID, X-Device-Name, X-Device-Platform",
+		)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

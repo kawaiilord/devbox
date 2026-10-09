@@ -202,6 +202,40 @@ func TestRedisBroadcastsPlaybackAcrossServerNodes(t *testing.T) {
 	}
 }
 
+func TestRedisRateLimiterIsAtomicAcrossNodes(t *testing.T) {
+	redisURL := os.Getenv("TEST_REDIS_URL")
+	if redisURL == "" {
+		t.Skip("TEST_REDIS_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	nodeA, err := OpenRedis(ctx, redisURL, "limit-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nodeA.Close()
+	nodeB, err := OpenRedis(ctx, redisURL, "limit-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nodeB.Close()
+	if err := nodeA.FlushTestNamespace(ctx); err != nil {
+		t.Fatal(err)
+	}
+	first, err := nodeA.RateLimiter().Allow(ctx, "login", "device@example", 2, time.Minute)
+	if err != nil || !first.Allowed || first.Remaining != 1 {
+		t.Fatalf("first decision=%+v error=%v", first, err)
+	}
+	second, err := nodeB.RateLimiter().Allow(ctx, "login", "device@example", 2, time.Minute)
+	if err != nil || !second.Allowed || second.Remaining != 0 {
+		t.Fatalf("second decision=%+v error=%v", second, err)
+	}
+	third, err := nodeA.RateLimiter().Allow(ctx, "login", "device@example", 2, time.Minute)
+	if err != nil || third.Allowed || third.RetryAfter <= 0 {
+		t.Fatalf("third decision=%+v error=%v", third, err)
+	}
+}
+
 func issueTestSocketTicket(t *testing.T, baseURL, roomCode, accessToken string) string {
 	t.Helper()
 	body := requestJSON(

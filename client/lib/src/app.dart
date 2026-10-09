@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
 import 'api/api_client.dart';
+import 'device_identity.dart';
 import 'screens/lobby_page.dart';
 
 class SameFrameApp extends StatefulWidget {
-  const SameFrameApp({super.key});
+  const SameFrameApp({super.key, this.device = DeviceIdentity.test});
+
+  final DeviceIdentity device;
 
   @override
   State<SameFrameApp> createState() => _SameFrameAppState();
 }
 
 class _SameFrameAppState extends State<SameFrameApp> {
-  late final ApiClient api = ApiClient();
+  late final ApiClient api = ApiClient(device: widget.device);
 
   @override
   void dispose() {

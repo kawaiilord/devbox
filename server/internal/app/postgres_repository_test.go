@@ -29,9 +29,17 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	}
 
 	tokens, _ := NewTokenManager("postgres-test-secret-with-more-than-32-characters", "sameframe-postgres-test")
-	auth := NewAuthService(repository, tokens)
+	mailer := &MemoryMailer{}
+	auth := NewAuthService(repository, tokens, mailer)
 	owner, err := auth.Register(ctx, "owner@example.com", "Owner", "correct horse battery")
 	if err != nil {
+		t.Fatal(err)
+	}
+	verification, ok := mailer.LastMessage()
+	if !ok || verification.Type != "verify_email" {
+		t.Fatal("verification token was not persisted and queued")
+	}
+	if err := auth.VerifyEmail(ctx, verification.Token); err != nil {
 		t.Fatal(err)
 	}
 	member, err := auth.Register(ctx, "member@example.com", "Member", "another strong password")
@@ -89,7 +97,15 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 		t.Fatalf("restored position=%v, want %v", rooms[0].Playback.Position, position)
 	}
 	freshAuth := NewAuthService(reopened, tokens)
-	if _, err := freshAuth.Login(ctx, "owner@example.com", "correct horse battery"); err != nil {
+	login, err := freshAuth.Login(ctx, "owner@example.com", "correct horse battery")
+	if err != nil {
 		t.Fatalf("login after reopen: %v", err)
+	}
+	if !login.User.EmailVerified {
+		t.Fatal("email verification did not persist")
+	}
+	devices, err := reopened.UserDevices(ctx, owner.User.ID)
+	if err != nil || len(devices) != 1 {
+		t.Fatalf("devices after reopen=%+v error=%v", devices, err)
 	}
 }
