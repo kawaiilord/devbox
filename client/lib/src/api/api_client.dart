@@ -535,6 +535,20 @@ class ApiClient {
     );
   }
 
+  Future<List<RTCIceServerConfig>> rtcConfig(
+    Session session,
+    String roomCode,
+  ) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/rooms/$roomCode/rtc-config',
+      session: session,
+    );
+    return (data['ice_servers'] as List<dynamic>)
+        .map((v) => RTCIceServerConfig.fromJson(v as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   Future<void> deleteWatchRecord(Session session, int id) async {
     await _request('DELETE', '/api/v1/history/$id', session: session);
   }

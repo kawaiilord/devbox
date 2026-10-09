@@ -120,6 +120,14 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	var rtcManager *app.RTCConfigManager
+	if turnURLs := os.Getenv("SAMEFRAME_TURN_URLS"); turnURLs != "" {
+		rtcManager, err = app.NewRTCConfigManager(strings.Split(turnURLs, ","), os.Getenv("SAMEFRAME_TURN_SECRET"))
+		if err != nil {
+			logger.Error("configure voice TURN", "error", err)
+			os.Exit(1)
+		}
+	}
 	server := app.NewServer(app.Options{
 		Address:              addr,
 		AllowedOrigins:       origins,
@@ -133,6 +141,7 @@ func main() {
 		Sources:              sourceManager,
 		PublicBaseURL:        os.Getenv("SAMEFRAME_PUBLIC_BASE_URL"),
 		Metadata:             metadataClient,
+		RTC:                  rtcManager,
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

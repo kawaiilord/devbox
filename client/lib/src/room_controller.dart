@@ -8,6 +8,7 @@ import 'player/media_player_kernel.dart';
 import 'player/playback_failure.dart';
 import 'sync/playback_synchronizer.dart';
 import 'sync/room_socket.dart';
+import 'voice_session.dart';
 
 class RoomController extends ChangeNotifier {
   RoomController({
@@ -53,6 +54,9 @@ class RoomController extends ChangeNotifier {
   String? selectedSubtitlePath;
   String? selectedSubtitleName;
   final Set<String> onlineUserIds = <String>{};
+  VoiceSession? voice;
+  List<RTCIceServerConfig> _iceServers = const [];
+  String? voiceError;
 
   bool get isOwner => room.ownerId == session.user.id;
 
@@ -151,6 +155,40 @@ class RoomController extends ChangeNotifier {
       'color': color,
       'mode': mode,
     });
+  }
+
+  Future<void> startVoice() async {
+    if (voice?.active == true) return;
+    try {
+      _iceServers = await api.rtcConfig(session, room.code);
+      final next = VoiceSession(
+        userId: session.user.id,
+        sendSignal: (signal) =>
+            _socket?.send('rtc.signal', ++_clientSequence, signal),
+      );
+      voice = next;
+      await next.start(
+        _iceServers,
+        room.members.map((member) => member.userId).toList(growable: false),
+      );
+      voiceError = null;
+    } catch (exception) {
+      voiceError = exception.toString();
+      await voice?.stop();
+      voice = null;
+    }
+    notifyListeners();
+  }
+
+  void setVoiceMuted(bool value) {
+    voice?.setMuted(value);
+    notifyListeners();
+  }
+
+  Future<void> stopVoice() async {
+    await voice?.stop();
+    voice = null;
+    notifyListeners();
   }
 
   void setDanmakuEnabled(bool value) {
@@ -282,6 +320,10 @@ class RoomController extends ChangeNotifier {
       }
       return;
     }
+    if (envelope.type == 'rtc.signal') {
+      unawaited(_handleRTCSignal(envelope));
+      return;
+    }
     if (envelope.type != 'playback.snapshot' ||
         envelope.sequence <= _lastServerSequence) {
       return;
@@ -311,6 +353,14 @@ class RoomController extends ChangeNotifier {
     } catch (_) {
       // Danmaku history failure does not interrupt playback.
     }
+  }
+
+  Future<void> _handleRTCSignal(RoomEnvelope envelope) async {
+    if (voice == null) return;
+    final signal = Map<String, dynamic>.from(envelope.payload);
+    signal['from_user_id'] = envelope.fromUserId;
+    await voice?.handle(signal, _iceServers);
+    notifyListeners();
   }
 
   void _queueAlignment(PlaybackSnapshot snapshot) {
@@ -424,6 +474,7 @@ class RoomController extends ChangeNotifier {
     _watchProgress?.cancel();
     unawaited(_syncWatchProgress());
     _socket?.close();
+    unawaited(voice?.stop());
     player.dispose();
     super.dispose();
   }

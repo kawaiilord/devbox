@@ -269,6 +269,80 @@ class _RoomPageState extends State<RoomPage> {
     keyword.dispose();
   }
 
+  Future<void> _showVoice() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('房间语音'),
+        content: SizedBox(
+          width: 420,
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              final active = controller.voice?.active == true;
+              final muted = controller.voice?.muted == true;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      active ? Icons.mic_rounded : Icons.mic_off_rounded,
+                    ),
+                    title: Text(active ? '语音已连接' : '语音未连接'),
+                    subtitle: Text(
+                      active
+                          ? '${controller.voice?.peerCount ?? 0} 个 PeerConnection'
+                          : '加入后将请求麦克风权限',
+                    ),
+                  ),
+                  if (controller.voiceError != null)
+                    Text(
+                      controller.voiceError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (!active)
+                        FilledButton.icon(
+                          onPressed: controller.startVoice,
+                          icon: const Icon(Icons.call_rounded),
+                          label: const Text('加入语音'),
+                        ),
+                      if (active) ...[
+                        IconButton.filledTonal(
+                          onPressed: () => controller.setVoiceMuted(!muted),
+                          icon: Icon(
+                            muted ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          ),
+                          tooltip: muted ? '取消静音' : '静音',
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton.icon(
+                          onPressed: controller.stopVoice,
+                          icon: const Icon(Icons.call_end_rounded),
+                          label: const Text('退出语音'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleMessageAction(String action, ChatMessage message) async {
     if (action == 'block') {
       final confirmed = await showDialog<bool>(
@@ -476,6 +550,15 @@ class _RoomPageState extends State<RoomPage> {
                 tooltip: '弹幕',
                 onPressed: controller.room.closed ? null : _showDanmaku,
                 icon: const Icon(Icons.slow_motion_video_rounded),
+              ),
+              IconButton(
+                tooltip: '房间语音',
+                onPressed: controller.room.closed ? null : _showVoice,
+                icon: Icon(
+                  controller.voice?.active == true
+                      ? Icons.mic_rounded
+                      : Icons.mic_none_rounded,
+                ),
               ),
               IconButton(
                 tooltip: '房间聊天',

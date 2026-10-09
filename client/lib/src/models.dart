@@ -411,6 +411,25 @@ class CoupleMoment {
   );
 }
 
+class RTCIceServerConfig {
+  const RTCIceServerConfig({
+    required this.urls,
+    required this.username,
+    required this.credential,
+  });
+  final List<String> urls;
+  final String username;
+  final String credential;
+  factory RTCIceServerConfig.fromJson(Map<String, dynamic> json) =>
+      RTCIceServerConfig(
+        urls: (json['urls'] as List<dynamic>)
+            .map((v) => v.toString())
+            .toList(growable: false),
+        username: json['username']?.toString() ?? '',
+        credential: json['credential']?.toString() ?? '',
+      );
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -595,17 +614,20 @@ class RoomEnvelope {
     required this.sequence,
     required this.serverTimestamp,
     required this.payload,
+    this.fromUserId = '',
   });
 
   final String type;
   final int sequence;
   final int serverTimestamp;
   final Map<String, dynamic> payload;
+  final String fromUserId;
 
   factory RoomEnvelope.fromJson(Map<String, dynamic> json) => RoomEnvelope(
     type: json['type'] as String,
     sequence: (json['seq'] as num).toInt(),
     serverTimestamp: (json['ts'] as num).toInt(),
     payload: json['payload'] as Map<String, dynamic>,
+    fromUserId: json['from']?.toString() ?? '',
   );
 }

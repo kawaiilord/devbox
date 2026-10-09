@@ -54,6 +54,11 @@ anniversary events, shared moments, and a seven-day separation cooling period.
 Acceptance uses transaction-scoped advisory locks over both users to prevent
 concurrent requests from creating multiple active relationships.
 
+Room voice is peer-to-peer WebRTC mesh audio. Offer, answer, and ICE messages
+reuse the room WebSocket and are delivered only to the named room member across
+Redis nodes. TURN shared secrets remain server-side; clients receive HMAC-SHA1
+TURN REST credentials valid for one hour after membership authorization.
+
 ## Authentication
 
 - Passwords are normalized only at the email boundary and hashed with Argon2id

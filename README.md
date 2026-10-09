@@ -37,6 +37,8 @@ The current foundation contains:
   cursors, and one-time-ticket WebSocket message notifications;
 - membership-gated couple requests, anniversary timeline, shared moments,
   seven-day cooling/restoration, shared favorites, and common watch history;
+- cross-platform WebRTC room voice with targeted signaling and short-lived
+  HMAC TURN REST credentials;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -94,3 +96,4 @@ Favorites, history, and resume behavior are in `docs/personal-library.md`.
 Danmaku matching and TMDB proxy behavior are in `docs/danmaku-metadata.md`.
 Social discovery and private messaging are in `docs/social-messaging.md`.
 Couple relationship invariants are in `docs/couple-space.md`.
+Voice signaling and TURN credential handling are in `docs/voice.md`.

@@ -33,6 +33,7 @@ type Options struct {
 	Sources              *MediaSourceManager
 	PublicBaseURL        string
 	Metadata             *MetadataClient
+	RTC                  *RTCConfigManager
 }
 
 type Server struct {
@@ -149,6 +150,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/rooms/{code}/media-ticket", s.issueRoomMediaTicket)
 	mux.HandleFunc("GET /api/v1/rooms/{code}/messages", s.roomMessages)
 	mux.HandleFunc("GET /api/v1/rooms/{code}/danmaku", s.roomDanmaku)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/rtc-config", s.rtcConfig)
 	mux.HandleFunc("GET /api/v1/rooms/{code}/subtitles", s.roomSubtitles)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/subtitle-ticket", s.issueRoomSubtitleTicket)
 	mux.HandleFunc("GET /api/v1/rooms/{code}", s.getRoom)
@@ -193,7 +195,7 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 	features := map[string]bool{
-		"room": true, "direct_source": true, "chat": true, "voice": false,
+		"room": true, "direct_source": true, "chat": true, "voice": s.options.RTC != nil,
 		"multi_node_realtime": s.redis != nil, "presence": s.redis != nil,
 		"device_management": true, "email_verification": s.options.RequireVerifiedEmail,
 		"media_sources":      s.sources != nil,
@@ -1184,6 +1186,10 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 			if applyErr == nil {
 				updated, applyErr = s.store.ApplyAuthoritativePlayback(code, playback, serverSeq)
 			}
+			if envelope.Type == "rtc.signal" {
+				s.handleRTCSignal(ctx, client, code, user, envelope.Payload)
+				continue
+			}
 		} else {
 			updated, serverSeq, applyErr = s.store.ApplyControl(code, user, envelope.Seq, control)
 		}
@@ -1331,6 +1337,14 @@ func (s *Server) emitEnvelope(ctx context.Context, envelope Envelope) {
 
 func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
 	if envelope.Type != "chat.message" && envelope.Type != "danmaku.message" {
+		if envelope.Type == "rtc.signal" {
+			var signal RTCSignal
+			if json.Unmarshal(envelope.Payload, &signal) != nil {
+				return
+			}
+			s.hub.BroadcastWhere(envelope.Room, envelope, func(recipient User) bool { return recipient.ID == signal.TargetUserID })
+			return
+		}
 		s.hub.Broadcast(envelope.Room, envelope)
 		return
 	}
