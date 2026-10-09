@@ -21,6 +21,10 @@ only while making an outbound request through an SSRF-restricted transport.
 Players consume a renewable SameFrame media ticket, optionally through the
 desktop loopback Range cache; they never receive provider credentials.
 
+Chat is written to PostgreSQL before a canonical message envelope is published
+through Redis to every WebSocket node. External subtitles reuse the media-ticket
+proxy but are restricted to the room video’s directory.
+
 Durable entities are restored from PostgreSQL at startup. Redis holds the hot
 playback hashes, globally increasing room sequences, one-time socket tickets,
 online-presence sorted sets, and the cross-node Pub/Sub channel. If Redis loses
@@ -119,5 +123,5 @@ The `*` origin setting in `docker-compose.yml` is for local development only.
    to Redis Streams if replay is needed.
 2. Add Emby and object-storage adapters behind the same encrypted source
    interface; move the static vault master key to a managed KMS envelope.
-3. Subtitles, media-error classification, and richer cache controls.
-4. Chat, moderation, reporting, and privacy controls before public rooms.
+3. Embedded-track controls, subtitle style/delay, and richer cache controls.
+4. Moderation, reporting, and privacy controls before public rooms.

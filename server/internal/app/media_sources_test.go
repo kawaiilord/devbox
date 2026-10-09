@@ -134,6 +134,15 @@ func TestMediaRoomIssuesRenewableTicketToMember(t *testing.T) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		if r.Method == "PROPFIND" {
+			w.Header().Set("Content-Type", "application/xml")
+			w.WriteHeader(http.StatusMultiStatus)
+			_, _ = io.WriteString(w, `<?xml version="1.0"?><D:multistatus xmlns:D="DAV:">
+<D:response><D:href>/dav/</D:href><D:propstat><D:prop><D:displayname>dav</D:displayname><D:resourcetype><D:collection/></D:resourcetype></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>
+<D:response><D:href>/dav/movie.srt</D:href><D:propstat><D:prop><D:displayname>movie.srt</D:displayname><D:resourcetype/><D:getcontentlength>42</D:getcontentlength><D:getcontenttype>application/x-subrip</D:getcontenttype></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>
+</D:multistatus>`)
+			return
+		}
 		if r.Header.Get("Range") != "bytes=4-7" {
 			http.Error(w, "range", http.StatusBadRequest)
 			return
@@ -228,5 +237,38 @@ func TestMediaRoomIssuesRenewableTicketToMember(t *testing.T) {
 	body, _ := io.ReadAll(response.Body)
 	if response.StatusCode != http.StatusPartialContent || string(body) != "data" {
 		t.Fatalf("status=%d body=%q", response.StatusCode, body)
+	}
+	subtitleBody := requestJSON(
+		t,
+		http.MethodGet,
+		httpServer.URL+"/api/v1/rooms/"+room.Code+"/subtitles",
+		member.AccessToken,
+		nil,
+	)
+	var subtitleResponse struct {
+		Data struct {
+			Files []MediaFile `json:"files"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(subtitleBody, &subtitleResponse); err != nil {
+		t.Fatal(err)
+	}
+	if len(subtitleResponse.Data.Files) != 1 || subtitleResponse.Data.Files[0].Path != "/movie.srt" {
+		t.Fatalf("subtitles=%+v", subtitleResponse.Data.Files)
+	}
+	subtitleTicketBody := requestJSON(
+		t,
+		http.MethodPost,
+		httpServer.URL+"/api/v1/rooms/"+room.Code+"/subtitle-ticket",
+		member.AccessToken,
+		map[string]string{"path": "/movie.srt"},
+	)
+	var subtitleTicket struct {
+		Data struct {
+			URL string `json:"url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(subtitleTicketBody, &subtitleTicket); err != nil || subtitleTicket.Data.URL == "" {
+		t.Fatalf("subtitle ticket=%+v error=%v", subtitleTicket, err)
 	}
 }

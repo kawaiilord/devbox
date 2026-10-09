@@ -55,6 +55,8 @@ type Repository interface {
 	ListMediaSources(context.Context, string) ([]MediaSource, error)
 	GetMediaSource(context.Context, string, string) (MediaSource, error)
 	DeleteMediaSource(context.Context, string, string) error
+	AddRoomMessage(context.Context, ChatMessage) (ChatMessage, error)
+	ListRoomMessages(context.Context, string, int64, int) ([]ChatMessage, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -87,27 +89,30 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
-	mu           sync.RWMutex
-	usersByID    map[string]AccountRecord
-	usersByMail  map[string]string
-	refresh      map[string]memoryRefreshToken
-	devices      map[string]memoryDevice
-	userDevices  map[string]map[string]memoryUserDevice
-	actionTokens map[string]memoryActionToken
-	mediaSources map[string]MediaSource
-	rooms        map[string]Room
+	mu            sync.RWMutex
+	usersByID     map[string]AccountRecord
+	usersByMail   map[string]string
+	refresh       map[string]memoryRefreshToken
+	devices       map[string]memoryDevice
+	userDevices   map[string]map[string]memoryUserDevice
+	actionTokens  map[string]memoryActionToken
+	mediaSources  map[string]MediaSource
+	messages      []ChatMessage
+	nextMessageID int64
+	rooms         map[string]Room
 }
 
 func NewMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{
-		usersByID:    make(map[string]AccountRecord),
-		usersByMail:  make(map[string]string),
-		refresh:      make(map[string]memoryRefreshToken),
-		devices:      make(map[string]memoryDevice),
-		userDevices:  make(map[string]map[string]memoryUserDevice),
-		actionTokens: make(map[string]memoryActionToken),
-		mediaSources: make(map[string]MediaSource),
-		rooms:        make(map[string]Room),
+		usersByID:     make(map[string]AccountRecord),
+		usersByMail:   make(map[string]string),
+		refresh:       make(map[string]memoryRefreshToken),
+		devices:       make(map[string]memoryDevice),
+		userDevices:   make(map[string]map[string]memoryUserDevice),
+		actionTokens:  make(map[string]memoryActionToken),
+		mediaSources:  make(map[string]MediaSource),
+		nextMessageID: 1,
+		rooms:         make(map[string]Room),
 	}
 }
 
@@ -363,6 +368,39 @@ func (r *MemoryRepository) DeleteMediaSource(_ context.Context, userID, sourceID
 	}
 	delete(r.mediaSources, sourceID)
 	return nil
+}
+
+func (r *MemoryRepository) AddRoomMessage(_ context.Context, message ChatMessage) (ChatMessage, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	message.ID = r.nextMessageID
+	r.nextMessageID++
+	if message.CreatedAt == 0 {
+		message.CreatedAt = time.Now().UnixMilli()
+	}
+	r.messages = append(r.messages, message)
+	return message, nil
+}
+
+func (r *MemoryRepository) ListRoomMessages(
+	_ context.Context,
+	roomCode string,
+	before int64,
+	limit int,
+) ([]ChatMessage, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]ChatMessage, 0, limit)
+	for index := len(r.messages) - 1; index >= 0 && len(result) < limit; index-- {
+		message := r.messages[index]
+		if message.RoomCode == roomCode && (before == 0 || message.ID < before) {
+			result = append(result, message)
+		}
+	}
+	for left, right := 0, len(result)-1; left < right; left, right = left+1, right-1 {
+		result[left], result[right] = result[right], result[left]
+	}
+	return result, nil
 }
 
 func (r *MemoryRepository) SaveRoom(_ context.Context, room Room) error {

@@ -27,6 +27,7 @@ class MediaPlayerKernel {
   Stream<Duration> get positionStream => player.stream.position;
   Stream<Duration> get durationStream => player.stream.duration;
   Stream<bool> get playingStream => player.stream.playing;
+  Stream<String> get errorStream => player.stream.error;
 
   Future<void> open(
     String source, {
@@ -54,6 +55,10 @@ class MediaPlayerKernel {
   Future<void> pause() => player.pause();
   Future<void> seek(Duration position) => player.seek(position);
   Future<void> setRate(double rate) => player.setRate(rate);
+  Future<void> loadSubtitle(String uri, {String? title}) =>
+      player.setSubtitleTrack(SubtitleTrack.uri(uri, title: title));
+  Future<void> disableSubtitles() =>
+      player.setSubtitleTrack(SubtitleTrack.no());
 
   Future<void> dispose() async {
     generation++;

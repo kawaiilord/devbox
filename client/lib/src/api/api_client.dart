@@ -189,6 +189,53 @@ class ApiClient {
     );
   }
 
+  Future<List<ChatMessage>> roomMessages(
+    Session session,
+    String roomCode, {
+    int before = 0,
+    int limit = 50,
+  }) async {
+    final uri = Uri(
+      path: '/api/v1/rooms/$roomCode/messages',
+      queryParameters: {'before': '$before', 'limit': '$limit'},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['messages'] as List<dynamic>)
+        .map((value) => ChatMessage.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<List<MediaFile>> roomSubtitles(
+    Session session,
+    String roomCode,
+  ) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/rooms/$roomCode/subtitles',
+      session: session,
+    );
+    return (data['files'] as List<dynamic>)
+        .map((value) => MediaFile.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<MediaPlaybackTicket> roomSubtitleTicket(
+    Session session,
+    String roomCode,
+    String path,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/rooms/$roomCode/subtitle-ticket',
+      session: session,
+      body: {'path': path},
+    );
+    return MediaPlaybackTicket(
+      url: Uri.parse(baseUrl).resolve(data['url'] as String).toString(),
+      expiresAt: (data['expires_at'] as num).toInt(),
+    );
+  }
+
   Future<void> deleteMediaSource(Session session, String sourceId) async {
     await _request('DELETE', '/api/v1/sources/$sourceId', session: session);
   }

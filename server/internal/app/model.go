@@ -54,6 +54,15 @@ type MediaTicket struct {
 	Path     string `json:"path"`
 }
 
+type ChatMessage struct {
+	ID          int64  `json:"id"`
+	RoomCode    string `json:"room_code"`
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+	Body        string `json:"body"`
+	CreatedAt   int64  `json:"created_at"`
+}
+
 type Session struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`

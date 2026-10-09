@@ -212,6 +212,39 @@ func TestRedisBroadcastsPlaybackAcrossServerNodes(t *testing.T) {
 	if !playback.Playing {
 		t.Fatal("node B did not receive node A playback control")
 	}
+	chatPayload, _ := json.Marshal(map[string]string{"body": "hello across nodes"})
+	chatEnvelope, _ := json.Marshal(Envelope{
+		Type: "chat.message", Seq: 2, Payload: chatPayload,
+	})
+	if err := memberSocket.Write(ctx, websocket.MessageText, chatEnvelope); err != nil {
+		t.Fatal(err)
+	}
+	chatEvent := readTestEnvelope(t, ctx, ownerSocket, "chat.message")
+	var chat ChatMessage
+	if err := json.Unmarshal(chatEvent.Payload, &chat); err != nil {
+		t.Fatal(err)
+	}
+	if chat.Body != "hello across nodes" || chat.UserID != member.User.ID {
+		t.Fatalf("chat=%+v", chat)
+	}
+	historyBody := requestJSON(
+		t,
+		http.MethodGet,
+		httpA.URL+"/api/v1/rooms/"+room.Code+"/messages?limit=50",
+		owner.AccessToken,
+		nil,
+	)
+	var history struct {
+		Data struct {
+			Messages []ChatMessage `json:"messages"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(historyBody, &history); err != nil {
+		t.Fatal(err)
+	}
+	if len(history.Data.Messages) != 1 || history.Data.Messages[0].ID != chat.ID {
+		t.Fatalf("chat history=%+v", history.Data.Messages)
+	}
 }
 
 func TestRedisRateLimiterIsAtomicAcrossNodes(t *testing.T) {

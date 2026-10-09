@@ -42,6 +42,155 @@ class _RoomPageState extends State<RoomPage> {
     super.dispose();
   }
 
+  Future<void> _showChat() async {
+    final input = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('房间聊天'),
+        content: SizedBox(
+          width: 520,
+          height: 480,
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) => Column(
+              children: [
+                Expanded(
+                  child: controller.messages.isEmpty
+                      ? const Center(child: Text('还没有消息。'))
+                      : ListView.builder(
+                          itemCount: controller.messages.length,
+                          itemBuilder: (context, index) {
+                            final message = controller.messages[index];
+                            final mine =
+                                message.userId == controller.session.user.id;
+                            return Align(
+                              alignment: mine
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 360,
+                                ),
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: mine
+                                      ? Theme.of(context)
+                                            .colorScheme
+                                            .primaryContainer
+                                      : Colors.white.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      message.displayName,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(message.body),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: input,
+                        maxLength: 500,
+                        decoration: const InputDecoration(
+                          labelText: '消息',
+                          counterText: '',
+                        ),
+                        onSubmitted: (_) {
+                          controller.sendChat(input.text);
+                          input.clear();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
+                      onPressed: () {
+                        controller.sendChat(input.text);
+                        input.clear();
+                      },
+                      icon: const Icon(Icons.send_rounded),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+  }
+
+  Future<void> _showSubtitles() async {
+    final files = await controller.availableSubtitles();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('外挂字幕'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.subtitles_off_rounded),
+                title: const Text('关闭外挂字幕'),
+                onTap: () async {
+                  await controller.disableSubtitles();
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+              ),
+              if (files.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text('视频所在目录没有 SRT、VTT、ASS 或 SSA 字幕。'),
+                ),
+              for (final file in files)
+                ListTile(
+                  leading: const Icon(Icons.subtitles_rounded),
+                  title: Text(file.name),
+                  selected: controller.selectedSubtitlePath == file.path,
+                  onTap: () async {
+                    await controller.selectSubtitle(file);
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -61,6 +210,17 @@ class _RoomPageState extends State<RoomPage> {
               ],
             ),
             actions: [
+              if (controller.room.mediaSourceId.isNotEmpty)
+                IconButton(
+                  tooltip: '外挂字幕',
+                  onPressed: _showSubtitles,
+                  icon: const Icon(Icons.subtitles_rounded),
+                ),
+              IconButton(
+                tooltip: '房间聊天',
+                onPressed: _showChat,
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+              ),
               Padding(
                 padding: const EdgeInsets.only(right: 18),
                 child: _ConnectionBadge(connected: controller.connected),

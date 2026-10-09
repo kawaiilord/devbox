@@ -21,6 +21,9 @@ var accountSecurityMigration string
 //go:embed migrations/003_media_sources.sql
 var mediaSourcesMigration string
 
+//go:embed migrations/004_room_chat.sql
+var roomChatMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -45,7 +48,9 @@ func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository,
 }
 
 func (r *PostgresRepository) Migrate(ctx context.Context) error {
-	for _, migration := range []string{foundationMigration, accountSecurityMigration, mediaSourcesMigration} {
+	for _, migration := range []string{
+		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
+	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
 		}
@@ -518,6 +523,69 @@ func (r *PostgresRepository) DeleteMediaSource(ctx context.Context, userID, sour
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (r *PostgresRepository) AddRoomMessage(
+	ctx context.Context,
+	message ChatMessage,
+) (ChatMessage, error) {
+	err := r.pool.QueryRow(
+		ctx,
+		`INSERT INTO room_messages (room_code, user_id, display_name, body)
+		 VALUES ($1,$2,$3,$4)
+		 RETURNING id, (extract(epoch FROM created_at) * 1000)::bigint`,
+		message.RoomCode,
+		message.UserID,
+		message.DisplayName,
+		message.Body,
+	).Scan(&message.ID, &message.CreatedAt)
+	return message, err
+}
+
+func (r *PostgresRepository) ListRoomMessages(
+	ctx context.Context,
+	roomCode string,
+	before int64,
+	limit int,
+) ([]ChatMessage, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT id, room_code, user_id, display_name, body,
+		 (extract(epoch FROM created_at) * 1000)::bigint
+		 FROM room_messages
+		 WHERE room_code = $1 AND ($2::bigint = 0 OR id < $2)
+		 ORDER BY id DESC LIMIT $3`,
+		roomCode,
+		before,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	messages := make([]ChatMessage, 0, limit)
+	for rows.Next() {
+		var message ChatMessage
+		if err := rows.Scan(
+			&message.ID,
+			&message.RoomCode,
+			&message.UserID,
+			&message.DisplayName,
+			&message.Body,
+			&message.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		message.RoomCode = strings.TrimSpace(message.RoomCode)
+		messages = append(messages, message)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for left, right := 0, len(messages)-1; left < right; left, right = left+1, right-1 {
+		messages[left], messages[right] = messages[right], messages[left]
+	}
+	return messages, nil
 }
 
 func (r *PostgresRepository) SaveRoom(ctx context.Context, room Room) error {

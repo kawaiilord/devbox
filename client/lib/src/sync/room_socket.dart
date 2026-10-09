@@ -47,11 +47,15 @@ class RoomSocket {
   }
 
   void sendControl(int sequence, Map<String, dynamic> payload) {
+    send('playback.control', sequence, payload);
+  }
+
+  void send(String type, int sequence, Map<String, dynamic> payload) {
     final channel = _channel;
     if (channel == null) return;
     channel.sink.add(
       jsonEncode({
-        'type': 'playback.control',
+        'type': type,
         'seq': sequence,
         'ts': DateTime.now().millisecondsSinceEpoch,
         'payload': payload,

@@ -10,11 +10,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/coder/websocket"
 )
@@ -103,6 +105,9 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/rooms/{code}/join", s.joinRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/media-ticket", s.issueRoomMediaTicket)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/messages", s.roomMessages)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/subtitles", s.roomSubtitles)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/subtitle-ticket", s.issueRoomSubtitleTicket)
 	mux.HandleFunc("GET /api/v1/rooms/{code}", s.getRoom)
 	mux.HandleFunc("GET /ws/v1/rooms/{code}", s.roomSocket)
 	s.http = &http.Server{
@@ -145,10 +150,11 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 	features := map[string]bool{
-		"room": true, "direct_source": true, "chat": false, "voice": false,
+		"room": true, "direct_source": true, "chat": true, "voice": false,
 		"multi_node_realtime": s.redis != nil, "presence": s.redis != nil,
 		"device_management": true, "email_verification": s.options.RequireVerifiedEmail,
-		"media_sources": s.sources != nil,
+		"media_sources":      s.sources != nil,
+		"external_subtitles": s.sources != nil,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -577,6 +583,126 @@ func (s *Server) issueRoomMediaTicket(w http.ResponseWriter, r *http.Request) {
 	}, Msg: "created"})
 }
 
+func (s *Server) roomMessages(w http.ResponseWriter, r *http.Request) {
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	code := strings.ToUpper(r.PathValue("code"))
+	if err := s.refreshRedisRoom(r.Context(), code); err != nil && !errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
+		return
+	}
+	if _, err := s.store.GetRoom(code, user.ID); err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	before, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	messages, err := s.repo.ListRoomMessages(r.Context(), code, before, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, errors.New("could not load room messages"))
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"messages": messages}, Msg: "ok"})
+}
+
+func (s *Server) roomSubtitles(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	code := strings.ToUpper(r.PathValue("code"))
+	if err := s.refreshRedisRoom(r.Context(), code); err != nil && !errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
+		return
+	}
+	room, err := s.store.GetRoom(code, user.ID)
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	if room.MediaSourceID == "" {
+		writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"files": []MediaFile{}}, Msg: "ok"})
+		return
+	}
+	directory := path.Dir(room.MediaPath)
+	files, err := s.sources.Browse(r.Context(), room.OwnerID, room.MediaSourceID, directory)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	subtitles := make([]MediaFile, 0)
+	for _, file := range files {
+		if !file.IsDirectory && isSubtitlePath(file.Path) {
+			subtitles = append(subtitles, file)
+		}
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"files": subtitles}, Msg: "ok"})
+}
+
+func (s *Server) issueRoomSubtitleTicket(w http.ResponseWriter, r *http.Request) {
+	if s.sources == nil || s.redis == nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("subtitle tickets unavailable"))
+		return
+	}
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	code := strings.ToUpper(r.PathValue("code"))
+	if err := s.refreshRedisRoom(r.Context(), code); err != nil && !errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
+		return
+	}
+	room, err := s.store.GetRoom(code, user.ID)
+	if err != nil {
+		writeStoreError(w, err)
+		return
+	}
+	var request struct {
+		Path string `json:"path"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	clean := cleanMediaPath(request.Path)
+	if room.MediaSourceID == "" || !isSubtitlePath(clean) || path.Dir(clean) != path.Dir(room.MediaPath) {
+		writeError(w, http.StatusForbidden, errors.New("subtitle is outside the room media directory"))
+		return
+	}
+	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), MediaTicket{
+		UserID: room.OwnerID, SourceID: room.MediaSourceID, Path: clean,
+	}, 15*time.Minute)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue subtitle ticket"))
+		return
+	}
+	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: map[string]any{
+		"url": s.mediaPlaybackURL(raw), "expires_at": expiresAt.UnixMilli(),
+	}, Msg: "created"})
+}
+
+func isSubtitlePath(value string) bool {
+	switch strings.ToLower(path.Ext(value)) {
+	case ".srt", ".vtt", ".ass", ".ssa":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) hydrateRoomMediaURL(ctx context.Context, room Room) (Room, error) {
 	if room.MediaSourceID == "" {
 		return room, nil
@@ -916,7 +1042,14 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var envelope Envelope
-		if json.Unmarshal(message, &envelope) != nil || envelope.Type != "playback.control" {
+		if json.Unmarshal(message, &envelope) != nil {
+			continue
+		}
+		if envelope.Type == "chat.message" {
+			s.handleChatMessage(ctx, client, code, user, envelope.Payload)
+			continue
+		}
+		if envelope.Type != "playback.control" {
 			continue
 		}
 		var control Control
@@ -951,6 +1084,58 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 		}
 		s.broadcastSnapshot(ctx, updated, serverSeq, user.ID)
 	}
+}
+
+func (s *Server) handleChatMessage(
+	ctx context.Context,
+	client *socketClient,
+	roomCode string,
+	user User,
+	payload json.RawMessage,
+) {
+	if _, err := s.store.GetRoom(roomCode, user.ID); err != nil {
+		s.sendSocketError(client, roomCode, ErrForbidden)
+		return
+	}
+	var incoming struct {
+		Body string `json:"body"`
+	}
+	if json.Unmarshal(payload, &incoming) != nil {
+		s.sendSocketError(client, roomCode, errors.New("invalid chat message"))
+		return
+	}
+	body := strings.TrimSpace(incoming.Body)
+	if !utf8.ValidString(body) || utf8.RuneCountInString(body) < 1 ||
+		utf8.RuneCountInString(body) > 500 || strings.ContainsRune(body, '\x00') {
+		s.sendSocketError(client, roomCode, errors.New("chat message must be 1-500 characters"))
+		return
+	}
+	if !s.chatRateAllowed(ctx, roomCode, user.ID) {
+		s.sendSocketError(client, roomCode, errors.New("chat rate limit exceeded"))
+		return
+	}
+	message, err := s.repo.AddRoomMessage(ctx, ChatMessage{
+		RoomCode: roomCode, UserID: user.ID, DisplayName: user.DisplayName, Body: body,
+	})
+	if err != nil {
+		s.sendSocketError(client, roomCode, errors.New("chat persistence failed"))
+		return
+	}
+	encoded, _ := json.Marshal(message)
+	s.emitEnvelope(ctx, Envelope{
+		Type: "chat.message", Room: roomCode, Seq: message.ID,
+		TS: message.CreatedAt, From: user.ID, Payload: encoded,
+	})
+}
+
+func (s *Server) chatRateAllowed(ctx context.Context, roomCode, userID string) bool {
+	if s.limiter == nil {
+		return true
+	}
+	decision, err := s.limiter.Allow(
+		ctx, "chat", roomCode+":"+userID, 20, 10*time.Second,
+	)
+	return err == nil && decision.Allowed
 }
 
 func (s *Server) writeSocket(ctx context.Context, conn *websocket.Conn, client *socketClient) {

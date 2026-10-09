@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'api/api_client.dart';
 import 'models.dart';
 import 'player/media_player_kernel.dart';
+import 'player/playback_failure.dart';
 import 'sync/playback_synchronizer.dart';
 import 'sync/room_socket.dart';
 
@@ -29,6 +30,7 @@ class RoomController extends ChangeNotifier {
   RoomSocket? _socket;
   StreamSubscription<RoomEnvelope>? _eventSubscription;
   StreamSubscription<bool>? _connectionSubscription;
+  StreamSubscription<String>? _playerErrorSubscription;
   Duration _clockOffset = Duration.zero;
   Future<void> _alignmentQueue = Future.value();
   Timer? _mediaRenewal;
@@ -39,6 +41,10 @@ class RoomController extends ChangeNotifier {
   bool loading = true;
   String? error;
   AlignmentAction? lastAlignment;
+  PlaybackFailure? playbackFailure;
+  final List<ChatMessage> messages = <ChatMessage>[];
+  String? selectedSubtitlePath;
+  String? selectedSubtitleName;
   final Set<String> onlineUserIds = <String>{};
 
   bool get isOwner => room.ownerId == session.user.id;
@@ -46,6 +52,9 @@ class RoomController extends ChangeNotifier {
   Future<void> initialize() async {
     try {
       _clockOffset = await api.measureClockOffset();
+      messages
+        ..clear()
+        ..addAll(await api.roomMessages(session, room.code));
       await player.open(
         room.sourceUrl,
         version: room.playback.sourceVersion,
@@ -69,6 +78,7 @@ class RoomController extends ChangeNotifier {
         connected = value;
         notifyListeners();
       });
+      _playerErrorSubscription = player.errorStream.listen(_handlePlayerError);
       await socket.connect();
       _scheduleMediaRenewal();
     } catch (exception) {
@@ -88,6 +98,31 @@ class RoomController extends ChangeNotifier {
 
   void setSpeed(double speed) =>
       _sendControl({'action': 'speed', 'speed': speed});
+
+  void sendChat(String body) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty || !connected) return;
+    _socket?.send('chat.message', ++_clientSequence, {'body': trimmed});
+  }
+
+  Future<List<MediaFile>> availableSubtitles() {
+    return api.roomSubtitles(session, room.code);
+  }
+
+  Future<void> selectSubtitle(MediaFile file) async {
+    final ticket = await api.roomSubtitleTicket(session, room.code, file.path);
+    selectedSubtitlePath = file.path;
+    selectedSubtitleName = file.name;
+    await player.loadSubtitle(ticket.url, title: file.name);
+    notifyListeners();
+  }
+
+  Future<void> disableSubtitles() async {
+    selectedSubtitlePath = null;
+    selectedSubtitleName = null;
+    await player.disableSubtitles();
+    notifyListeners();
+  }
 
   void _sendControl(Map<String, dynamic> payload) {
     if (!isOwner || !connected) return;
@@ -121,6 +156,17 @@ class RoomController extends ChangeNotifier {
       }
       return;
     }
+    if (envelope.type == 'chat.message') {
+      final message = ChatMessage.fromJson(envelope.payload);
+      if (!messages.any((existing) => existing.id == message.id)) {
+        messages.add(message);
+        if (messages.length > 200) {
+          messages.removeAt(0);
+        }
+        notifyListeners();
+      }
+      return;
+    }
     if (envelope.type != 'playback.snapshot' ||
         envelope.sequence <= _lastServerSequence) {
       return;
@@ -140,6 +186,10 @@ class RoomController extends ChangeNotifier {
             cacheIdentity: _mediaCacheIdentity,
           );
           lastAlignment = alignment.action;
+          if (alignment.action == AlignmentAction.reloadSource ||
+              alignment.action == AlignmentAction.switchEpisode) {
+            await _renewSubtitleIfNeeded();
+          }
           notifyListeners();
         })
         .catchError((Object exception) {
@@ -173,6 +223,7 @@ class RoomController extends ChangeNotifier {
         cacheIdentity: _mediaCacheIdentity,
       );
       if (wasPlaying) await player.play();
+      await _renewSubtitleIfNeeded();
       notifyListeners();
     } catch (exception) {
       error = '媒体票据续期失败：$exception';
@@ -186,10 +237,35 @@ class RoomController extends ChangeNotifier {
       ? null
       : '${room.mediaSourceId}:${room.mediaPath}';
 
+  Future<void> _renewSubtitleIfNeeded() async {
+    final path = selectedSubtitlePath;
+    if (path == null) return;
+    final ticket = await api.roomSubtitleTicket(session, room.code, path);
+    await player.loadSubtitle(ticket.url, title: selectedSubtitleName);
+  }
+
+  void _handlePlayerError(String raw) {
+    final failure = PlaybackFailure.classify(raw);
+    playbackFailure = failure;
+    error = switch (failure.kind) {
+      PlaybackFailureKind.ticketExpired => '播放票据已过期，正在续签…',
+      PlaybackFailureKind.network => '网络连接异常，请检查连接后重试。',
+      PlaybackFailureKind.decoding => '当前播放器无法解码此媒体。',
+      PlaybackFailureKind.sourceUnavailable => '媒体文件已不存在或不可访问。',
+      PlaybackFailureKind.unknown => '播放失败：${failure.message}',
+    };
+    notifyListeners();
+    if (failure.kind == PlaybackFailureKind.ticketExpired &&
+        room.mediaSourceId.isNotEmpty) {
+      _renewMediaTicket();
+    }
+  }
+
   @override
   void dispose() {
     _eventSubscription?.cancel();
     _connectionSubscription?.cancel();
+    _playerErrorSubscription?.cancel();
     _mediaRenewal?.cancel();
     _socket?.close();
     player.dispose();

@@ -24,6 +24,8 @@ The current foundation contains:
   configurable authenticated webhook;
 - encrypted WebDAV sources, renewable five-minute media tickets, Range
   streaming, and a bounded desktop loopback cache;
+- persistent cross-node room chat, same-directory external subtitles, and
+  actionable playback-error classification;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -72,4 +74,5 @@ Third-party source credentials are never accepted by this milestone.
 
 See `docs/architecture.md` for the topology, `docs/account-security.md` for
 identity controls, and `docs/media-sources.md` for the credential and playback
-data flow.
+data flow. Room messaging and subtitle behavior are in
+`docs/room-interaction.md`.

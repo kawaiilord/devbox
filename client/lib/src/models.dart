@@ -95,6 +95,33 @@ class MediaPlaybackTicket {
   final int expiresAt;
 }
 
+class ChatMessage {
+  const ChatMessage({
+    required this.id,
+    required this.roomCode,
+    required this.userId,
+    required this.displayName,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String roomCode;
+  final String userId;
+  final String displayName;
+  final String body;
+  final int createdAt;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+    id: (json['id'] as num).toInt(),
+    roomCode: json['room_code'] as String,
+    userId: json['user_id'] as String,
+    displayName: json['display_name'] as String,
+    body: json['body'] as String,
+    createdAt: (json['created_at'] as num).toInt(),
+  );
+}
+
 class Session {
   Session({
     required this.accessToken,

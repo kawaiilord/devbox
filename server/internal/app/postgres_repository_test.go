@@ -98,6 +98,13 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	if err := repository.UpdatePlayback(ctx, room.Code, room.Playback); err != nil {
 		t.Fatal(err)
 	}
+	chat, err := repository.AddRoomMessage(ctx, ChatMessage{
+		RoomCode: room.Code, UserID: member.User.ID,
+		DisplayName: member.User.DisplayName, Body: "persistent hello",
+	})
+	if err != nil || chat.ID == 0 {
+		t.Fatalf("chat=%+v error=%v", chat, err)
+	}
 	repository.Close()
 
 	reopened, err := OpenPostgres(ctx, databaseURL)
@@ -117,6 +124,10 @@ func TestPostgresPersistsAccountsRoomsAndMembers(t *testing.T) {
 	}
 	if rooms[0].MediaSourceID != "source-postgres" || rooms[0].MediaPath != "/movie.mp4" {
 		t.Fatalf("restored media reference=%+v", rooms[0])
+	}
+	messages, err := reopened.ListRoomMessages(ctx, room.Code, 0, 50)
+	if err != nil || len(messages) != 1 || messages[0].Body != "persistent hello" {
+		t.Fatalf("restored messages=%+v error=%v", messages, err)
 	}
 	sources, err := reopened.ListMediaSources(ctx, owner.User.ID)
 	if err != nil || len(sources) != 1 || sources[0].CredentialsCiphertext != encrypted {
