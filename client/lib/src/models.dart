@@ -123,6 +123,87 @@ class MediaPlaybackTicket {
   final int expiresAt;
 }
 
+class Favorite {
+  const Favorite({
+    required this.id,
+    required this.sourceId,
+    required this.sourceType,
+    required this.sourceName,
+    required this.mediaPath,
+    required this.title,
+    required this.contentType,
+    required this.size,
+    required this.updatedAt,
+  });
+
+  final int id;
+  final String sourceId;
+  final String sourceType;
+  final String sourceName;
+  final String mediaPath;
+  final String title;
+  final String contentType;
+  final int size;
+  final int updatedAt;
+
+  factory Favorite.fromJson(Map<String, dynamic> json) => Favorite(
+    id: (json['id'] as num).toInt(),
+    sourceId: json['source_id'] as String,
+    sourceType: json['source_type'] as String,
+    sourceName: json['source_name'] as String,
+    mediaPath: json['media_path'] as String,
+    title: json['title'] as String,
+    contentType: json['content_type']?.toString() ?? '',
+    size: (json['size'] as num).toInt(),
+    updatedAt: (json['updated_at'] as num).toInt(),
+  );
+}
+
+class WatchRecord {
+  const WatchRecord({
+    required this.id,
+    required this.sourceId,
+    required this.mediaPath,
+    required this.title,
+    required this.positionSeconds,
+    required this.durationSeconds,
+    required this.episode,
+    required this.completed,
+    required this.companionCount,
+    required this.roomCode,
+    required this.resumable,
+    required this.watchedAt,
+  });
+
+  final int id;
+  final String sourceId;
+  final String mediaPath;
+  final String title;
+  final double positionSeconds;
+  final double durationSeconds;
+  final int episode;
+  final bool completed;
+  final int companionCount;
+  final String roomCode;
+  final bool resumable;
+  final int watchedAt;
+
+  factory WatchRecord.fromJson(Map<String, dynamic> json) => WatchRecord(
+    id: (json['id'] as num).toInt(),
+    sourceId: json['source_id']?.toString() ?? '',
+    mediaPath: json['media_path']?.toString() ?? '',
+    title: json['title'] as String,
+    positionSeconds: (json['position_seconds'] as num).toDouble(),
+    durationSeconds: (json['duration_seconds'] as num).toDouble(),
+    episode: (json['episode'] as num).toInt(),
+    completed: json['completed'] as bool,
+    companionCount: (json['companion_count'] as num).toInt(),
+    roomCode: json['room_code']?.toString() ?? '',
+    resumable: json['resumable'] as bool? ?? false,
+    watchedAt: (json['watched_at'] as num).toInt(),
+  );
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,

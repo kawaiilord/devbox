@@ -314,12 +314,68 @@ class ApiClient {
     await _request('DELETE', '/api/v1/sources/$sourceId', session: session);
   }
 
+  Future<Favorite> addFavorite({
+    required Session session,
+    required String sourceId,
+    required MediaFile file,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/favorites',
+      session: session,
+      body: {
+        'source_id': sourceId,
+        'media_path': file.path,
+        'title': file.name,
+        'content_type': file.contentType,
+        'size': file.size,
+      },
+    );
+    return Favorite.fromJson(data);
+  }
+
+  Future<List<Favorite>> favorites(Session session) async {
+    final data = await _request('GET', '/api/v1/favorites', session: session);
+    return (data['favorites'] as List<dynamic>)
+        .map((value) => Favorite.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> deleteFavorite(Session session, int id) async {
+    await _request('DELETE', '/api/v1/favorites/$id', session: session);
+  }
+
+  Future<List<WatchRecord>> watchHistory(Session session) async {
+    final data = await _request('GET', '/api/v1/history', session: session);
+    return (data['records'] as List<dynamic>)
+        .map((value) => WatchRecord.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> deleteWatchRecord(Session session, int id) async {
+    await _request('DELETE', '/api/v1/history/$id', session: session);
+  }
+
+  Future<void> updateWatchProgress(
+    Session session,
+    String roomCode,
+    double durationSeconds,
+  ) async {
+    await _request(
+      'PUT',
+      '/api/v1/rooms/$roomCode/watch-progress',
+      session: session,
+      body: {'duration_seconds': durationSeconds},
+    );
+  }
+
   Future<Room> createRoom({
     required Session session,
     required String name,
     String sourceUrl = '',
     String mediaSourceId = '',
     String mediaPath = '',
+    double startPosition = 0,
   }) async {
     final data = await _request(
       'POST',
@@ -331,6 +387,7 @@ class ApiClient {
         'media_source_id': mediaSourceId,
         'media_path': mediaPath,
         'max_members': 8,
+        'start_position': startPosition,
       },
     );
     return _roomFromJson(data);

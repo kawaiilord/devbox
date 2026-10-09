@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import 'library_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
 
@@ -183,6 +184,16 @@ class _LobbyPageState extends State<LobbyPage> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PrivacyPage(api: widget.api, session: session),
+      ),
+    );
+  }
+
+  void _showLibrary() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LibraryPage(api: widget.api, session: session),
       ),
     );
   }
@@ -462,6 +473,36 @@ class _LobbyPageState extends State<LobbyPage> {
                     subtitle: file.isDirectory
                         ? null
                         : Text(_formatBytes(file.size)),
+                    trailing: file.isDirectory
+                        ? null
+                        : IconButton(
+                            tooltip: '收藏',
+                            icon: const Icon(Icons.star_border_rounded),
+                            onPressed: () async {
+                              try {
+                                await widget.api.addFavorite(
+                                  session: session,
+                                  sourceId: source.id,
+                                  file: file,
+                                );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(
+                                    this.context,
+                                  ).showSnackBar(
+                                    SnackBar(content: Text('已收藏 ${file.name}')),
+                                  );
+                                }
+                              } catch (exception) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(
+                                    this.context,
+                                  ).showSnackBar(
+                                    SnackBar(content: Text('收藏失败：$exception')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
                     onTap: () async {
                       if (file.isDirectory) {
                         currentPath = file.path.endsWith('/')
@@ -625,6 +666,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onDevices: _session == null ? null : _showDevices,
                     onSources: _session == null ? null : _showMediaSources,
                     onPrivacy: _session == null ? null : _showPrivacy,
+                    onLibrary: _session == null ? null : _showLibrary,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -721,12 +763,14 @@ class _Brand extends StatelessWidget {
     required this.onDevices,
     required this.onSources,
     required this.onPrivacy,
+    required this.onLibrary,
   });
   final Session? session;
   final VoidCallback? onLogout;
   final VoidCallback? onDevices;
   final VoidCallback? onSources;
   final VoidCallback? onPrivacy;
+  final VoidCallback? onLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -761,6 +805,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onLibrary != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onLibrary,
+            tooltip: '收藏与历史',
+            icon: const Icon(Icons.video_library_outlined),
+          ),
+        ],
         if (onPrivacy != null) ...[
           const SizedBox(width: 8),
           IconButton(

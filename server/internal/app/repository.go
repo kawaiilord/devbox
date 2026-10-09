@@ -56,6 +56,12 @@ type Repository interface {
 	ListMediaSources(context.Context, string) ([]MediaSource, error)
 	GetMediaSource(context.Context, string, string) (MediaSource, error)
 	DeleteMediaSource(context.Context, string, string) error
+	UpsertFavorite(context.Context, Favorite) (Favorite, error)
+	ListFavorites(context.Context, string, int64, int) ([]Favorite, error)
+	DeleteFavorite(context.Context, string, int64) error
+	UpsertWatchRecord(context.Context, WatchRecord) (WatchRecord, error)
+	ListWatchRecords(context.Context, string, int64, int) ([]WatchRecord, error)
+	DeleteWatchRecord(context.Context, string, int64) error
 	AddRoomMessage(context.Context, ChatMessage) (ChatMessage, error)
 	ListRoomMessages(context.Context, string, string, int64, int) ([]ChatMessage, error)
 	GetPrivacy(context.Context, string) (PrivacySettings, error)
@@ -112,6 +118,12 @@ type MemoryRepository struct {
 	userDevices   map[string]map[string]memoryUserDevice
 	actionTokens  map[string]memoryActionToken
 	mediaSources  map[string]MediaSource
+	favorites     map[int64]Favorite
+	favoriteKeys  map[string]int64
+	nextFavorite  int64
+	watchRecords  map[int64]WatchRecord
+	watchKeys     map[string]int64
+	nextWatch     int64
 	messages      []ChatMessage
 	nextMessageID int64
 	rooms         map[string]Room
@@ -132,6 +144,12 @@ func NewMemoryRepository() *MemoryRepository {
 		userDevices:   make(map[string]map[string]memoryUserDevice),
 		actionTokens:  make(map[string]memoryActionToken),
 		mediaSources:  make(map[string]MediaSource),
+		favorites:     make(map[int64]Favorite),
+		favoriteKeys:  make(map[string]int64),
+		nextFavorite:  1,
+		watchRecords:  make(map[int64]WatchRecord),
+		watchKeys:     make(map[string]int64),
+		nextWatch:     1,
 		nextMessageID: 1,
 		rooms:         make(map[string]Room),
 		privacy:       make(map[string]PrivacySettings),
@@ -392,7 +410,156 @@ func (r *MemoryRepository) DeleteMediaSource(_ context.Context, userID, sourceID
 		return ErrNotFound
 	}
 	delete(r.mediaSources, sourceID)
+	for id, favorite := range r.favorites {
+		if favorite.SourceID == sourceID {
+			delete(r.favoriteKeys, memoryFavoriteKey(favorite.UserID, favorite.SourceID, favorite.MediaPath))
+			delete(r.favorites, id)
+		}
+	}
+	for id, record := range r.watchRecords {
+		if record.SourceID == sourceID {
+			record.SourceID = ""
+			record.MediaPath = ""
+			record.Resumable = false
+			r.watchRecords[id] = record
+		}
+	}
 	return nil
+}
+
+func (r *MemoryRepository) UpsertFavorite(_ context.Context, favorite Favorite) (Favorite, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	source, ok := r.mediaSources[favorite.SourceID]
+	if !ok || source.UserID != favorite.UserID {
+		return Favorite{}, ErrNotFound
+	}
+	key := memoryFavoriteKey(favorite.UserID, favorite.SourceID, favorite.MediaPath)
+	if id, ok := r.favoriteKeys[key]; ok {
+		favorite.ID = id
+	} else {
+		favorite.ID = r.nextFavorite
+		r.nextFavorite++
+		r.favoriteKeys[key] = favorite.ID
+	}
+	favorite.SourceType = source.Type
+	favorite.SourceName = source.Name
+	favorite.UpdatedAt = time.Now().UnixMilli()
+	r.favorites[favorite.ID] = favorite
+	return favorite, nil
+}
+
+func (r *MemoryRepository) ListFavorites(_ context.Context, userID string, before int64, limit int) ([]Favorite, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]Favorite, 0)
+	for _, favorite := range r.favorites {
+		if favorite.UserID == userID && (before == 0 || favorite.UpdatedAt < before) {
+			if source, ok := r.mediaSources[favorite.SourceID]; ok {
+				favorite.SourceType = source.Type
+				favorite.SourceName = source.Name
+				result = append(result, favorite)
+			}
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].UpdatedAt == result[j].UpdatedAt {
+			return result[i].ID > result[j].ID
+		}
+		return result[i].UpdatedAt > result[j].UpdatedAt
+	})
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) DeleteFavorite(_ context.Context, userID string, id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	favorite, ok := r.favorites[id]
+	if !ok || favorite.UserID != userID {
+		return ErrNotFound
+	}
+	delete(r.favoriteKeys, memoryFavoriteKey(favorite.UserID, favorite.SourceID, favorite.MediaPath))
+	delete(r.favorites, id)
+	return nil
+}
+
+func (r *MemoryRepository) UpsertWatchRecord(_ context.Context, record WatchRecord) (WatchRecord, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if record.SourceID != "" {
+		source, ok := r.mediaSources[record.SourceID]
+		if !ok || source.UserID != record.UserID {
+			record.SourceID = ""
+			record.MediaPath = ""
+		}
+	}
+	key := record.UserID + "\x00" + record.MediaKey
+	if id, ok := r.watchKeys[key]; ok {
+		record.ID = id
+		previous := r.watchRecords[id]
+		if previous.CompanionCount > record.CompanionCount {
+			record.CompanionCount = previous.CompanionCount
+		}
+		record.Completed = record.Completed || previous.Completed
+	} else {
+		record.ID = r.nextWatch
+		r.nextWatch++
+		r.watchKeys[key] = record.ID
+	}
+	record.WatchedAt = time.Now().UnixMilli()
+	if record.SourceID != "" {
+		source, ok := r.mediaSources[record.SourceID]
+		record.Resumable = ok && source.UserID == record.UserID
+	}
+	r.watchRecords[record.ID] = record
+	return record, nil
+}
+
+func (r *MemoryRepository) ListWatchRecords(_ context.Context, userID string, before int64, limit int) ([]WatchRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]WatchRecord, 0)
+	for _, record := range r.watchRecords {
+		if record.UserID != userID || (before != 0 && record.WatchedAt >= before) {
+			continue
+		}
+		if record.SourceID != "" {
+			source, ok := r.mediaSources[record.SourceID]
+			record.Resumable = ok && source.UserID == userID
+		} else {
+			record.MediaPath = ""
+		}
+		result = append(result, record)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].WatchedAt == result[j].WatchedAt {
+			return result[i].ID > result[j].ID
+		}
+		return result[i].WatchedAt > result[j].WatchedAt
+	})
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return result, nil
+}
+
+func (r *MemoryRepository) DeleteWatchRecord(_ context.Context, userID string, id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	record, ok := r.watchRecords[id]
+	if !ok || record.UserID != userID {
+		return ErrNotFound
+	}
+	delete(r.watchKeys, record.UserID+"\x00"+record.MediaKey)
+	delete(r.watchRecords, id)
+	return nil
+}
+
+func memoryFavoriteKey(userID, sourceID, mediaPath string) string {
+	return userID + "\x00" + sourceID + "\x00" + mediaPath
 }
 
 func (r *MemoryRepository) AddRoomMessage(_ context.Context, message ChatMessage) (ChatMessage, error) {

@@ -33,6 +33,12 @@ playback hashes, globally increasing room sequences, one-time socket tickets,
 online-presence sorted sets, and the cross-node Pub/Sub channel. If Redis loses
 ephemeral data, room state is reconstructed from PostgreSQL on service startup.
 
+Favorites and watch records are durable PostgreSQL state. Clients periodically
+signal that they are still watching, but the server records the projected
+authoritative room position rather than trusting a client-supplied position.
+Source-backed history is resumable only when the source belongs to that user and
+still exists; room members never inherit the owner's source credentials.
+
 ## Authentication
 
 - Passwords are normalized only at the email boundary and hashed with Argon2id

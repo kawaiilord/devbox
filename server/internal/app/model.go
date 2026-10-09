@@ -62,6 +62,44 @@ type MediaTicket struct {
 	SubtitleFormat string `json:"subtitle_format,omitempty"`
 }
 
+type Favorite struct {
+	ID          int64  `json:"id"`
+	UserID      string `json:"-"`
+	SourceID    string `json:"source_id"`
+	SourceType  string `json:"source_type"`
+	SourceName  string `json:"source_name"`
+	MediaPath   string `json:"media_path"`
+	Title       string `json:"title"`
+	ContentType string `json:"content_type,omitempty"`
+	Size        int64  `json:"size"`
+	UpdatedAt   int64  `json:"updated_at"`
+}
+
+type WatchRecord struct {
+	ID             int64   `json:"id"`
+	UserID         string  `json:"-"`
+	MediaKey       string  `json:"-"`
+	SourceID       string  `json:"source_id,omitempty"`
+	MediaPath      string  `json:"media_path,omitempty"`
+	Title          string  `json:"title"`
+	Position       float64 `json:"position_seconds"`
+	Duration       float64 `json:"duration_seconds"`
+	Episode        int     `json:"episode"`
+	Completed      bool    `json:"completed"`
+	CompanionCount int     `json:"companion_count"`
+	RoomCode       string  `json:"room_code,omitempty"`
+	Resumable      bool    `json:"resumable"`
+	WatchedAt      int64   `json:"watched_at"`
+}
+
+type WatchActivity struct {
+	Title          string `json:"title"`
+	Episode        int    `json:"episode"`
+	Completed      bool   `json:"completed"`
+	CompanionCount int    `json:"companion_count"`
+	WatchedAt      int64  `json:"watched_at"`
+}
+
 type ChatMessage struct {
 	ID          int64  `json:"id"`
 	RoomCode    string `json:"room_code"`

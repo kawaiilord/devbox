@@ -29,6 +29,8 @@ The current foundation contains:
 - bidirectional chat blocking, per-user privacy controls, room/message/user
   reports, administrator review, room closure, device bans, and chained audit
   records;
+- cross-device favorites, authoritative watch-progress history, resumable room
+  creation, companion counts, and privacy-gated public watch activity;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -82,3 +84,4 @@ data flow. Room messaging and subtitle behavior are in
 `docs/room-interaction.md`.
 Moderation permissions, privacy behavior, and audit-chain operations are in
 `docs/moderation.md`.
+Favorites, history, and resume behavior are in `docs/personal-library.md`.

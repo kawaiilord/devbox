@@ -34,7 +34,9 @@ class RoomController extends ChangeNotifier {
   Duration _clockOffset = Duration.zero;
   Future<void> _alignmentQueue = Future.value();
   Timer? _mediaRenewal;
+  Timer? _watchProgress;
   bool _renewingMedia = false;
+  bool _syncingWatchProgress = false;
   int _clientSequence = DateTime.now().microsecondsSinceEpoch;
   int _lastServerSequence = -1;
   bool connected = false;
@@ -85,6 +87,10 @@ class RoomController extends ChangeNotifier {
       _playerErrorSubscription = player.errorStream.listen(_handlePlayerError);
       await socket.connect();
       _scheduleMediaRenewal();
+      _watchProgress = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _syncWatchProgress(),
+      );
     } catch (exception) {
       error = exception.toString();
     } finally {
@@ -275,6 +281,22 @@ class RoomController extends ChangeNotifier {
     }
   }
 
+  Future<void> _syncWatchProgress() async {
+    if (loading || _syncingWatchProgress) return;
+    if (player.position == Duration.zero && player.duration == Duration.zero) {
+      return;
+    }
+    _syncingWatchProgress = true;
+    final duration = player.duration.inMilliseconds / 1000;
+    try {
+      await api.updateWatchProgress(session, room.code, duration);
+    } catch (_) {
+      // Progress sync is best-effort and must never interrupt playback.
+    } finally {
+      _syncingWatchProgress = false;
+    }
+  }
+
   String? get _mediaCacheIdentity => room.mediaSourceId.isEmpty
       ? null
       : '${room.mediaSourceId}:${room.mediaPath}';
@@ -309,6 +331,8 @@ class RoomController extends ChangeNotifier {
     _connectionSubscription?.cancel();
     _playerErrorSubscription?.cancel();
     _mediaRenewal?.cancel();
+    _watchProgress?.cancel();
+    unawaited(_syncWatchProgress());
     _socket?.close();
     player.dispose();
     super.dispose();

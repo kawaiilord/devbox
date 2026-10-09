@@ -32,6 +32,9 @@ var moderationMigration string
 //go:embed migrations/006_emby_sources.sql
 var embySourcesMigration string
 
+//go:embed migrations/007_personal_library.sql
+var personalLibraryMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -58,7 +61,7 @@ func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository,
 func (r *PostgresRepository) Migrate(ctx context.Context) error {
 	for _, migration := range []string{
 		foundationMigration, accountSecurityMigration, mediaSourcesMigration, roomChatMigration,
-		moderationMigration, embySourcesMigration,
+		moderationMigration, embySourcesMigration, personalLibraryMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -527,6 +530,189 @@ func (r *PostgresRepository) DeleteMediaSource(ctx context.Context, userID, sour
 		sourceID,
 		userID,
 	)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) UpsertFavorite(ctx context.Context, favorite Favorite) (Favorite, error) {
+	source, err := r.GetMediaSource(ctx, favorite.UserID, favorite.SourceID)
+	if err != nil {
+		return Favorite{}, err
+	}
+	err = r.pool.QueryRow(
+		ctx,
+		`INSERT INTO favorites (
+		   user_id, media_source_id, media_path, title, content_type, size, updated_at
+		 ) VALUES ($1,$2,$3,$4,$5,$6,now())
+		 ON CONFLICT (user_id, media_source_id, media_path) DO UPDATE SET
+		   title=EXCLUDED.title, content_type=EXCLUDED.content_type,
+		   size=EXCLUDED.size, updated_at=now()
+		 RETURNING id, (extract(epoch FROM updated_at) * 1000)::bigint`,
+		favorite.UserID,
+		favorite.SourceID,
+		favorite.MediaPath,
+		favorite.Title,
+		favorite.ContentType,
+		favorite.Size,
+	).Scan(&favorite.ID, &favorite.UpdatedAt)
+	if err != nil {
+		return Favorite{}, err
+	}
+	favorite.SourceType = source.Type
+	favorite.SourceName = source.Name
+	return favorite, nil
+}
+
+func (r *PostgresRepository) ListFavorites(
+	ctx context.Context,
+	userID string,
+	before int64,
+	limit int,
+) ([]Favorite, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT f.id, f.user_id, f.media_source_id, s.source_type, s.name,
+		        f.media_path, f.title, f.content_type, f.size,
+		        (extract(epoch FROM f.updated_at) * 1000)::bigint
+		 FROM favorites f JOIN media_sources s ON s.id = f.media_source_id
+		 WHERE f.user_id=$1
+		   AND ($2::bigint=0 OR (extract(epoch FROM f.updated_at) * 1000)::bigint < $2)
+		 ORDER BY f.updated_at DESC, f.id DESC LIMIT $3`,
+		userID,
+		before,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]Favorite, 0, limit)
+	for rows.Next() {
+		var favorite Favorite
+		if err := rows.Scan(
+			&favorite.ID, &favorite.UserID, &favorite.SourceID,
+			&favorite.SourceType, &favorite.SourceName, &favorite.MediaPath,
+			&favorite.Title, &favorite.ContentType, &favorite.Size, &favorite.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, favorite)
+	}
+	return result, rows.Err()
+}
+
+func (r *PostgresRepository) DeleteFavorite(ctx context.Context, userID string, id int64) error {
+	command, err := r.pool.Exec(ctx, `DELETE FROM favorites WHERE id=$1 AND user_id=$2`, id, userID)
+	if err != nil {
+		return err
+	}
+	if command.RowsAffected() != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) UpsertWatchRecord(ctx context.Context, record WatchRecord) (WatchRecord, error) {
+	if record.SourceID != "" {
+		if _, err := r.GetMediaSource(ctx, record.UserID, record.SourceID); err != nil {
+			record.SourceID = ""
+			record.MediaPath = ""
+		}
+	}
+	err := r.pool.QueryRow(
+		ctx,
+		`INSERT INTO watch_records (
+		   user_id, media_key, media_source_id, media_path, title,
+		   position_seconds, duration_seconds, episode, completed,
+		   companion_count, room_code, watched_at
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
+		 ON CONFLICT (user_id, media_key) DO UPDATE SET
+		   media_source_id=EXCLUDED.media_source_id, media_path=EXCLUDED.media_path,
+		   title=EXCLUDED.title, position_seconds=EXCLUDED.position_seconds,
+		   duration_seconds=EXCLUDED.duration_seconds, episode=EXCLUDED.episode,
+		   completed=watch_records.completed OR EXCLUDED.completed,
+		   companion_count=GREATEST(watch_records.companion_count, EXCLUDED.companion_count),
+		   room_code=EXCLUDED.room_code, watched_at=now()
+		 RETURNING id, completed, companion_count,
+		           (extract(epoch FROM watched_at) * 1000)::bigint`,
+		record.UserID,
+		record.MediaKey,
+		nilIfEmpty(record.SourceID),
+		record.MediaPath,
+		record.Title,
+		record.Position,
+		record.Duration,
+		record.Episode,
+		record.Completed,
+		record.CompanionCount,
+		nilIfEmpty(record.RoomCode),
+	).Scan(&record.ID, &record.Completed, &record.CompanionCount, &record.WatchedAt)
+	if err != nil {
+		return WatchRecord{}, err
+	}
+	if record.SourceID != "" {
+		_, err := r.GetMediaSource(ctx, record.UserID, record.SourceID)
+		record.Resumable = err == nil
+	}
+	return record, nil
+}
+
+func (r *PostgresRepository) ListWatchRecords(
+	ctx context.Context,
+	userID string,
+	before int64,
+	limit int,
+) ([]WatchRecord, error) {
+	rows, err := r.pool.Query(
+		ctx,
+		`SELECT w.id, w.user_id, w.media_key, COALESCE(w.media_source_id, ''),
+		        w.media_path, w.title, w.position_seconds, w.duration_seconds,
+		        w.episode, w.completed, w.companion_count,
+		        COALESCE(w.room_code::text, ''),
+		        EXISTS (
+		          SELECT 1 FROM media_sources s
+		          WHERE s.id=w.media_source_id AND s.user_id=w.user_id
+		        ),
+		        (extract(epoch FROM w.watched_at) * 1000)::bigint
+		 FROM watch_records w
+		 WHERE w.user_id=$1
+		   AND ($2::bigint=0 OR (extract(epoch FROM w.watched_at) * 1000)::bigint < $2)
+		 ORDER BY w.watched_at DESC, w.id DESC LIMIT $3`,
+		userID,
+		before,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]WatchRecord, 0, limit)
+	for rows.Next() {
+		var record WatchRecord
+		if err := rows.Scan(
+			&record.ID, &record.UserID, &record.MediaKey, &record.SourceID,
+			&record.MediaPath, &record.Title, &record.Position, &record.Duration,
+			&record.Episode, &record.Completed, &record.CompanionCount,
+			&record.RoomCode, &record.Resumable, &record.WatchedAt,
+		); err != nil {
+			return nil, err
+		}
+		record.RoomCode = strings.TrimSpace(record.RoomCode)
+		if record.SourceID == "" {
+			record.MediaPath = ""
+		}
+		result = append(result, record)
+	}
+	return result, rows.Err()
+}
+
+func (r *PostgresRepository) DeleteWatchRecord(ctx context.Context, userID string, id int64) error {
+	command, err := r.pool.Exec(ctx, `DELETE FROM watch_records WHERE id=$1 AND user_id=$2`, id, userID)
 	if err != nil {
 		return err
 	}

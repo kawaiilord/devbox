@@ -99,6 +99,13 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/blocks/{user_id}", s.blockUser)
 	mux.HandleFunc("DELETE /api/v1/blocks/{user_id}", s.unblockUser)
 	mux.HandleFunc("POST /api/v1/reports", s.createReport)
+	mux.HandleFunc("POST /api/v1/favorites", s.addFavorite)
+	mux.HandleFunc("GET /api/v1/favorites", s.listFavorites)
+	mux.HandleFunc("DELETE /api/v1/favorites/{id}", s.deleteFavorite)
+	mux.HandleFunc("GET /api/v1/history", s.listWatchHistory)
+	mux.HandleFunc("DELETE /api/v1/history/{id}", s.deleteWatchRecord)
+	mux.HandleFunc("PUT /api/v1/rooms/{code}/watch-progress", s.updateWatchProgress)
+	mux.HandleFunc("GET /api/v1/users/{id}/watch-activity", s.publicWatchActivity)
 	mux.HandleFunc("GET /api/v1/admin/reports", s.adminReports)
 	mux.HandleFunc("POST /api/v1/admin/reports/{id}/resolve", s.resolveReport)
 	mux.HandleFunc("POST /api/v1/admin/rooms/{code}/close", s.adminCloseRoom)
@@ -169,6 +176,7 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"emby_sources":       s.sources != nil,
 		"privacy_controls":   true,
 		"moderation":         true,
+		"personal_library":   true,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -857,14 +865,19 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		Name          string `json:"name"`
-		SourceURL     string `json:"source_url"`
-		MediaSourceID string `json:"media_source_id"`
-		MediaPath     string `json:"media_path"`
-		MaxMembers    int    `json:"max_members"`
+		Name          string  `json:"name"`
+		SourceURL     string  `json:"source_url"`
+		MediaSourceID string  `json:"media_source_id"`
+		MediaPath     string  `json:"media_path"`
+		MaxMembers    int     `json:"max_members"`
+		StartPosition float64 `json:"start_position"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !validWatchSeconds(request.StartPosition) {
+		writeError(w, http.StatusBadRequest, errors.New("invalid start position"))
 		return
 	}
 	var room Room
@@ -892,6 +905,16 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
+	}
+	if request.StartPosition > 0 {
+		position := request.StartPosition
+		room, _, err = s.store.ApplyControl(
+			room.Code, user, 1, Control{Action: "seek", Position: &position},
+		)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
 	}
 	if err := s.repo.SaveRoom(r.Context(), room); err != nil {
 		s.options.Logger.Error("persist room", "error", err, "room", room.Code)
@@ -1510,7 +1533,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 			"Access-Control-Expose-Headers",
 			"Accept-Ranges, Content-Length, Content-Range, ETag, Last-Modified, Retry-After, X-RateLimit-Remaining",
 		)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

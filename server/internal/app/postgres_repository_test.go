@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -301,5 +302,84 @@ func TestPostgresModerationPersistenceAndAuditChain(t *testing.T) {
 	rooms, err := repository.LoadRooms(ctx)
 	if err != nil || len(rooms) != 1 || !rooms[0].Closed {
 		t.Fatalf("closed rooms=%+v error=%v", rooms, err)
+	}
+}
+
+func TestPostgresPersonalLibraryPersistenceAndSourceDeletion(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	repository, err := OpenPostgres(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repository.Close()
+	if err := repository.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.pool.Exec(ctx, "TRUNCATE users CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	tokens, _ := NewTokenManager("postgres-library-secret-with-32-characters", "postgres-library-test")
+	auth := NewAuthService(repository, tokens)
+	user, err := auth.Register(ctx, "library@example.test", "Library User", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := MediaSource{
+		ID: "library-source", UserID: user.User.ID, Type: "webdav", Name: "Library",
+		BaseURL: "https://example.com/dav/", CredentialsCiphertext: "encrypted",
+		CreatedAt: time.Now().UnixMilli(), UpdatedAt: time.Now().UnixMilli(),
+	}
+	if err := repository.CreateMediaSource(ctx, source); err != nil {
+		t.Fatal(err)
+	}
+	favorite, err := repository.UpsertFavorite(ctx, Favorite{
+		UserID: user.User.ID, SourceID: source.ID, MediaPath: "/movie.mp4",
+		Title: "Movie", ContentType: "video/mp4", Size: 1024,
+	})
+	if err != nil || favorite.ID == 0 || favorite.SourceType != "webdav" {
+		t.Fatalf("favorite=%+v error=%v", favorite, err)
+	}
+	record, err := repository.UpsertWatchRecord(ctx, WatchRecord{
+		UserID: user.User.ID, MediaKey: strings.Repeat("a", 64),
+		SourceID: source.ID, MediaPath: "/movie.mp4", Title: "Movie",
+		Position: 100, Duration: 100, Completed: true, CompanionCount: 2, RoomCode: "ABC123",
+	})
+	if err != nil || record.ID == 0 || !record.Resumable {
+		t.Fatalf("watch record=%+v error=%v", record, err)
+	}
+	replayed, err := repository.UpsertWatchRecord(ctx, WatchRecord{
+		UserID: user.User.ID, MediaKey: strings.Repeat("a", 64),
+		SourceID: source.ID, MediaPath: "/movie.mp4", Title: "Movie",
+		Position: 10, Duration: 100, CompanionCount: 0, RoomCode: "ABC123",
+	})
+	if err != nil || replayed.ID != record.ID || !replayed.Completed || replayed.CompanionCount != 2 {
+		t.Fatalf("replayed watch record=%+v error=%v", replayed, err)
+	}
+	favorites, err := repository.ListFavorites(ctx, user.User.ID, 0, 50)
+	if err != nil || len(favorites) != 1 || favorites[0].ID != favorite.ID {
+		t.Fatalf("favorites=%+v error=%v", favorites, err)
+	}
+	records, err := repository.ListWatchRecords(ctx, user.User.ID, 0, 50)
+	if err != nil || len(records) != 1 || !records[0].Resumable {
+		t.Fatalf("records=%+v error=%v", records, err)
+	}
+	if err := repository.DeleteMediaSource(ctx, user.User.ID, source.ID); err != nil {
+		t.Fatal(err)
+	}
+	favorites, err = repository.ListFavorites(ctx, user.User.ID, 0, 50)
+	if err != nil || len(favorites) != 0 {
+		t.Fatalf("favorites after source deletion=%+v error=%v", favorites, err)
+	}
+	records, err = repository.ListWatchRecords(ctx, user.User.ID, 0, 50)
+	if err != nil || len(records) != 1 || records[0].Resumable || records[0].SourceID != "" {
+		t.Fatalf("history after source deletion=%+v error=%v", records, err)
+	}
+	if err := repository.DeleteWatchRecord(ctx, user.User.ID, record.ID); err != nil {
+		t.Fatal(err)
 	}
 }

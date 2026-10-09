@@ -280,6 +280,110 @@ void main() {
     expect(source.id, 'source-emby');
     api.close();
   });
+
+  test('syncs favorites, history, and watch progress', () async {
+    final methods = <String>[];
+    final client = MockClient((request) async {
+      methods.add('${request.method} ${request.url.path}');
+      if (request.url.path == '/api/v1/favorites' && request.method == 'POST') {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['media_path'], '/movie.mp4');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'id': 1,
+              'source_id': 'source-1',
+              'source_type': 'webdav',
+              'source_name': 'Media',
+              'media_path': '/movie.mp4',
+              'title': 'Movie',
+              'content_type': 'video/mp4',
+              'size': 100,
+              'updated_at': 1000,
+            },
+            'msg': 'saved',
+          }),
+          200,
+        );
+      }
+      if (request.url.path == '/api/v1/favorites' && request.method == 'GET') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {'favorites': <Object>[]},
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      if (request.url.path == '/api/v1/history' && request.method == 'GET') {
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'records': [
+                {
+                  'id': 2,
+                  'source_id': 'source-1',
+                  'media_path': '/movie.mp4',
+                  'title': 'Movie',
+                  'position_seconds': 42.5,
+                  'duration_seconds': 100,
+                  'episode': 0,
+                  'completed': false,
+                  'companion_count': 1,
+                  'room_code': 'ABC123',
+                  'resumable': true,
+                  'watched_at': 2000,
+                },
+              ],
+            },
+            'msg': 'ok',
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/watch-progress')) {
+        expect(request.method, 'PUT');
+        expect(jsonDecode(request.body)['duration_seconds'], 100.0);
+      }
+      return http.Response(
+        jsonEncode({'code': 0, 'data': <String, dynamic>{}, 'msg': 'ok'}),
+        200,
+      );
+    });
+    final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+    final session = _session();
+    final favorite = await api.addFavorite(
+      session: session,
+      sourceId: 'source-1',
+      file: const MediaFile(
+        name: 'Movie',
+        path: '/movie.mp4',
+        isDirectory: false,
+        size: 100,
+        contentType: 'video/mp4',
+      ),
+    );
+    expect(favorite.id, 1);
+    expect(await api.favorites(session), isEmpty);
+    final history = await api.watchHistory(session);
+    expect(history.single.positionSeconds, 42.5);
+    expect(history.single.resumable, true);
+    await api.updateWatchProgress(session, 'ABC123', 100);
+    await api.deleteFavorite(session, 1);
+    await api.deleteWatchRecord(session, 2);
+    expect(methods, [
+      'POST /api/v1/favorites',
+      'GET /api/v1/favorites',
+      'GET /api/v1/history',
+      'PUT /api/v1/rooms/ABC123/watch-progress',
+      'DELETE /api/v1/favorites/1',
+      'DELETE /api/v1/history/2',
+    ]);
+    api.close();
+  });
 }
 
 Session _session() => Session(

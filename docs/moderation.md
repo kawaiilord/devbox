@@ -7,6 +7,11 @@ settings are room chat participation, profile discovery, and watch-activity
 visibility. Settings default to enabled and partial PATCH requests preserve
 unspecified values.
 
+Public watch activity contains only title, episode, completion, companion count,
+and timestamp. It never returns source IDs, paths, room codes, duration, or
+position. `show_watch_activity=false` denies this view, and a block in either
+direction also denies it. A user can always inspect their own private history.
+
 `/api/v1/blocks/{user_id}` creates or removes a one-way block preference. Chat
 enforcement is intentionally bidirectional: a message is hidden when either the
 viewer blocked the sender or the sender blocked the viewer. Both WebSocket
