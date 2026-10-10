@@ -80,13 +80,15 @@ class _MediaSourceBrowserState extends State<MediaSourceBrowser> {
         sourceId: widget.source.id,
         file: file,
       );
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('已收藏 ${file.name}')));
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('收藏失败，请重试。')));
+      }
     }
   }
 

@@ -322,8 +322,9 @@ class _LobbyPageState extends State<LobbyPage> {
                 loadError = null;
               });
             } catch (_) {
-              if (dialogContext.mounted)
+              if (dialogContext.mounted) {
                 setDialogState(() => loadError = '媒体源加载失败，请重试。');
+              }
             }
           }
 
@@ -357,8 +358,9 @@ class _LobbyPageState extends State<LobbyPage> {
                           subtitle: Text(mediaSourceLabel(source.type)),
                           onTap: () async {
                             final selected = await _browseMediaSource(source);
-                            if (selected && dialogContext.mounted)
+                            if (selected && dialogContext.mounted) {
                               Navigator.of(dialogContext).pop();
+                            }
                           },
                           trailing: PopupMenuButton<String>(
                             tooltip: '媒体源操作',
@@ -391,10 +393,11 @@ class _LobbyPageState extends State<LobbyPage> {
                                     });
                                   }
                                 } catch (_) {
-                                  if (dialogContext.mounted)
+                                  if (dialogContext.mounted) {
                                     setDialogState(
                                       () => loadError = '移除失败，请重试。',
                                     );
+                                  }
                                   return;
                                 }
                               }
@@ -414,22 +417,25 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
               OutlinedButton(
                 onPressed: () async {
-                  if (await _promptAddEmby() && dialogContext.mounted)
+                  if (await _promptAddEmby() && dialogContext.mounted) {
                     await reload();
+                  }
                 },
                 child: const Text('添加 Emby'),
               ),
               OutlinedButton(
                 onPressed: () async {
-                  if (await _promptAddWebDAV() && dialogContext.mounted)
+                  if (await _promptAddWebDAV() && dialogContext.mounted) {
                     await reload();
+                  }
                 },
                 child: const Text('添加 WebDAV'),
               ),
               FilledButton.icon(
                 onPressed: () async {
-                  if (await _promptAddQuark() && dialogContext.mounted)
+                  if (await _promptAddQuark() && dialogContext.mounted) {
                     await reload();
+                  }
                 },
                 icon: const Icon(Icons.cloud_outlined),
                 label: const Text('添加夸克'),

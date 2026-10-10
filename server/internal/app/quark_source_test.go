@@ -381,15 +381,59 @@ func TestQuarkRoomMembersCanStreamWithoutProviderLogin(t *testing.T) {
 		}
 		r, _ := http.NewRequest(method, httpServer.URL+route, nil)
 		r.Header.Set("Authorization", "Bearer "+stranger.AccessToken)
+		r.Header.Set("X-Device-ID", "test-device-0001")
 		res, err := http.DefaultClient.Do(r)
 		if err != nil {
 			t.Fatal(err)
 		}
 		res.Body.Close()
-		if res.StatusCode < 400 {
+		if res.StatusCode < 400 || res.StatusCode == http.StatusUnauthorized {
 			t.Fatal("stranger gained access to private drive or room")
 		}
 	}
+}
+
+func TestQuarkSourceReauthenticationRequiresOwnerAndVerifiedEmail(t *testing.T) {
+	ctx := context.Background()
+	repo := NewMemoryRepository()
+	var resolves atomic.Int64
+	manager := quarkTestManager(repo, quarkFixture(t, &resolves))
+	tokens, _ := NewTokenManager("quark-source-test-secret-with-more-than-32-characters", "quark-source-test")
+	auth := NewAuthService(repo, tokens)
+	owner, err := auth.Register(ctx, "source-owner@example.com", "Owner", "strong owner password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := auth.Register(ctx, "source-member@example.com", "Member", "strong member password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(Options{Repository: repo, Auth: auth, Sources: manager, RequireVerifiedEmail: true})
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+	device := DeviceInfo{ID: "test-device-0001", Label: "Test device", Platform: "test"}
+	payload := map[string]string{"name": "Quark", "cookie": "__pus=owner-secret"}
+	if status := requestStatusDevice(t, http.MethodPost, httpServer.URL+"/api/v1/sources/quark", owner.AccessToken, payload, device); status != http.StatusForbidden {
+		t.Fatalf("unverified source status=%d", status)
+	}
+	if err := repo.VerifyEmail(ctx, owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.VerifyEmail(ctx, member.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	created := requestJSON(t, http.MethodPost, httpServer.URL+"/api/v1/sources/quark", owner.AccessToken, payload)
+	var source struct {
+		Data MediaSource `json:"data"`
+	}
+	if err := json.Unmarshal(created, &source); err != nil {
+		t.Fatal(err)
+	}
+	endpoint := httpServer.URL + "/api/v1/sources/" + source.Data.ID + "/quark-cookie"
+	if status := requestStatusDevice(t, http.MethodPut, endpoint, member.AccessToken, payload, device); status != http.StatusNotFound {
+		t.Fatalf("non-owner source update status=%d", status)
+	}
+	requestJSON(t, http.MethodPut, endpoint, owner.AccessToken, payload)
 }
 
 func TestPostgresQuarkCredentialReplacementSurvivesMigrations(t *testing.T) {
