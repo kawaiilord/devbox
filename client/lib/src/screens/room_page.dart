@@ -5,6 +5,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import '../design.dart';
 import '../room_controller.dart';
 
 class RoomPage extends StatefulWidget {
@@ -602,15 +603,22 @@ class _RoomPageState extends State<RoomPage> {
                               ],
                             );
                           }
-                          return Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(flex: 4, child: player),
-                                const SizedBox(width: 18),
-                                SizedBox(width: 290, child: members),
-                              ],
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.all(28),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 1460,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 4, child: player),
+                                    const SizedBox(width: 24),
+                                    SizedBox(width: 290, child: members),
+                                  ],
+                                ),
+                              ),
                             ),
                           );
                         },
@@ -918,15 +926,27 @@ class _MembersPanel extends StatelessWidget {
                     : null,
               ),
             const Divider(height: 28),
-            Text('同步状态', style: Theme.of(context).textTheme.titleSmall),
+            const FramePill('一起，沉浸在故事里', icon: Icons.sync_rounded),
             const SizedBox(height: 10),
-            _InfoRow(label: '服务端', value: controller.connected ? '已连接' : '重连中'),
             _InfoRow(
-              label: '最近校准',
-              value: controller.lastAlignment?.name ?? '等待快照',
+              label: '房间连接',
+              value: controller.connected ? '连接正常' : '正在重连',
             ),
-            const _InfoRow(label: '快照周期', value: '3 秒'),
-            const _InfoRow(label: '控制模型', value: '房主唯一控制'),
+            _InfoRow(
+              label: '观影进度',
+              value: controller.lastAlignment == null ? '正在同步' : '已自动同步',
+            ),
+            const _InfoRow(label: '播放控制', value: '由房主控制'),
+            const SizedBox(height: 24),
+            const Divider(),
+            const Text(
+              '分享上方房间码，\n邀请朋友加入这场放映。',
+              style: TextStyle(
+                color: FrameColors.muted,
+                fontSize: 13,
+                height: 1.8,
+              ),
+            ),
           ],
         ),
       ),
@@ -960,7 +980,7 @@ class _ConnectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = connected ? const Color(0xFF42D3B1) : const Color(0xFFFFC857);
+    final color = connected ? FrameColors.mint : FrameColors.gold;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

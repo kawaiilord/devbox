@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import '../design.dart';
+import 'lobby_layout.dart';
 import '../secure_session_store.dart';
 import 'library_page.dart';
 import 'couple_page.dart';
@@ -745,258 +747,55 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1040),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Brand(
-                    session: _session,
-                    onLogout: _session == null ? null : _logout,
-                    onDevices: _session == null ? null : _showDevices,
-                    onSources: _session == null ? null : _showMediaSources,
-                    onPrivacy: _session == null ? null : _showPrivacy,
-                    onLibrary: _session == null ? null : _showLibrary,
-                    onMetadata: _session == null ? null : _showMetadataSearch,
-                    onSocial: _session == null ? null : _showSocial,
-                    onCouple: _session == null ? null : _showCouple,
-                    onMembership: _session == null ? null : _showMembership,
-                    onUpdates: _showUpdates,
-                  ),
-                  const SizedBox(height: 40),
-                  if (_session == null)
-                    _LoginCard(
-                      name: _name,
-                      email: _email,
-                      password: _password,
-                      registerMode: _registerMode,
-                      busy: _busy,
-                      onSubmit: _signIn,
-                      onForgotPassword: _showPasswordReset,
-                      onToggleMode: () => setState(() {
-                        _registerMode = !_registerMode;
-                        _error = null;
-                      }),
-                    )
-                  else
-                    Column(
-                      children: [
-                        if (!_verifiedOverride) ...[
-                          _VerificationCard(
-                            token: _verificationToken,
-                            busy: _busy,
-                            onRequest: _requestVerification,
-                            onVerify: _verifyEmail,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final cards = [
-                              _CreateCard(
-                                roomName: _roomName,
-                                source: _source,
-                                busy: _busy,
-                                onSubmit: _createRoom,
-                                onSourceChanged: () {
-                                  _selectedMediaSourceId = '';
-                                  _selectedMediaPath = '';
-                                },
-                              ),
-                              _JoinCard(
-                                roomCode: _roomCode,
-                                busy: _busy,
-                                onSubmit: _joinRoom,
-                              ),
-                            ];
-                            if (constraints.maxWidth < 760) {
-                              return Column(
-                                children: [
-                                  cards[0],
-                                  const SizedBox(height: 16),
-                                  cards[1],
-                                ],
-                              );
-                            }
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: cards[0]),
-                                const SizedBox(width: 16),
-                                Expanded(child: cards[1]),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 18),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 36),
-                  const _ProtocolSummary(),
-                ],
-              ),
-            ),
+  Widget build(BuildContext context) => LobbyLayout(
+    signedIn: _session != null,
+    name: _session?.user.displayName ?? '',
+    error: _error,
+    onSearch: _showMetadataSearch,
+    onMembership: _showMembership,
+    onUpdates: _showUpdates,
+    onLogout: _logout,
+    destinations: [
+      LobbyDestination(Icons.video_library_outlined, '收藏与历史', _showLibrary),
+      LobbyDestination(Icons.people_outline_rounded, '好友与私聊', _showSocial),
+      LobbyDestination(Icons.favorite_border_rounded, '情侣空间', _showCouple),
+      LobbyDestination(Icons.folder_open_rounded, '我的媒体源', _showMediaSources),
+      LobbyDestination(Icons.devices_rounded, '设备管理', _showDevices),
+      LobbyDestination(Icons.shield_outlined, '隐私与屏蔽', _showPrivacy),
+    ],
+    login: _LoginCard(
+      name: _name,
+      email: _email,
+      password: _password,
+      registerMode: _registerMode,
+      busy: _busy,
+      onSubmit: _signIn,
+      onForgotPassword: _showPasswordReset,
+      onToggleMode: () => setState(() {
+        _registerMode = !_registerMode;
+        _error = null;
+      }),
+    ),
+    create: _CreateCard(
+      roomName: _roomName,
+      source: _source,
+      busy: _busy,
+      onSubmit: _createRoom,
+      onSourceChanged: () {
+        _selectedMediaSourceId = '';
+        _selectedMediaPath = '';
+      },
+    ),
+    join: _JoinCard(roomCode: _roomCode, busy: _busy, onSubmit: _joinRoom),
+    verification: _verifiedOverride
+        ? null
+        : _VerificationCard(
+            token: _verificationToken,
+            busy: _busy,
+            onRequest: _requestVerification,
+            onVerify: _verifyEmail,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Brand extends StatelessWidget {
-  const _Brand({
-    required this.session,
-    required this.onLogout,
-    required this.onDevices,
-    required this.onSources,
-    required this.onPrivacy,
-    required this.onLibrary,
-    required this.onMetadata,
-    required this.onSocial,
-    required this.onCouple,
-    required this.onMembership,
-    required this.onUpdates,
-  });
-  final Session? session;
-  final VoidCallback? onLogout;
-  final VoidCallback? onDevices;
-  final VoidCallback? onSources;
-  final VoidCallback? onPrivacy;
-  final VoidCallback? onLibrary;
-  final VoidCallback? onMetadata;
-  final VoidCallback? onSocial;
-  final VoidCallback? onCouple;
-  final VoidCallback? onMembership;
-  final VoidCallback onUpdates;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: const Icon(Icons.join_inner_rounded, color: Colors.black),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'SameFrame · 同帧',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              Text(
-                session == null
-                    ? '让两块屏幕，停在同一秒'
-                    : '你好，${session!.user.displayName}',
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: Colors.white60),
-              ),
-            ],
-          ),
-        ),
-        const _StatusPill(text: 'Clean-room MVP'),
-        const SizedBox(width: 8),
-        IconButton(
-          onPressed: onUpdates,
-          tooltip: '安全更新',
-          icon: const Icon(Icons.system_update_alt_rounded),
-        ),
-        if (onMembership != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onMembership,
-            tooltip: '会员中心',
-            icon: const Icon(Icons.workspace_premium_outlined),
-          ),
-        ],
-        if (onCouple != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onCouple,
-            tooltip: '情侣空间',
-            icon: const Icon(Icons.favorite_border_rounded),
-          ),
-        ],
-        if (onSocial != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onSocial,
-            tooltip: '社交与私聊',
-            icon: const Icon(Icons.people_outline_rounded),
-          ),
-        ],
-        if (onMetadata != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onMetadata,
-            tooltip: '影视搜索',
-            icon: const Icon(Icons.manage_search_rounded),
-          ),
-        ],
-        if (onLibrary != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onLibrary,
-            tooltip: '收藏与历史',
-            icon: const Icon(Icons.video_library_outlined),
-          ),
-        ],
-        if (onPrivacy != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onPrivacy,
-            tooltip: '隐私与屏蔽',
-            icon: const Icon(Icons.privacy_tip_outlined),
-          ),
-        ],
-        if (onSources != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onSources,
-            tooltip: '媒体源',
-            icon: const Icon(Icons.video_library_rounded),
-          ),
-        ],
-        if (onDevices != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onDevices,
-            tooltip: '设备管理',
-            icon: const Icon(Icons.devices_rounded),
-          ),
-        ],
-        if (onLogout != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onLogout,
-            tooltip: '退出登录',
-            icon: const Icon(Icons.logout_rounded),
-          ),
-        ],
-      ],
-    );
-  }
+  );
 }
 
 class _LoginCard extends StatelessWidget {
@@ -1025,9 +824,7 @@ class _LoginCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 520),
       child: _Panel(
         title: registerMode ? '创建账号' : '登录 SameFrame',
-        subtitle: registerMode
-            ? '密码使用 Argon2id 处理，登录态支持安全轮换。'
-            : '使用邮箱和密码继续进入放映室。',
+        subtitle: registerMode ? '从这里开始，收藏属于你们的观影时光。' : '使用邮箱和密码继续进入放映室。',
         child: Column(
           children: [
             if (registerMode) ...[
@@ -1098,7 +895,7 @@ class _CreateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Panel(
       title: '创建房间',
-      subtitle: '房主是唯一共享播放控制源。',
+      subtitle: '选一部好片，邀请好友坐在你身边。',
       child: Column(
         children: [
           TextField(
@@ -1108,7 +905,7 @@ class _CreateCard extends StatelessWidget {
           const SizedBox(height: 12),
           TextField(
             controller: source,
-            decoration: const InputDecoration(labelText: 'HTTP(S) 直链'),
+            decoration: const InputDecoration(labelText: '视频链接'),
             minLines: 2,
             maxLines: 3,
             onChanged: (_) => onSourceChanged(),
@@ -1145,21 +942,22 @@ class _VerificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Panel(
       title: '验证邮箱',
-      subtitle: '验证令牌 24 小时有效且只能使用一次。',
-      child: Row(
+      subtitle: '输入邮件中的验证码，即可完成验证。',
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 12,
         children: [
-          Expanded(
+          SizedBox(
+            width: 270,
             child: TextField(
               controller: token,
-              decoration: const InputDecoration(labelText: '邮件中的验证令牌'),
+              decoration: const InputDecoration(labelText: '邮箱验证码'),
             ),
           ),
-          const SizedBox(width: 10),
           OutlinedButton(
             onPressed: busy ? null : onRequest,
             child: const Text('重新发送'),
           ),
-          const SizedBox(width: 8),
           FilledButton(
             onPressed: busy ? null : onVerify,
             child: const Text('完成验证'),
@@ -1184,15 +982,21 @@ class _JoinCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Panel(
       title: '加入房间',
-      subtitle: '输入六位房间码，自动拉取权威状态。',
+      subtitle: '赴一场朋友的邀约，输入房间码即可加入。',
       child: Column(
         children: [
           TextField(
             controller: roomCode,
+            style: const TextStyle(
+              letterSpacing: 6,
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+            ),
             textCapitalization: TextCapitalization.characters,
             decoration: const InputDecoration(
               labelText: '房间码',
               hintText: 'ABC123',
+              prefixIcon: Icon(Icons.tag_rounded, size: 22),
             ),
             onSubmitted: (_) => onSubmit(),
           ),
@@ -1204,6 +1008,30 @@ class _JoinCard extends StatelessWidget {
               icon: const Icon(Icons.login_rounded),
               label: const Text('加入房间'),
             ),
+          ),
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 22),
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.headphones_outlined,
+                color: FrameColors.muted,
+                size: 24,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '戴上耳机，准备好零食。\n剩下的时间，留给你们的好故事。',
+                  style: TextStyle(
+                    color: FrameColors.muted,
+                    fontSize: 12,
+                    height: 1.9,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1223,57 +1051,15 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: Colors.white54)),
-            const SizedBox(height: 22),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProtocolSummary extends StatelessWidget {
-  const _ProtocolSummary();
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: const [
-        _StatusPill(text: '3s 权威快照'),
-        _StatusPill(text: '0.3s 软追帧'),
-        _StatusPill(text: '1.5s 硬对齐'),
-        _StatusPill(text: '断线全量恢复'),
-        _StatusPill(text: '凭据零下发'),
-      ],
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Text(text, style: Theme.of(context).textTheme.labelMedium),
+    return FrameSection(
+      title: title,
+      subtitle: subtitle,
+      icon: title == '创建房间'
+          ? Icons.add_box_outlined
+          : title == '加入房间'
+          ? Icons.meeting_room_outlined
+          : null,
+      child: child,
     );
   }
 }
