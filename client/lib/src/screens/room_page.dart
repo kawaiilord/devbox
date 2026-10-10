@@ -535,42 +535,94 @@ class _RoomPageState extends State<RoomPage> {
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                tooltip: '举报房间',
-                onPressed: _showReport,
-                icon: const Icon(Icons.flag_outlined),
-              ),
-              if (controller.room.mediaSourceId.isNotEmpty)
-                IconButton(
-                  tooltip: '外挂字幕',
-                  onPressed: _showSubtitles,
-                  icon: const Icon(Icons.subtitles_rounded),
-                ),
-              IconButton(
-                tooltip: '弹幕',
-                onPressed: controller.room.closed ? null : _showDanmaku,
-                icon: const Icon(Icons.slow_motion_video_rounded),
-              ),
-              IconButton(
-                tooltip: '房间语音',
-                onPressed: controller.room.closed ? null : _showVoice,
-                icon: Icon(
-                  controller.voice?.active == true
-                      ? Icons.mic_rounded
-                      : Icons.mic_none_rounded,
-                ),
-              ),
-              IconButton(
-                tooltip: '房间聊天',
-                onPressed: controller.room.closed ? null : _showChat,
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 18),
-                child: _ConnectionBadge(connected: controller.connected),
-              ),
-            ],
+            actions: MediaQuery.sizeOf(context).width < 700
+                ? [
+                    _ConnectionBadge(connected: controller.connected),
+                    PopupMenuButton<String>(
+                      tooltip: '房间功能',
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'chat':
+                            _showChat();
+                            break;
+                          case 'voice':
+                            _showVoice();
+                            break;
+                          case 'danmaku':
+                            _showDanmaku();
+                            break;
+                          case 'subtitles':
+                            _showSubtitles();
+                            break;
+                          case 'report':
+                            _showReport();
+                            break;
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'chat',
+                          enabled: !controller.room.closed,
+                          child: const Text('房间聊天'),
+                        ),
+                        PopupMenuItem(
+                          value: 'voice',
+                          enabled: !controller.room.closed,
+                          child: const Text('房间语音'),
+                        ),
+                        PopupMenuItem(
+                          value: 'danmaku',
+                          enabled: !controller.room.closed,
+                          child: const Text('弹幕'),
+                        ),
+                        if (controller.room.mediaSourceId.isNotEmpty)
+                          const PopupMenuItem(
+                            value: 'subtitles',
+                            child: Text('外挂字幕'),
+                          ),
+                        const PopupMenuItem(
+                          value: 'report',
+                          child: Text('举报房间'),
+                        ),
+                      ],
+                    ),
+                  ]
+                : [
+                    IconButton(
+                      tooltip: '举报房间',
+                      onPressed: _showReport,
+                      icon: const Icon(Icons.flag_outlined),
+                    ),
+                    if (controller.room.mediaSourceId.isNotEmpty)
+                      IconButton(
+                        tooltip: '外挂字幕',
+                        onPressed: _showSubtitles,
+                        icon: const Icon(Icons.subtitles_rounded),
+                      ),
+                    IconButton(
+                      tooltip: '弹幕',
+                      onPressed: controller.room.closed ? null : _showDanmaku,
+                      icon: const Icon(Icons.slow_motion_video_rounded),
+                    ),
+                    IconButton(
+                      tooltip: '房间语音',
+                      onPressed: controller.room.closed ? null : _showVoice,
+                      icon: Icon(
+                        controller.voice?.active == true
+                            ? Icons.mic_rounded
+                            : Icons.mic_none_rounded,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '房间聊天',
+                      onPressed: controller.room.closed ? null : _showChat,
+                      icon: const Icon(Icons.chat_bubble_outline_rounded),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 18),
+                      child: _ConnectionBadge(connected: controller.connected),
+                    ),
+                  ],
           ),
           body: Column(
             children: [
