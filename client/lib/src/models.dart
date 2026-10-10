@@ -731,6 +731,21 @@ class Session {
     tokenType = next.tokenType;
     expiresIn = next.expiresIn;
   }
+
+  Map<String, dynamic> toJson() => {
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'token_type': tokenType,
+    'expires_in': expiresIn,
+    'user': {
+      'id': user.id,
+      'display_name': user.displayName,
+      'email': user.email,
+      'email_verified': user.emailVerified,
+      'is_admin': user.isAdmin,
+      'vip_expires_at': user.vipExpiresAt,
+    },
+  };
 }
 
 class RoomMember {

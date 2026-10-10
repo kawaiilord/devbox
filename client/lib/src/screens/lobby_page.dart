@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import '../secure_session_store.dart';
 import 'library_page.dart';
 import 'couple_page.dart';
 import 'metadata_search_page.dart';
@@ -9,11 +10,13 @@ import 'membership_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
 import 'social_page.dart';
+import 'update_page.dart';
 
 class LobbyPage extends StatefulWidget {
-  const LobbyPage({super.key, required this.api});
+  const LobbyPage({super.key, required this.api, required this.sessionStore});
 
   final ApiClient api;
+  final SessionStore sessionStore;
 
   @override
   State<LobbyPage> createState() => _LobbyPageState();
@@ -36,6 +39,28 @@ class _LobbyPageState extends State<LobbyPage> {
   String? _error;
   String _selectedMediaSourceId = '';
   String _selectedMediaPath = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final session = await widget.sessionStore.read();
+    if (session == null || !mounted) return;
+    try {
+      await widget.api.listDevices(session);
+      if (!mounted) return;
+      setState(() {
+        _session = session;
+        _verifiedOverride = session.user.emailVerified;
+      });
+      await _showStartupAnnouncement();
+    } catch (_) {
+      await widget.sessionStore.clear();
+    }
+  }
 
   @override
   void dispose() {
@@ -66,6 +91,7 @@ class _LobbyPageState extends State<LobbyPage> {
           _session = session;
           _verifiedOverride = session.user.emailVerified;
         });
+        await widget.sessionStore.write(session);
         await _showStartupAnnouncement();
       }
     });
@@ -122,6 +148,7 @@ class _LobbyPageState extends State<LobbyPage> {
     if (session == null) return;
     await _run(() async {
       await widget.api.logout(session);
+      await widget.sessionStore.clear();
       if (mounted) {
         setState(() {
           _session = null;
@@ -260,6 +287,11 @@ class _LobbyPageState extends State<LobbyPage> {
         builder: (_) => MembershipPage(api: widget.api, session: session),
       ),
     );
+  }
+
+  void _showUpdates() {
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const UpdatePage()));
   }
 
   Future<void> _showMediaSources() async {
@@ -735,6 +767,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onSocial: _session == null ? null : _showSocial,
                     onCouple: _session == null ? null : _showCouple,
                     onMembership: _session == null ? null : _showMembership,
+                    onUpdates: _showUpdates,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -836,6 +869,7 @@ class _Brand extends StatelessWidget {
     required this.onSocial,
     required this.onCouple,
     required this.onMembership,
+    required this.onUpdates,
   });
   final Session? session;
   final VoidCallback? onLogout;
@@ -847,6 +881,7 @@ class _Brand extends StatelessWidget {
   final VoidCallback? onSocial;
   final VoidCallback? onCouple;
   final VoidCallback? onMembership;
+  final VoidCallback onUpdates;
 
   @override
   Widget build(BuildContext context) {
@@ -881,6 +916,12 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: onUpdates,
+          tooltip: '安全更新',
+          icon: const Icon(Icons.system_update_alt_rounded),
+        ),
         if (onMembership != null) ...[
           const SizedBox(width: 8),
           IconButton(

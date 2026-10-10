@@ -107,3 +107,5 @@ Voice signaling and TURN credential handling are in `docs/voice.md`.
 Review and object-storage deployment are in `docs/reviews-object-storage.md`.
 Membership and payment operations are in `docs/commerce.md`.
 Administrative deployment and permissions are in `docs/admin-console.md`.
+Credential storage and signed release updates are in
+`docs/client-security-updates.md`.

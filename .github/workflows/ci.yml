@@ -47,10 +47,15 @@ jobs:
           cache-dependency-path: server/go.sum
       - run: go test -race ./...
       - run: go build -trimpath -o ../bin/sameframe ./cmd/sameframe
+      - run: go build -trimpath -o ../bin/sign-update ./cmd/sign-update
       - uses: actions/upload-artifact@v7
         with:
           name: sameframe-server-linux
           path: bin/sameframe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sameframe-update-signer-linux
+          path: bin/sign-update
       - uses: actions/upload-artifact@v7
         with:
           name: sameframe-admin-web
@@ -103,7 +108,7 @@ jobs:
         working-directory: client
     steps:
       - uses: actions/checkout@v7
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev libsecret-1-dev
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

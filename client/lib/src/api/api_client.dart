@@ -22,6 +22,7 @@ class ApiClient {
   final http.Client _client;
   final String baseUrl;
   final DeviceIdentity device;
+  Future<void> Function(Session session)? onSessionUpdated;
   Future<Session>? _refreshInFlight;
 
   Future<Session> createDemoSession(String displayName) async {
@@ -857,6 +858,7 @@ class ApiClient {
       if (session.accessToken == requestAccessToken) {
         final refreshed = await _refreshSingleFlight(session.refreshToken);
         session.replaceTokens(refreshed);
+        await onSessionUpdated?.call(session);
       }
       return _request(
         method,

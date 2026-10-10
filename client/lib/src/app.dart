@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api/api_client.dart';
 import 'device_identity.dart';
 import 'screens/lobby_page.dart';
+import 'secure_session_store.dart';
 
 class SameFrameApp extends StatefulWidget {
   const SameFrameApp({super.key, this.device = DeviceIdentity.test});
@@ -14,7 +15,9 @@ class SameFrameApp extends StatefulWidget {
 }
 
 class _SameFrameAppState extends State<SameFrameApp> {
-  late final ApiClient api = ApiClient(device: widget.device);
+  final SessionStore sessionStore = SecureSessionStore();
+  late final ApiClient api = ApiClient(device: widget.device)
+    ..onSessionUpdated = sessionStore.write;
 
   @override
   void dispose() {
@@ -51,7 +54,7 @@ class _SameFrameAppState extends State<SameFrameApp> {
         ),
         useMaterial3: true,
       ),
-      home: LobbyPage(api: api),
+      home: LobbyPage(api: api, sessionStore: sessionStore),
     );
   }
 }
