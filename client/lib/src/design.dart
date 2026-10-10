@@ -194,6 +194,25 @@ ThemeData frameTheme() {
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
     ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return FrameColors.muted;
+        return states.contains(WidgetState.selected)
+            ? FrameColors.background
+            : FrameColors.silver;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return FrameColors.elevated;
+        return states.contains(WidgetState.selected)
+            ? FrameColors.accent
+            : FrameColors.elevated;
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? Colors.transparent
+            : FrameColors.border,
+      ),
+    ),
     popupMenuTheme: PopupMenuThemeData(
       color: FrameColors.elevated,
       surfaceTintColor: Colors.transparent,
