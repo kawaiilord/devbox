@@ -871,14 +871,17 @@ class _LoginCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 520),
       child: _Panel(
         title: registerMode ? '创建账号' : '登录 SameFrame',
-        subtitle: registerMode ? '从这里开始，收藏属于你们的观影时光。' : '使用邮箱和密码继续进入放映室。',
+        subtitle: registerMode ? '为下一次相聚，留一个位置。' : '欢迎回来，继续你们的故事。',
         child: Column(
           children: [
             if (registerMode) ...[
               TextField(
                 controller: name,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: '你的昵称'),
+                decoration: const InputDecoration(
+                  labelText: '你的昵称',
+                  prefixIcon: Icon(Icons.person_outline_rounded, size: 19),
+                ),
               ),
               const SizedBox(height: 12),
             ],
@@ -886,7 +889,10 @@ class _LoginCard extends StatelessWidget {
               controller: email,
               autofocus: !registerMode,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: '邮箱'),
+              decoration: const InputDecoration(
+                labelText: '邮箱',
+                prefixIcon: Icon(Icons.alternate_email_rounded, size: 19),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -894,6 +900,7 @@ class _LoginCard extends StatelessWidget {
               obscureText: true,
               decoration: const InputDecoration(
                 labelText: '密码',
+                prefixIcon: Icon(Icons.lock_outline_rounded, size: 19),
                 helperText: '至少 10 个字符',
               ),
               onSubmitted: (_) => onSubmit(),
@@ -946,12 +953,15 @@ class _CreateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Panel(
       title: '创建房间',
-      subtitle: '选一部好片，邀请好友坐在你身边。',
+      subtitle: '从一个链接，开始你们的共同放映。',
       child: Column(
         children: [
           TextField(
             controller: roomName,
-            decoration: const InputDecoration(labelText: '房间名称'),
+            decoration: const InputDecoration(
+              labelText: '房间名称',
+              prefixIcon: Icon(Icons.meeting_room_outlined, size: 19),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(

@@ -3,9 +3,9 @@
     "short_name": "SameFrame",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0c0c0d",
+    "theme_color": "#0c0c0d",
+    "description": "同帧 SameFrame — 同步观影，共享此刻。",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -1083,6 +1083,8 @@ class _MembersPanel extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
+                  backgroundColor: FrameColors.elevated,
+                  foregroundColor: FrameColors.text,
                   child: Text(
                     member.displayName.characters.first.toUpperCase(),
                   ),
@@ -1096,11 +1098,15 @@ class _MembersPanel extends StatelessWidget {
                             : '离线'),
                 ),
                 trailing: member.userId == controller.room.ownerId
-                    ? const Icon(Icons.star_rounded, color: Color(0xFFFFC857))
+                    ? const Icon(
+                        Icons.verified_outlined,
+                        color: FrameColors.silver,
+                        size: 20,
+                      )
                     : null,
               ),
             const Divider(height: 28),
-            const FramePill('一起，沉浸在故事里', icon: Icons.sync_rounded),
+            const FramePill('共享此刻 / SAMEFRAME', icon: Icons.sync_rounded),
             const SizedBox(height: 10),
             _InfoRow(
               label: '房间连接',
@@ -1110,7 +1116,10 @@ class _MembersPanel extends StatelessWidget {
               label: '观影进度',
               value: controller.lastAlignment == null ? '正在同步' : '已自动同步',
             ),
-            const _InfoRow(label: '播放控制', value: '由房主控制'),
+            _InfoRow(
+              label: '播放控制',
+              value: controller.canControl ? '你可以控制播放' : '跟随房间播放',
+            ),
             const SizedBox(height: 24),
             const Divider(),
             const Text(
@@ -1154,13 +1163,13 @@ class _ConnectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = connected ? FrameColors.mint : FrameColors.gold;
+    final color = connected ? FrameColors.accent : FrameColors.muted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        color: FrameColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: FrameColors.border),
       ),
       child: Row(
         children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../design.dart';
 import '../models.dart';
 
 class CouplePage extends StatefulWidget {
@@ -121,7 +122,10 @@ class _CouplePageState extends State<CouplePage> {
         ] else ...[
           Card(
             child: ListTile(
-              leading: const Icon(Icons.favorite_rounded, color: Colors.pink),
+              leading: const Icon(
+                Icons.favorite_rounded,
+                color: FrameColors.silver,
+              ),
               title: Text(_couple!.partner.displayName),
               subtitle: Text(
                 _couple!.status == 'active'

@@ -130,15 +130,15 @@ class _MembershipPageState extends State<MembershipPage> {
   };
 
   Widget _planCard(VipPlan plan) {
-    final accent = plan.popular ? FrameColors.gold : FrameColors.mint;
+    final accent = plan.popular ? FrameColors.silver : FrameColors.accent;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: plan.popular ? const Color(0xFF252821) : FrameColors.surface,
+        color: plan.popular ? FrameColors.elevated : FrameColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: plan.popular
-              ? FrameColors.gold.withValues(alpha: .6)
+              ? FrameColors.silver.withValues(alpha: .6)
               : FrameColors.border,
         ),
       ),
@@ -158,7 +158,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 ),
                 const Spacer(),
                 if (plan.popular)
-                  const FramePill('推荐之选', color: FrameColors.gold),
+                  const FramePill('推荐之选', color: FrameColors.silver),
               ],
             ),
           ),
@@ -201,7 +201,7 @@ class _MembershipPageState extends State<MembershipPage> {
           const Divider(height: 32),
           const Row(
             children: [
-              Icon(Icons.check_rounded, size: 16, color: FrameColors.mint),
+              Icon(Icons.check_rounded, size: 16, color: FrameColors.accent),
               SizedBox(width: 8),
               Text('延长房间有效期', style: TextStyle(fontSize: 13)),
             ],
@@ -209,7 +209,7 @@ class _MembershipPageState extends State<MembershipPage> {
           const SizedBox(height: 12),
           const Row(
             children: [
-              Icon(Icons.check_rounded, size: 16, color: FrameColors.mint),
+              Icon(Icons.check_rounded, size: 16, color: FrameColors.accent),
               SizedBox(width: 8),
               Text('解锁情侣绑定', style: TextStyle(fontSize: 13)),
             ],
@@ -281,7 +281,7 @@ class _MembershipPageState extends State<MembershipPage> {
               style: const TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.w700,
-                color: FrameColors.mint,
+                color: FrameColors.accent,
               ),
             ),
             const SizedBox(width: 10),
@@ -371,10 +371,10 @@ class _MembershipPageState extends State<MembershipPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: FrameColors.gold.withValues(alpha: .22),
+                        color: FrameColors.silver.withValues(alpha: .22),
                       ),
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF2D3027), Color(0xFF16252A)],
+                        colors: [FrameColors.elevated, FrameColors.surface],
                       ),
                     ),
                     child: Column(
@@ -382,7 +382,7 @@ class _MembershipPageState extends State<MembershipPage> {
                       children: [
                         const FramePill(
                           'SAMEFRAME PLUS',
-                          color: FrameColors.gold,
+                          color: FrameColors.silver,
                           icon: Icons.workspace_premium_outlined,
                         ),
                         const SizedBox(height: 18),
@@ -403,7 +403,7 @@ class _MembershipPageState extends State<MembershipPage> {
                                   ? '会员有效'
                                   : '当前为免费账号',
                               color: membership?.active == true
-                                  ? FrameColors.gold
+                                  ? FrameColors.silver
                                   : FrameColors.muted,
                             ),
                             if (membership != null && membership.active)
@@ -418,7 +418,7 @@ class _MembershipPageState extends State<MembershipPage> {
                               Text(
                                 info.announcement,
                                 style: const TextStyle(
-                                  color: FrameColors.gold,
+                                  color: FrameColors.silver,
                                   fontSize: 13,
                                 ),
                               ),
@@ -557,7 +557,7 @@ class _MembershipPageState extends State<MembershipPage> {
                                         ? '+${item.change}'
                                         : '${item.change}',
                                     style: const TextStyle(
-                                      color: FrameColors.mint,
+                                      color: FrameColors.accent,
                                     ),
                                   ),
                                 ),

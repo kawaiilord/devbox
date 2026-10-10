@@ -3,50 +3,83 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 abstract final class FrameColors {
-  static const background = Color(0xFF0C1119);
-  static const surface = Color(0xFF151D28);
-  static const elevated = Color(0xFF1C2633);
-  static const border = Color(0xFF293442);
-  static const muted = Color(0xFF94A2B3);
-  static const text = Color(0xFFF1F5F9);
-  static const mint = Color(0xFF7CE4C3);
-  static const gold = Color(0xFFEAC58C);
+  static const background = Color(0xFF0C0C0D);
+  static const sidebar = Color(0xFF111112);
+  static const surface = Color(0xFF171719);
+  static const elevated = Color(0xFF232326);
+  static const input = Color(0xFF121214);
+  static const border = Color(0xFF303033);
+  static const muted = Color(0xFF9A9A9F);
+  static const text = Color(0xFFF4F4F5);
+  static const accent = Color(0xFFF4F4F5);
+  static const silver = Color(0xFFC5C5CA);
 }
 
 ThemeData frameTheme() {
-  final scheme =
-      ColorScheme.fromSeed(
-        seedColor: FrameColors.mint,
-        brightness: Brightness.dark,
-        surface: FrameColors.surface,
-      ).copyWith(
-        primary: FrameColors.mint,
-        onPrimary: const Color(0xFF102C23),
-        secondary: FrameColors.gold,
-        onSurface: FrameColors.text,
-        outline: FrameColors.border,
-      );
-  final base = ThemeData(useMaterial3: true, colorScheme: scheme);
+  final scheme = const ColorScheme.dark().copyWith(
+    primary: FrameColors.accent,
+    onPrimary: FrameColors.background,
+    primaryContainer: FrameColors.elevated,
+    onPrimaryContainer: FrameColors.text,
+    secondary: FrameColors.silver,
+    onSecondary: FrameColors.background,
+    secondaryContainer: FrameColors.elevated,
+    onSecondaryContainer: FrameColors.text,
+    tertiary: FrameColors.silver,
+    onTertiary: FrameColors.background,
+    tertiaryContainer: FrameColors.elevated,
+    onTertiaryContainer: FrameColors.text,
+    surface: FrameColors.surface,
+    onSurface: FrameColors.text,
+    onSurfaceVariant: FrameColors.muted,
+    surfaceContainerLowest: FrameColors.background,
+    surfaceContainerLow: FrameColors.sidebar,
+    surfaceContainer: FrameColors.surface,
+    surfaceContainerHigh: FrameColors.elevated,
+    surfaceContainerHighest: FrameColors.border,
+    surfaceTint: Colors.transparent,
+    outline: FrameColors.border,
+    outlineVariant: FrameColors.border,
+    inverseSurface: FrameColors.text,
+    onInverseSurface: FrameColors.background,
+    inversePrimary: FrameColors.background,
+    error: const Color(0xFFF0A5A5),
+    onError: const Color(0xFF301818),
+    errorContainer: const Color(0xFF301C1C),
+    onErrorContainer: const Color(0xFFF0A5A5),
+  );
+  final base = ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    fontFamilyFallback: const [
+      'Noto Sans SC',
+      'PingFang SC',
+      'Microsoft YaHei',
+    ],
+  );
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
   return base.copyWith(
     scaffoldBackgroundColor: FrameColors.background,
+    canvasColor: FrameColors.surface,
+    hoverColor: Colors.white.withValues(alpha: .05),
+    focusColor: Colors.white.withValues(alpha: .10),
     textTheme: base.textTheme.copyWith(
       headlineLarge: const TextStyle(
         color: FrameColors.text,
         fontSize: 34,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         height: 1.3,
         letterSpacing: -1,
       ),
       headlineSmall: const TextStyle(
         color: FrameColors.text,
-        fontSize: 25,
-        fontWeight: FontWeight.w700,
+        fontSize: 26,
+        fontWeight: FontWeight.w500,
         height: 1.4,
       ),
       titleLarge: const TextStyle(
         color: FrameColors.text,
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: FontWeight.w600,
         height: 1.4,
       ),
@@ -72,9 +105,10 @@ ThemeData frameTheme() {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      toolbarHeight: 76,
+      toolbarHeight: 68,
+      shape: Border(bottom: BorderSide(color: FrameColors.border)),
       titleTextStyle: TextStyle(
-        fontSize: 20,
+        fontSize: 17,
         fontWeight: FontWeight.w600,
         color: FrameColors.text,
       ),
@@ -85,7 +119,7 @@ ThemeData frameTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: FrameColors.border),
       ),
     ),
@@ -119,10 +153,10 @@ ThemeData frameTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFF101722),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      fillColor: FrameColors.input,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
       labelStyle: const TextStyle(color: FrameColors.muted, fontSize: 14),
-      hintStyle: const TextStyle(color: Color(0xFF67768A)),
+      hintStyle: const TextStyle(color: FrameColors.muted, fontSize: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: FrameColors.border),
@@ -133,15 +167,63 @@ ThemeData frameTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FrameColors.mint, width: 1.4),
+        borderSide: const BorderSide(color: FrameColors.accent, width: 1.2),
       ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: FrameColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: FrameColors.border),
+      ),
     ),
     chipTheme: base.chipTheme.copyWith(
+      backgroundColor: FrameColors.surface,
+      selectedColor: FrameColors.elevated,
+      labelStyle: const TextStyle(color: FrameColors.silver, fontSize: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       side: const BorderSide(color: FrameColors.border),
+    ),
+    sliderTheme: base.sliderTheme.copyWith(
+      trackHeight: 3,
+      activeTrackColor: FrameColors.accent,
+      inactiveTrackColor: FrameColors.border,
+      thumbColor: FrameColors.accent,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: FrameColors.elevated,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: FrameColors.border),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: FrameColors.surface,
+      surfaceTintColor: Colors.transparent,
+      showDragHandle: true,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: FrameColors.elevated,
+      contentTextStyle: const TextStyle(color: FrameColors.text),
+      actionTextColor: FrameColors.accent,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: FrameColors.border),
+      ),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: FrameColors.elevated,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: FrameColors.border),
+      ),
+      textStyle: const TextStyle(color: FrameColors.text, fontSize: 12),
     ),
   );
 }
@@ -153,35 +235,23 @@ class FrameBrand extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: FrameColors.mint,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.join_inner_rounded,
-          color: Color(0xFF163B30),
-          size: 26,
-        ),
-      ),
+      const FrameMark(),
       const SizedBox(width: 11),
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            compact ? '同帧' : 'SameFrame · 同帧',
+            compact ? 'SameFrame' : 'SameFrame · 同帧',
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
               letterSpacing: -.5,
             ),
           ),
           if (compact)
             const Text(
-              'S A M E F R A M E',
-              style: TextStyle(fontSize: 8, color: FrameColors.muted),
+              '同帧 / 共享此刻',
+              style: TextStyle(fontSize: 10, color: FrameColors.muted),
             ),
         ],
       ),
@@ -189,12 +259,62 @@ class FrameBrand extends StatelessWidget {
   );
 }
 
+/// Two frames sharing one view; also used by the web app's vector icon.
+class FrameMark extends StatelessWidget {
+  const FrameMark({super.key, this.size = 36});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: SizedBox.square(
+      dimension: size,
+      child: CustomPaint(painter: _FrameMarkPainter()),
+    ),
+  );
+}
+
+class _FrameMarkPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 36, size.height / 36);
+    final paint = Paint()
+      ..color = FrameColors.accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(3, 4, 23, 23),
+        const Radius.circular(7),
+      ),
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(10, 11, 23, 23),
+        const Radius.circular(7),
+      ),
+      paint,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(16, 16)
+        ..lineTo(23, 20)
+        ..lineTo(16, 24)
+        ..close(),
+      Paint()..color = FrameColors.accent,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_FrameMarkPainter oldDelegate) => false;
+}
+
 class FramePill extends StatelessWidget {
   const FramePill(
     this.text, {
     super.key,
     this.icon,
-    this.color = FrameColors.mint,
+    this.color = FrameColors.accent,
   });
   final String text;
   final IconData? icon;
@@ -203,9 +323,9 @@ class FramePill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
     decoration: BoxDecoration(
-      color: color.withValues(alpha: .08),
+      color: color.withValues(alpha: .04),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: color.withValues(alpha: .2)),
+      border: Border.all(color: color.withValues(alpha: .14)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -252,7 +372,7 @@ class FrameSection extends StatelessWidget {
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, color: FrameColors.mint, size: 22),
+                Icon(icon, color: FrameColors.silver, size: 20),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -314,83 +434,62 @@ class FrameEmpty extends StatelessWidget {
   );
 }
 
-/// Original vector landscape, painted locally at any screen density.
+/// A static wireframe aperture: no images, network requests or animation.
 class CinemaArtwork extends StatelessWidget {
   const CinemaArtwork({super.key});
   @override
   Widget build(BuildContext context) =>
-      CustomPaint(painter: _LandscapePainter());
+      ExcludeSemantics(child: CustomPaint(painter: _AperturePainter()));
 }
 
-class _LandscapePainter extends CustomPainter {
+class _AperturePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF172E38), Color(0xFF6A6660), Color(0xFFCE9671)],
-        ).createShader(rect),
-    );
-    final sun = Offset(size.width * .70, size.height * .37);
-    canvas.drawCircle(
-      sun,
-      size.height * .21,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFFECC3A0).withValues(alpha: .35),
-            Colors.transparent,
-          ],
-        ).createShader(Rect.fromCircle(center: sun, radius: size.height * .21)),
-    );
-    canvas.drawCircle(
-      sun,
-      size.height * .13,
-      Paint()..color = const Color(0xFFF0C9A5),
-    );
-    for (var layer = 0; layer < 4; layer++) {
-      final path = Path()..moveTo(0, size.height);
-      for (var i = 0; i <= 90; i++) {
-        final x = size.width * i / 90;
-        final y =
-            size.height * (.50 + layer * .11) +
-            math.sin(i * .055 + layer * 1.6) * size.height * .09 +
-            math.sin(i * .14 + layer) * size.height * .036;
-        path.lineTo(x, y);
-      }
-      path.lineTo(size.width, size.height);
-      path.close();
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = const [
-            Color(0xFF54747A),
-            Color(0xFF335761),
-            Color(0xFF24414D),
-            Color(0xFF152C38),
-          ][layer],
-      );
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: .035)
+      ..strokeWidth = .7;
+    for (double x = 0; x < size.width; x += 40) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
     }
-    final random = math.Random(24);
-    for (var i = 0; i < 30; i++) {
-      canvas.drawCircle(
-        Offset(
-          random.nextDouble() * size.width,
-          random.nextDouble() * size.height * .28,
+    for (double y = 0; y < size.height; y += 40) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    final center = Offset(size.width * .64, size.height * .5);
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(-.32);
+    for (var i = 0; i < 22; i++) {
+      final t = i / 21;
+      final radius = size.height * (.14 + .54 * t);
+      canvas.save();
+      canvas.rotate(t * .65);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset((t - .5) * size.width * .10, 0),
+          width: radius * 1.8,
+          height: radius * (1 + .25 * math.sin(t * math.pi)),
         ),
-        .5 + random.nextDouble() * .6,
         Paint()
-          ..color = Colors.white.withValues(
-            alpha: .18 + random.nextDouble() * .2,
-          ),
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .85
+          ..color = Colors.white.withValues(alpha: .10 + .30 * (1 - t)),
       );
+      canvas.restore();
+    }
+    canvas.restore();
+    final marker = Paint()
+      ..color = FrameColors.silver.withValues(alpha: .4)
+      ..strokeWidth = 1;
+    for (final p in [
+      Offset(20, 20),
+      Offset(size.width - 20, size.height - 20),
+    ]) {
+      canvas.drawLine(p - const Offset(4, 0), p + const Offset(4, 0), marker);
+      canvas.drawLine(p - const Offset(0, 4), p + const Offset(0, 4), marker);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(_AperturePainter oldDelegate) => false;
 }

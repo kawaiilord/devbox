@@ -104,179 +104,248 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
         IconButton(
           tooltip: '刷新',
           onPressed: _loading ? null : () => _load(),
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(Icons.refresh_rounded),
         ),
       ],
     ),
     body: Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1100),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _query,
-                    decoration: InputDecoration(
-                      labelText: '搜索房间',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                        onPressed: () => _load(),
-                        icon: const Icon(Icons.arrow_forward),
+        constraints: const BoxConstraints(maxWidth: 1080),
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const FramePill(
+                      'DISCOVER / 共同放映',
+                      icon: Icons.explore_outlined,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      '好故事，总有人同频。',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      '发现正在相聚的人，找到属于你的下一场放映。',
+                      style: TextStyle(
+                        color: FrameColors.muted,
+                        fontSize: 13,
+                        height: 1.7,
                       ),
                     ),
-                    onSubmitted: (_) => _load(),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _category,
-                          isExpanded: true,
-                          decoration: const InputDecoration(labelText: '分类'),
-                          items: const ['', '电影', '剧集', '直播', '音乐', '其他']
-                              .map(
-                                (v) => DropdownMenuItem(
-                                  value: v,
-                                  child: Text(v.isEmpty ? '全部分类' : v),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            setState(() => _category = value ?? '');
-                            _load();
-                          },
+                    const SizedBox(height: 28),
+                    TextField(
+                      controller: _query,
+                      decoration: InputDecoration(
+                        labelText: '搜索房间',
+                        hintText: '房间名称、感兴趣的故事…',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        suffixIcon: IconButton(
+                          tooltip: '搜索',
+                          onPressed: () => _load(),
+                          icon: const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 20,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _tag,
-                          decoration: const InputDecoration(labelText: '标签筛选'),
-                          onSubmitted: (_) => _load(),
+                      onSubmitted: (_) => _load(),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _category,
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: '分类'),
+                            items: const ['', '电影', '剧集', '直播', '音乐', '其他']
+                                .map(
+                                  (v) => DropdownMenuItem(
+                                    value: v,
+                                    child: Text(v.isEmpty ? '全部分类' : v),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() => _category = value ?? '');
+                              _load();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _tag,
+                            decoration: const InputDecoration(
+                              labelText: '标签筛选',
+                            ),
+                            onSubmitted: (_) => _load(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    Row(
+                      children: [
+                        const Text(
+                          '公开放映室',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${_rooms.length}${_hasMore ? '+' : ''} 个房间',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: FrameColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_loading)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 18),
+                        child: LinearProgressIndicator(minHeight: 2),
+                      ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ],
                 ),
               ),
-            if (_loading) const LinearProgressIndicator(),
-            Expanded(
-              child: _rooms.isEmpty && !_loading
-                  ? const Center(
-                      child: Text(
-                        '还没有符合条件的公开房间。\n创建房间后，可在房间设置中公开。',
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                      itemCount: _rooms.length + (_hasMore ? 1 : 0),
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        if (index == _rooms.length) {
-                          return TextButton(
-                            onPressed: _loading
-                                ? null
-                                : () => _load(more: true),
-                            child: const Text('加载更多房间'),
-                          );
-                        }
-                        final room = _rooms[index];
-                        return Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: FrameColors.surface,
-                            border: Border.all(color: FrameColors.border),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    room.passwordProtected
-                                        ? Icons.lock_outline
-                                        : Icons.live_tv_rounded,
-                                    color: FrameColors.mint,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      room.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (room.description.isNotEmpty) ...[
-                                const SizedBox(height: 10),
-                                Text(room.description),
-                              ],
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  if (room.category.isNotEmpty)
-                                    Chip(label: Text(room.category)),
-                                  for (final tag in room.tags)
-                                    Chip(label: Text(tag)),
-                                  if (room.allowGuests)
-                                    const Chip(label: Text('可访客加入')),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '房间 ${room.code} · 成员 ${room.members}/${room.maxMembers}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                    ),
-                                  ),
-                                  FilledButton(
-                                    onPressed: room.members >= room.maxMembers
-                                        ? null
-                                        : () => _join(room),
-                                    child: Text(
-                                      room.members >= room.maxMembers
-                                          ? '房间已满'
-                                          : widget.session == null &&
-                                                !room.allowGuests
-                                          ? '先登录'
-                                          : '加入房间',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+            ),
+            if (!_loading && _rooms.isEmpty && _error == null)
+              const SliverToBoxAdapter(
+                child: FrameEmpty(
+                  icon: Icons.explore_outlined,
+                  title: '暂时没有匹配的房间',
+                  detail: '试试其他关键词，或创建你的公开放映室。',
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              sliver: SliverList.separated(
+                itemCount: _rooms.length + (_hasMore ? 1 : 0),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  if (index == _rooms.length) {
+                    return OutlinedButton(
+                      onPressed: _loading ? null : () => _load(more: true),
+                      child: const Text('加载更多房间'),
+                    );
+                  }
+                  return _roomCard(_rooms[index]);
+                },
+              ),
             ),
           ],
         ),
+      ),
+    ),
+  );
+
+  Widget _roomCard(PublicRoom room) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: FrameColors.elevated,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: FrameColors.border),
+                ),
+                child: Icon(
+                  room.passwordProtected
+                      ? Icons.lock_outline_rounded
+                      : Icons.movie_outlined,
+                  size: 20,
+                  color: FrameColors.silver,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  room.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (room.description.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              room.description,
+              style: const TextStyle(color: FrameColors.muted, fontSize: 13),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (room.category.isNotEmpty)
+                FramePill(room.category, color: FrameColors.silver),
+              for (final tag in room.tags)
+                FramePill(tag, color: FrameColors.muted),
+              if (room.allowGuests)
+                const FramePill(
+                  '可访客加入',
+                  icon: Icons.person_outline_rounded,
+                  color: FrameColors.silver,
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '房间 ${room.code} · ${room.members}/${room.maxMembers} 人',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: room.members >= room.maxMembers
+                    ? null
+                    : () => _join(room),
+                child: Text(
+                  room.members >= room.maxMembers
+                      ? '房间已满'
+                      : widget.session == null && !room.allowGuests
+                      ? '先登录'
+                      : '加入房间',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     ),
   );
