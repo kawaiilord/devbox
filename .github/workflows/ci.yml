@@ -127,3 +127,15 @@ jobs:
         with:
           name: sameframe-linux-client
           path: client/build/linux/x64/release/bundle
+
+  server-runtime:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t sameframe-runtime:ci -f server/Dockerfile server
+      - run: docker run --rm --entrypoint /bin/sh sameframe-runtime:ci -c 'yt-dlp --version && node --version && python --version'
+      - run: mkdir -p bin && docker save sameframe-runtime:ci | gzip > bin/sameframe-runtime.tar.gz
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sameframe-server-runtime
+          path: bin/sameframe-runtime.tar.gz

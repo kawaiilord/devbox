@@ -642,17 +642,20 @@ class _RoomPageState extends State<RoomPage> {
                         }
                       },
                       itemBuilder: (_) => [
-                        const PopupMenuItem(
+                        PopupMenuItem(
+                          enabled: !controller.loading,
                           value: 'playlist',
                           child: Text('片单 / 画质 / 来源'),
                         ),
                         if (controller.isOwner)
-                          const PopupMenuItem(
+                          PopupMenuItem(
+                            enabled: !controller.loading,
                             value: 'settings',
                             child: Text('房间设置'),
                           ),
                         if (controller.isOwner)
-                          const PopupMenuItem(
+                          PopupMenuItem(
+                            enabled: !controller.loading,
                             value: 'members',
                             child: Text('成员权限'),
                           ),
@@ -686,19 +689,19 @@ class _RoomPageState extends State<RoomPage> {
                 : [
                     IconButton(
                       tooltip: '片单 / 画质 / 来源',
-                      onPressed: _showPlaylist,
+                      onPressed: controller.loading ? null : _showPlaylist,
                       icon: const Icon(Icons.playlist_play_rounded),
                     ),
                     if (controller.isOwner)
                       IconButton(
                         tooltip: '房间设置',
-                        onPressed: _showSettings,
+                        onPressed: controller.loading ? null : _showSettings,
                         icon: const Icon(Icons.settings_outlined),
                       ),
                     if (controller.isOwner)
                       IconButton(
                         tooltip: '成员权限',
-                        onPressed: _showMembers,
+                        onPressed: controller.loading ? null : _showMembers,
                         icon: const Icon(Icons.manage_accounts_outlined),
                       ),
                     IconButton(
