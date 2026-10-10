@@ -269,7 +269,7 @@ func (m *MediaSourceManager) loginFnos(ctx context.Context, source MediaSource, 
 			}
 		}
 	}
-	dav, err := validateSourceBaseURL(ctx, c.WebDAVURL, m.allowPrivate)
+	dav, err := m.validateBaseURL(ctx, c.WebDAVURL)
 	if err != nil {
 		return c, errors.New("飞牛 WebDAV 地址无效，请在连接窗口明确填写")
 	}

@@ -96,11 +96,13 @@ class RoomController extends ChangeNotifier {
       incoming = incoming.withSourceUrl(
         Uri.parse(api.baseUrl).resolve(incoming.sourceUrl).toString(),
       );
-    } else if (!changed && incoming.mediaSourceId.isNotEmpty) {
+    } else if (!changed &&
+        incoming.mediaSourceId.isNotEmpty &&
+        incoming.mediaError.isEmpty) {
       incoming = incoming.withSourceUrl(old.sourceUrl);
     }
     room = incoming;
-    error = null;
+    error = incoming.mediaError.isEmpty ? null : incoming.mediaError;
     if (!permissions.chat) {
       messages.clear();
     }
@@ -126,7 +128,9 @@ class RoomController extends ChangeNotifier {
       return;
     }
     try {
-      if (changed && room.mediaSourceId.isNotEmpty && room.sourceUrl.isEmpty) {
+      if (room.mediaSourceId.isNotEmpty &&
+          room.sourceUrl.isEmpty &&
+          room.mediaError.isEmpty) {
         final hydrated = await api.getRoom(session, room.code);
         if (_disposed || operation != _sourceLoad) {
           return;
@@ -229,6 +233,9 @@ class RoomController extends ChangeNotifier {
           ),
         );
       _danmakuEpisode = room.playback.episode;
+      if (room.mediaError.isNotEmpty) {
+        error = room.mediaError;
+      }
       if (room.sourceUrl.isNotEmpty) {
         await player.open(
           room.sourceUrl,

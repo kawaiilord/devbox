@@ -150,3 +150,25 @@ func TestPlaylistEpisodesAlternativesReorderAndStaleControls(t *testing.T) {
 		t.Fatal("playlist operations unexpectedly expired the room")
 	}
 }
+
+func TestGuestExplicitLeaveFreesMembership(t *testing.T) {
+	server := NewServer(Options{AllowDemoAuth: true})
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+	owner := createTestSession(t, httpServer.URL, "Owner")
+	room := decodeFeatureRoom(t, requestJSON(t, "POST", httpServer.URL+"/api/v1/rooms", owner.AccessToken, map[string]any{"name": "Guest room", "source_url": "https://example.com/video.mp4", "settings": map[string]any{"allow_guests": true}}))
+	var result struct {
+		Data struct {
+			Session Session `json:"session"`
+		} `json:"data"`
+	}
+	body := requestJSON(t, "POST", httpServer.URL+"/api/v1/rooms/"+room.Code+"/guest", "", map[string]string{"display_name": "Guest viewer"})
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatal(err)
+	}
+	requestJSON(t, "POST", httpServer.URL+"/api/v1/rooms/"+room.Code+"/leave", result.Data.Session.AccessToken, nil)
+	room = decodeFeatureRoom(t, requestJSON(t, "GET", httpServer.URL+"/api/v1/rooms/"+room.Code, owner.AccessToken, nil))
+	if len(room.Members) != 1 {
+		t.Fatal("guest leave retained membership")
+	}
+}

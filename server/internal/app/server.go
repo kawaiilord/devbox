@@ -147,6 +147,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("PUT /api/v1/sources/{id}/platform", s.savePlatformSource)
 	mux.HandleFunc("POST /api/v1/sources/{id}/resolve", s.resolvePlatformSource)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/guest", s.joinRoomAsGuest)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/leave", s.leaveRoom)
 	mux.HandleFunc("PUT /api/v1/rooms/{code}/settings", s.updateRoomSettings)
 	mux.HandleFunc("PUT /api/v1/rooms/{code}/members/{userID}", s.updateRoomMember)
 	mux.HandleFunc("DELETE /api/v1/rooms/{code}/members/{userID}", s.removeRoomMember)
@@ -875,7 +876,7 @@ func (s *Server) roomSubtitles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	files, err := s.sources.Subtitles(
-		r.Context(), room.OwnerID, room.MediaSourceID, room.MediaPath,
+		r.Context(), s.roomMediaOwner(r.Context(), room), room.MediaSourceID, room.MediaPath,
 	)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
@@ -916,12 +917,15 @@ func (s *Server) issueRoomSubtitleTicket(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	ticket, err := s.sources.PrepareSubtitleTicket(
-		r.Context(), room.OwnerID, room.MediaSourceID, room.MediaPath, request.Path,
+		r.Context(), s.roomMediaOwner(r.Context(), room), room.MediaSourceID, room.MediaPath, request.Path,
 	)
 	if err != nil {
 		writeStoreError(w, err)
 		return
 	}
+	ticket.RoomCode = room.Code
+	ticket.ViewerID = user.ID
+	ticket.SourceVersion = room.Playback.SourceVersion
 	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), ticket, 15*time.Minute)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue subtitle ticket"))

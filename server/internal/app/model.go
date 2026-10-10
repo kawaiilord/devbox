@@ -496,6 +496,7 @@ type Playback struct {
 }
 
 type Room struct {
+	MediaError    string            `json:"media_error,omitempty"`
 	Features      *RoomFeaturesView `json:"features,omitempty"`
 	Code          string            `json:"code"`
 	Name          string            `json:"name"`

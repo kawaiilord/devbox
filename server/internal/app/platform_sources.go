@@ -56,6 +56,10 @@ type platformFormat struct {
 	Headers    map[string]string `json:"http_headers"`
 }
 type platformInfo struct {
+	Ext        string            `json:"ext"`
+	Protocol   string            `json:"protocol"`
+	VideoCodec string            `json:"vcodec"`
+	AudioCodec string            `json:"acodec"`
 	Type       string            `json:"_type"`
 	ID         string            `json:"id"`
 	Title      string            `json:"title"`
@@ -408,6 +412,9 @@ func mediaRemoteURL(raw string) (*url.URL, error) {
 
 func supportedPlatformFormats(info platformInfo) []platformFormat {
 	formats := []platformFormat{}
+	if len(info.Formats) == 0 && info.URL != "" {
+		info.Formats = []platformFormat{{ID: "default", URL: info.URL, Ext: info.Ext, Protocol: info.Protocol, VideoCodec: info.VideoCodec, AudioCodec: info.AudioCodec, Headers: info.Headers}}
+	}
 	for _, f := range info.Formats {
 		if f.HasDRM || f.VideoCodec == "none" || f.ID == "" || len(f.ID) > 128 {
 			continue
@@ -506,6 +513,12 @@ func (m *MediaSourceManager) preparePlatformTicket(ctx context.Context, source M
 	selected := formats[0]
 	found := variant == "" || variant == "auto" || variant == "original"
 	if found {
+		for _, f := range formats {
+			if f.Height <= 1080 {
+				selected = f
+				break
+			}
+		}
 		for _, f := range formats {
 			if f.Height <= 1080 && f.AudioCodec != "none" {
 				selected = f

@@ -88,18 +88,29 @@ func (r *RedisCoordinator) CacheRoom(ctx context.Context, room Room) error {
 }
 
 func (r *RedisCoordinator) Room(ctx context.Context, code string) (Room, int64, error) {
-	encoded, err := r.client.Get(ctx, r.roomKey(code)).Bytes()
-	if errors.Is(err, redis.Nil) {
+	result, err := redis.NewScript(`local room=redis.call('GET',KEYS[1]); if not room then return nil end
+ local p=redis.call('HMGET',KEYS[2],'position','playing','speed','episode','position_ts','source_version','seq')
+ return {room,unpack(p)}`).Run(ctx, r.client, []string{r.roomKey(code), r.playbackKey(code)}).Result()
+	if errors.Is(err, redis.Nil) || result == nil {
 		return Room{}, 0, ErrNotFound
 	}
 	if err != nil {
 		return Room{}, 0, err
 	}
+	values, ok := result.([]interface{})
+	if !ok || len(values) != 8 {
+		return Room{}, 0, errors.New("invalid room snapshot")
+	}
 	var room Room
-	if err := json.Unmarshal(encoded, &room); err != nil {
+	if err = json.Unmarshal([]byte(fmt.Sprint(values[0])), &room); err != nil {
 		return Room{}, 0, err
 	}
-	playback, sequence, err := r.Playback(ctx, code)
+	for _, v := range values[1:] {
+		if v == nil {
+			return Room{}, 0, ErrNotFound
+		}
+	}
+	playback, sequence, err := parsePlaybackValues(values[1:])
 	if err != nil {
 		return Room{}, 0, err
 	}

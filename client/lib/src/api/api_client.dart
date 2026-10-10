@@ -933,6 +933,10 @@ class ApiClient {
     );
   }
 
+  Future<void> leaveRoom(Session session, String code) async {
+    await _request('POST', '/api/v1/rooms/$code/leave', session: session);
+  }
+
   Future<Room> getRoom(Session session, String code) async => _roomFromJson(
     await _request('GET', '/api/v1/rooms/$code', session: session),
   );

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -41,6 +42,11 @@ class _RoomPageState extends State<RoomPage> {
 
   @override
   void dispose() {
+    unawaited(
+      widget.api
+          .leaveRoom(widget.session, controller.room.code)
+          .catchError((Object _) {}),
+    );
     controller.dispose();
     super.dispose();
   }

@@ -61,7 +61,7 @@ func (m *MediaSourceManager) SaveNAS(ctx context.Context, user User, sourceID st
 	if len([]rune(in.Name)) < 1 || len([]rune(in.Name)) > 64 || len(in.Username) > 256 || len(in.Password) > 2048 || len(in.Token) > 4096 || len(in.OTP) > 12 {
 		return MediaSource{}, errors.New("NAS 连接信息格式无效")
 	}
-	base, err := validateSourceBaseURL(ctx, in.BaseURL, m.allowPrivate)
+	base, err := m.validateBaseURL(ctx, in.BaseURL)
 	if err != nil {
 		return MediaSource{}, err
 	}
@@ -615,7 +615,7 @@ func (m *MediaSourceManager) openNAS(ctx context.Context, source MediaSource, se
 func (m *MediaSourceManager) signedNASRequest(ctx context.Context, source MediaSource, method, raw string) (*http.Request, error) {
 	base, _ := url.Parse(source.BaseURL)
 	target, err := base.Parse(raw)
-	if err != nil || target.User != nil || target.Hostname() != base.Hostname() || (target.Scheme != "https" && !(m.allowPrivate && target.Scheme == "http")) {
+	if err != nil || target.User != nil || target.Hostname() != base.Hostname() || (target.Scheme != "https" && !((m.allowPrivate || m.trustedAuthorities[sourceAuthority(target)]) && target.Scheme == "http")) {
 		return nil, errors.New("NAS 下载地址不受信任")
 	}
 	return http.NewRequestWithContext(ctx, method, target.String(), nil)

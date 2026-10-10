@@ -90,7 +90,7 @@ func (m *MediaSourceManager) CreateEmby(
 	if username == "" || len([]rune(username)) > 256 || len(password) > 2048 {
 		return MediaSource{}, errors.New("invalid Emby credentials")
 	}
-	parsed, err := validateSourceBaseURL(ctx, baseURL, m.allowPrivate)
+	parsed, err := m.validateBaseURL(ctx, baseURL)
 	if err != nil {
 		return MediaSource{}, err
 	}

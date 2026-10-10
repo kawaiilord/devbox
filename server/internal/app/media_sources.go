@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -30,13 +31,14 @@ type webDAVCredentials struct {
 }
 
 type MediaSourceManager struct {
-	repository     Repository
-	vault          *CredentialVault
-	client         *http.Client
-	quarkClient    *http.Client
-	platformClient *http.Client
-	platform       *platformResolver
-	allowPrivate   bool
+	repository         Repository
+	vault              *CredentialVault
+	client             *http.Client
+	quarkClient        *http.Client
+	platformClient     *http.Client
+	platform           *platformResolver
+	allowPrivate       bool
+	trustedAuthorities map[string]bool
 }
 
 func NewMediaSourceManager(
@@ -47,7 +49,20 @@ func NewMediaSourceManager(
 	manager := &MediaSourceManager{
 		repository: repository, vault: vault, allowPrivate: allowPrivate,
 	}
-	manager.client = newSourceHTTPClient(allowPrivate)
+	manager.trustedAuthorities = map[string]bool{}
+	for _, raw := range strings.Split(os.Getenv("SAMEFRAME_SOURCE_HOST_ALLOWLIST"), ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		if !strings.Contains(raw, "://") {
+			raw = "https://" + raw
+		}
+		if u, err := url.Parse(raw); err == nil && u.Hostname() != "" && u.User == nil {
+			manager.trustedAuthorities[sourceAuthority(u)] = true
+		}
+	}
+	manager.client = newSourceHTTPClientForAuthorities(allowPrivate, manager.trustedAuthorities)
 	manager.quarkClient = newSourceHTTPClient(false)
 	manager.platformClient = newSourceHTTPClient(false)
 	manager.platform = newPlatformResolver()
@@ -63,7 +78,7 @@ func (m *MediaSourceManager) CreateWebDAV(
 	if len([]rune(name)) < 1 || len([]rune(name)) > 64 {
 		return MediaSource{}, errors.New("source name must be 1-64 characters")
 	}
-	parsed, err := validateSourceBaseURL(ctx, baseURL, m.allowPrivate)
+	parsed, err := m.validateBaseURL(ctx, baseURL)
 	if err != nil {
 		return MediaSource{}, err
 	}
@@ -433,6 +448,18 @@ func disallowedSourceIP(ip net.IP) bool {
 }
 
 func newSourceHTTPClient(allowPrivate bool) *http.Client {
+	return newSourceHTTPClientForAuthorities(allowPrivate, nil)
+}
+
+func (m *MediaSourceManager) validateBaseURL(ctx context.Context, raw string) (*url.URL, error) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return nil, errors.New("source URL must be absolute")
+	}
+	return validateSourceBaseURL(ctx, raw, m.allowPrivate || m.trustedAuthorities[sourceAuthority(u)])
+}
+
+func newSourceHTTPClientForAuthorities(allowPrivate bool, authorities map[string]bool) *http.Client {
 	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -445,7 +472,7 @@ func newSourceHTTPClient(allowPrivate bool) *http.Client {
 				return nil, err
 			}
 			for _, candidate := range addresses {
-				if !allowPrivate && disallowedSourceIP(candidate.IP) {
+				if !allowPrivate && !authorities[strings.ToLower(host)+":"+port] && disallowedSourceIP(candidate.IP) {
 					continue
 				}
 				return dialer.DialContext(ctx, network, net.JoinHostPort(candidate.IP.String(), port))
@@ -468,13 +495,13 @@ func newSourceHTTPClient(allowPrivate bool) *http.Client {
 				return errors.New("cross-host source redirect blocked")
 			}
 			if request.URL.User != nil ||
-				(request.URL.Scheme != "https" && !(allowPrivate && request.URL.Scheme == "http")) {
+				(request.URL.Scheme != "https" && !((allowPrivate || authorities[sourceAuthority(request.URL)]) && request.URL.Scheme == "http")) {
 				return errors.New("unsafe source redirect blocked")
 			}
 			if len(via) > 0 && via[0].URL.Scheme == "https" && request.URL.Scheme != "https" {
 				return errors.New("source TLS downgrade blocked")
 			}
-			return validateSourceHost(request.Context(), request.URL.Hostname(), allowPrivate)
+			return validateSourceHost(request.Context(), request.URL.Hostname(), allowPrivate || authorities[sourceAuthority(request.URL)])
 		},
 	}
 }

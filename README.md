@@ -46,6 +46,9 @@ The current foundation contains:
 - a separately served administrative web console with RBAC, runtime feature and
   maintenance controls, announcements, moderation, commerce, Bot secrets,
   device recovery, dashboards, and chained audit history;
+- public room discovery, scoped guest access, room passwords, per-member playback/chat/voice permissions;
+- persistent shared playlists, episode ordering, source/quality switching, and owner-driven auto-next;
+- nine URL-based platform adapters backed by a pinned yt-dlp resolver, six native NAS file-service adapters, and protected HLS/DASH playback;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -83,6 +86,9 @@ make build
 `make build` produces the Go server binary and a Flutter web release bundle.
 Windows binaries must be produced on a Windows runner; the workflow in
 `.github/workflows/ci.yml` verifies source and web compilation on Linux.
+
+See `docs/media-platforms-and-nas.md` for provider setup and real-account acceptance limits,
+and `docs/room-experience.md` for room access, permissions, and playlist behavior.
 
 ## Current boundary
 

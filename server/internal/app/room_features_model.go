@@ -44,19 +44,20 @@ type MediaVariant struct {
 
 // This is the private persistence record, never a response payload.
 type RoomFeatures struct {
-	Version      int64                      `json:"version"`
-	Visibility   string                     `json:"visibility"`
-	Description  string                     `json:"description"`
-	Category     string                     `json:"category"`
-	Tags         []string                   `json:"tags"`
-	AllowGuests  bool                       `json:"allow_guests"`
-	PasswordHash string                     `json:"password_hash,omitempty"`
-	Roles        map[string]string          `json:"roles"`
-	Permissions  map[string]RoomPermissions `json:"permissions"`
-	BannedIDs    []string                   `json:"banned_ids"`
-	Playlist     []PlaylistEntry            `json:"playlist"`
-	ActiveItemID string                     `json:"active_item_id"`
-	AutoNext     bool                       `json:"auto_next"`
+	GuestExpiries map[string]int64           `json:"guest_expiries,omitempty"`
+	Version       int64                      `json:"version"`
+	Visibility    string                     `json:"visibility"`
+	Description   string                     `json:"description"`
+	Category      string                     `json:"category"`
+	Tags          []string                   `json:"tags"`
+	AllowGuests   bool                       `json:"allow_guests"`
+	PasswordHash  string                     `json:"password_hash,omitempty"`
+	Roles         map[string]string          `json:"roles"`
+	Permissions   map[string]RoomPermissions `json:"permissions"`
+	BannedIDs     []string                   `json:"banned_ids"`
+	Playlist      []PlaylistEntry            `json:"playlist"`
+	ActiveItemID  string                     `json:"active_item_id"`
+	AutoNext      bool                       `json:"auto_next"`
 }
 
 type RoomFeaturesView struct {

@@ -152,12 +152,21 @@ func (s *Server) updateWatchProgress(w http.ResponseWriter, r *http.Request) {
 		mediaIdentity = room.MediaSourceID + "\x00" + room.MediaPath
 	}
 	digest := sha256.Sum256([]byte(mediaIdentity))
+	title := room.Name
+	if f, err := s.repo.GetRoomFeatures(r.Context(), room.Code); err == nil {
+		for _, item := range f.Playlist {
+			if item.ID == f.ActiveItemID {
+				title = item.Title
+				break
+			}
+		}
+	}
 	record := WatchRecord{
-		UserID: user.ID, MediaKey: hex.EncodeToString(digest[:]), Title: room.Name,
+		UserID: user.ID, MediaKey: hex.EncodeToString(digest[:]), Title: title,
 		Position: position, Duration: duration, Episode: room.Playback.Episode,
 		Completed: completed, CompanionCount: companionCount, RoomCode: room.Code,
 	}
-	if room.OwnerID == user.ID && room.MediaSourceID != "" {
+	if room.MediaSourceID != "" {
 		if _, sourceErr := s.repo.GetMediaSource(r.Context(), user.ID, room.MediaSourceID); sourceErr == nil {
 			record.SourceID = room.MediaSourceID
 			record.MediaPath = room.MediaPath

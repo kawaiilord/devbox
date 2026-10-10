@@ -840,6 +840,7 @@ class Room {
     required this.playback,
     this.closed = false,
     this.features,
+    this.mediaError = '',
   });
 
   final String code;
@@ -854,6 +855,7 @@ class Room {
   final PlaybackSnapshot playback;
   final bool closed;
   final RoomFeatures? features;
+  final String mediaError;
 
   factory Room.fromJson(Map<String, dynamic> json) => Room(
     code: json['code'] as String,
@@ -871,6 +873,7 @@ class Room {
       json['playback'] as Map<String, dynamic>,
     ),
     closed: json['closed'] as bool? ?? false,
+    mediaError: json['media_error']?.toString() ?? '',
     features: json['features'] is Map<String, dynamic>
         ? RoomFeatures.fromJson(json['features'] as Map<String, dynamic>)
         : null,
@@ -889,6 +892,7 @@ class Room {
     playback: playback,
     closed: closed,
     features: features,
+    mediaError: mediaError,
   );
 
   Room withPlayback(PlaybackSnapshot value) => Room(
@@ -904,6 +908,7 @@ class Room {
     playback: value,
     closed: closed,
     features: features,
+    mediaError: mediaError,
   );
 }
 

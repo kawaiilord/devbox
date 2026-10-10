@@ -81,6 +81,7 @@ jobs:
       - run: flutter pub get
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
+      - run: node --test test/adaptive_media.test.cjs
       - run: flutter test
       - run: flutter build web --release
       - uses: actions/upload-artifact@v7

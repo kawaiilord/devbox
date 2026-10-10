@@ -350,6 +350,10 @@ func (s *Server) joinRoomMember(ctx context.Context, code string, user User, pas
 				f.Roles = map[string]string{}
 			}
 			f.Roles[user.ID] = "guest"
+			if f.GuestExpiries == nil {
+				f.GuestExpiries = map[string]int64{}
+			}
+			f.GuestExpiries[user.ID] = user.GuestExpiresAt
 			expected := f.Version
 			f.Version++
 			if err = s.repo.SaveRoomFeatures(ctx, code, expected, f, nil); err != nil {
@@ -467,4 +471,49 @@ func decodeOptionalRoomPassword(r *http.Request) (string, error) {
 		return "", errors.New("房间密码过长")
 	}
 	return in.Password, nil
+}
+
+func (s *Server) leaveRoom(w http.ResponseWriter, r *http.Request) {
+	user, err := s.userFromRequest(r)
+	if err != nil {
+		writeError(w, 401, err)
+		return
+	}
+	code := strings.ToUpper(r.PathValue("code"))
+	err = s.withRoomMutation(r.Context(), code, func(ctx context.Context) error {
+		room, f, err := s.authorizedRoom(ctx, code, user)
+		if err != nil {
+			return err
+		}
+		if room.OwnerID == user.ID {
+			return nil
+		}
+		if err = s.repo.DeleteRoomMember(ctx, code, user.ID); err != nil {
+			return err
+		}
+		delete(f.Roles, user.ID)
+		delete(f.Permissions, user.ID)
+		delete(f.GuestExpiries, user.ID)
+		expected := f.Version
+		f.Version++
+		if err = s.repo.SaveRoomFeatures(ctx, code, expected, f, nil); err != nil {
+			return err
+		}
+		members := []Member{}
+		for _, m := range room.Members {
+			if m.UserID != user.ID {
+				members = append(members, m)
+			}
+		}
+		room.Members = members
+		_, sequence, _ := s.store.Snapshot(code)
+		s.store.UpsertAuthoritativeRoom(room, sequence)
+		s.emitMemberRemoval(ctx, code, user.ID)
+		return s.publishFeatureChange(ctx, room)
+	})
+	if err != nil {
+		writeRoomFeatureError(w, err)
+		return
+	}
+	writeJSON(w, 200, apiResponse{Code: 0, Msg: "已离开房间"})
 }

@@ -86,6 +86,9 @@ func (s *Server) authorizedRoom(ctx context.Context, code string, user User) (Ro
 	if f.blocked(user.ID) || (f.role(room, user.ID) == "guest" && !f.AllowGuests) {
 		return Room{}, RoomFeatures{}, ErrForbidden
 	}
+	if expiry := f.GuestExpiries[user.ID]; expiry > 0 && expiry <= time.Now().UnixMilli() {
+		return Room{}, RoomFeatures{}, ErrForbidden
+	}
 	if user.GuestRoomCode != "" && (user.GuestRoomCode != code || user.GuestExpiresAt <= time.Now().UnixMilli()) {
 		return Room{}, RoomFeatures{}, ErrForbidden
 	}
@@ -159,9 +162,12 @@ func (s *Server) clientRoom(ctx context.Context, room Room, viewer string) (Room
 		return Room{}, err
 	}
 	if room.MediaSourceID != "" {
-		room, _, err = s.issueTicketForRoom(ctx, room, viewer)
-		if err != nil {
-			return Room{}, err
+		hydrated, _, ticketErr := s.issueTicketForRoom(ctx, room, viewer)
+		if ticketErr != nil {
+			room.SourceURL = ""
+			room.MediaError = "片源暂时不可用，可刷新或更换来源。"
+		} else {
+			room = hydrated
 		}
 	}
 	return room, nil
@@ -222,4 +228,14 @@ func writeRoomFeatureError(w http.ResponseWriter, err error) {
 	default:
 		writeError(w, http.StatusBadRequest, err)
 	}
+}
+
+func (s *Server) roomMediaOwner(ctx context.Context, room Room) string {
+	f, err := s.repo.GetRoomFeatures(ctx, room.Code)
+	if err == nil {
+		if selected, _, ok := f.activeSource(); ok && selected.MediaSourceID == room.MediaSourceID && selected.MediaPath == room.MediaPath {
+			return selected.OwnerID
+		}
+	}
+	return room.OwnerID
 }

@@ -170,3 +170,24 @@ func TestNASNativeLoginBrowseAndRangePlayback(t *testing.T) {
 		})
 	}
 }
+
+func TestNASPrivateAddressRequiresExactConfiguredAuthority(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(207)
+		_, _ = io.WriteString(w, `<D:multistatus xmlns:D="DAV:"/>`)
+	}))
+	defer upstream.Close()
+	t.Setenv("SAMEFRAME_SOURCE_HOST_ALLOWLIST", strings.TrimPrefix(upstream.URL, "http://"))
+	vault, _ := NewCredentialVault(base64.StdEncoding.EncodeToString(make([]byte, 32)))
+	manager := NewMediaSourceManager(NewMemoryRepository(), vault, false)
+	source, err := manager.CreateWebDAV(context.Background(), User{ID: "owner"}, "LAN NAS", upstream.URL, "viewer", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = manager.Browse(context.Background(), "owner", source.ID, "/"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = manager.CreateWebDAV(context.Background(), User{ID: "owner"}, "Other private service", "https://127.0.0.1:1/", "viewer", "secret"); err == nil {
+		t.Fatal("host allowlist permitted a different private service port")
+	}
+}
