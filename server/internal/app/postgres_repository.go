@@ -50,6 +50,9 @@ var reviewsMigration string
 //go:embed migrations/012_commerce.sql
 var commerceMigration string
 
+//go:embed migrations/013_admin_config.sql
+var adminConfigMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -81,6 +84,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		coupleSpaceMigration,
 		reviewsMigration,
 		commerceMigration,
+		adminConfigMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -112,7 +116,7 @@ func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (Acc
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
 		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0)
 		 FROM users WHERE email = lower($1)`,
 		email,
@@ -123,7 +127,7 @@ func (r *PostgresRepository) UserByID(ctx context.Context, id string) (AccountRe
 	return scanAccount(r.pool.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
 		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0)
 		 FROM users WHERE id = $1`,
 		id,
@@ -142,6 +146,7 @@ func scanAccount(row pgx.Row) (AccountRecord, error) {
 		&account.SessionVersion,
 		&account.IsAdmin,
 		&account.Signature,
+		&account.AdminRole,
 		&account.VIPExpiresAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -211,7 +216,7 @@ func (r *PostgresRepository) RotateRefreshToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
 		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0) FROM users WHERE id = $1`,
 		userID,
 	))
@@ -436,7 +441,7 @@ func (r *PostgresRepository) ConsumeActionToken(
 	account, err := scanAccount(tx.QueryRow(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
-		 email_verified_at IS NOT NULL, session_version, is_admin, signature,
+		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
 		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0) FROM users WHERE id = $1`,
 		userID,
 	))
@@ -1167,7 +1172,7 @@ func (r *PostgresRepository) BanDevice(ctx context.Context, deviceHash, reason, 
 }
 
 func (r *PostgresRepository) SetUserAdmin(ctx context.Context, userID string, value bool) error {
-	command, err := r.pool.Exec(ctx, `UPDATE users SET is_admin = $2 WHERE id = $1`, userID, value)
+	command, err := r.pool.Exec(ctx, `UPDATE users SET is_admin=$2,admin_role=CASE WHEN $2 THEN 'super_admin' ELSE '' END WHERE id=$1`, userID, value)
 	if err != nil {
 		return err
 	}

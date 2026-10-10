@@ -12,6 +12,7 @@ type User struct {
 	EmailVerified  bool   `json:"email_verified"`
 	SessionVersion int64  `json:"-"`
 	IsAdmin        bool   `json:"is_admin"`
+	AdminRole      string `json:"admin_role,omitempty"`
 	Signature      string `json:"signature,omitempty"`
 	VIPExpiresAt   int64  `json:"vip_expires_at,omitempty"`
 }
@@ -320,6 +321,68 @@ type PointsLeaderboardEntry struct {
 	DisplayName string `json:"display_name"`
 	Points      int64  `json:"points"`
 	CheckIns    int    `json:"check_ins"`
+}
+
+type RuntimeConfig struct {
+	Maintenance MaintenanceConfig `json:"maintenance"`
+	Features    map[string]bool   `json:"features"`
+	Branding    BrandingConfig    `json:"branding"`
+	UpdatedAt   int64             `json:"updated_at"`
+}
+
+type MaintenanceConfig struct {
+	Enabled bool   `json:"enabled"`
+	Message string `json:"message"`
+}
+
+type BrandingConfig struct {
+	GlobalAnnouncement    string `json:"global_announcement"`
+	StartupAnnouncementID int64  `json:"startup_announcement_id"`
+}
+
+type Announcement struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Kind      string `json:"kind"`
+	Active    bool   `json:"active"`
+	StartsAt  int64  `json:"starts_at,omitempty"`
+	EndsAt    int64  `json:"ends_at,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type DeviceBan struct {
+	DeviceHash string `json:"device_hash"`
+	Reason     string `json:"reason"`
+	BannedAt   int64  `json:"banned_at"`
+	BannedBy   string `json:"banned_by"`
+}
+
+type AdminDashboard struct {
+	Users             int64 `json:"users"`
+	VerifiedUsers     int64 `json:"verified_users"`
+	ActiveVIPUsers    int64 `json:"active_vip_users"`
+	Rooms             int64 `json:"rooms"`
+	ActiveRooms       int64 `json:"active_rooms"`
+	Couples           int64 `json:"couples"`
+	PendingReports    int64 `json:"pending_reports"`
+	ActivatedOrders   int64 `json:"activated_orders"`
+	RevenueMinor      int64 `json:"revenue_minor"`
+	Reviews           int64 `json:"reviews"`
+	TogetherWatchings int64 `json:"together_watchings"`
+}
+
+type RoomBotConfig struct {
+	Enabled         bool   `json:"enabled"`
+	DisplayName     string `json:"display_name"`
+	SummonPolicy    string `json:"summon_policy"`
+	ReplyPolicy     string `json:"reply_policy"`
+	ProviderBaseURL string `json:"provider_base_url"`
+	Model           string `json:"model"`
+	HasCredential   bool   `json:"has_credential"`
+	Credential      string `json:"credential,omitempty"`
+	UpdatedAt       int64  `json:"updated_at"`
 }
 
 type Report struct {

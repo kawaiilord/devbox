@@ -911,6 +911,11 @@ func (r *MemoryRepository) SetUserAdmin(_ context.Context, userID string, value 
 		return ErrNotFound
 	}
 	account.IsAdmin = value
+	if value {
+		account.AdminRole = "super_admin"
+	} else {
+		account.AdminRole = ""
+	}
 	r.usersByID[userID] = account
 	return nil
 }
