@@ -53,15 +53,19 @@ class UpdateService {
   bool get configured => manifestUrl.isNotEmpty && publicKey.isNotEmpty;
 
   Future<UpdateManifest?> check() async {
-    if (!configured) return null;
+    if (!configured) {
+      return null;
+    }
     final manifestUri = Uri.parse(manifestUrl);
-    if (manifestUri.scheme != 'https')
+    if (manifestUri.scheme != 'https') {
       throw const UpdateException('更新清单必须使用 HTTPS');
+    }
     final response = await _client
         .get(manifestUri)
         .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200 || response.bodyBytes.length > 64 * 1024)
+    if (response.statusCode != 200 || response.bodyBytes.length > 64 * 1024) {
       throw const UpdateException('无法读取更新清单');
+    }
     final manifest = UpdateManifest.fromJson(
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
@@ -69,12 +73,14 @@ class UpdateService {
         manifest.url.scheme != 'https' ||
         manifest.size < 1 ||
         manifest.size > 2 * 1024 * 1024 * 1024 ||
-        !RegExp(r'^[0-9a-f]{64}$').hasMatch(manifest.sha256))
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(manifest.sha256)) {
       throw const UpdateException('更新清单字段无效');
+    }
     final keyBytes = base64Decode(publicKey);
     final signatureBytes = base64Decode(manifest.signature);
-    if (keyBytes.length != 32 || signatureBytes.length != 64)
+    if (keyBytes.length != 32 || signatureBytes.length != 64) {
       throw const UpdateException('更新签名格式无效');
+    }
     final valid = await Ed25519().verify(
       utf8.encode(manifest.signedPayload),
       signature: Signature(
