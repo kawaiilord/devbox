@@ -253,7 +253,7 @@ class FrameSection extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
           if (subtitle != null) ...[
