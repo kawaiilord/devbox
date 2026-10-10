@@ -232,14 +232,11 @@ class _PlaylistDialogState extends State<PlaylistDialog> {
                     : ReorderableListView.builder(
                         buildDefaultDragHandles: c.canManagePlaylist && !_busy,
                         itemCount: items.length,
-                        onReorder: (oldIndex, newIndex) {
+                        onReorderItem: (oldIndex, newIndex) {
                           if (!c.canManagePlaylist || _busy) {
                             return;
                           }
                           final order = items.map((i) => i.id).toList();
-                          if (newIndex > oldIndex) {
-                            newIndex--;
-                          }
                           final id = order.removeAt(oldIndex);
                           order.insert(newIndex, id);
                           _act(

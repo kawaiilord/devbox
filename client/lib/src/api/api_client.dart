@@ -827,7 +827,7 @@ class ApiClient {
         'media_path': mediaPath,
         'max_members': 8,
         'start_position': startPosition,
-        if (settings != null) 'settings': settings,
+        'settings': ?settings,
       },
     );
     return _roomFromJson(data);

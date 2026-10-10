@@ -322,8 +322,9 @@ class RoomController extends ChangeNotifier {
     if (trimmed.isEmpty ||
         !connected ||
         !danmakuEnabled ||
-        !permissions.danmaku)
+        !permissions.danmaku) {
       return;
+    }
     _socket?.send('danmaku.message', ++_clientSequence, {
       'body': trimmed,
       'position_seconds': player.position.inMilliseconds / 1000,
