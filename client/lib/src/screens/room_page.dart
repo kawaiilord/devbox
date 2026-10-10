@@ -28,6 +28,7 @@ class RoomPage extends StatefulWidget {
 }
 
 class _RoomPageState extends State<RoomPage> {
+  final _playerKey = GlobalKey();
   late final RoomController controller = RoomController(
     api: widget.api,
     session: widget.session,
@@ -759,7 +760,10 @@ class _RoomPageState extends State<RoomPage> {
                     ? const Center(child: CircularProgressIndicator())
                     : LayoutBuilder(
                         builder: (context, constraints) {
-                          final player = _PlayerPanel(controller: controller);
+                          final player = _PlayerPanel(
+                            key: _playerKey,
+                            controller: controller,
+                          );
                           final members = _MembersPanel(controller: controller);
                           if (constraints.maxWidth < 900) {
                             return ListView(
@@ -801,7 +805,7 @@ class _RoomPageState extends State<RoomPage> {
 }
 
 class _PlayerPanel extends StatelessWidget {
-  const _PlayerPanel({required this.controller});
+  const _PlayerPanel({super.key, required this.controller});
   final RoomController controller;
 
   @override

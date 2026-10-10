@@ -595,6 +595,9 @@ class RoomController extends ChangeNotifier {
           notifyListeners();
         })
         .catchError((Object exception) {
+          if (_transientMediaInterruption(exception.toString())) {
+            return;
+          }
           error = exception.toString();
           notifyListeners();
         });
@@ -655,6 +658,9 @@ class RoomController extends ChangeNotifier {
   }
 
   void _handlePlayerError(String raw) {
+    if (_transientMediaInterruption(raw)) {
+      return;
+    }
     final failure = PlaybackFailure.classify(raw);
     playbackFailure = failure;
     error = switch (failure.kind) {
@@ -686,5 +692,12 @@ class RoomController extends ChangeNotifier {
     unawaited(voice?.stop());
     player.dispose();
     super.dispose();
+  }
+
+  bool _transientMediaInterruption(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('play() request was interrupted') ||
+        normalized.contains('aborterror') ||
+        normalized.contains('播放源已切换');
   }
 }
