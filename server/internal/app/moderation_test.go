@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestBlockedUsersAreFilteredFromHistoryAndRealtime(t *testing.T) {
@@ -41,6 +42,7 @@ func TestBlockedUsersAreFilteredFromHistoryAndRealtime(t *testing.T) {
 	}
 
 	server := NewServer(Options{Repository: repository})
+	server.store.RestoreRooms([]Room{{Code: "ABC123", OwnerID: userA.ID, ExpiresAt: time.Now().Add(time.Hour).UnixMilli(), Members: []Member{{UserID: userA.ID}, {UserID: userB.ID}}}})
 	clientA := &socketClient{user: userA.User, send: make(chan []byte, 1)}
 	clientB := &socketClient{user: userB.User, send: make(chan []byte, 1)}
 	unsubscribeA := server.hub.Subscribe("ABC123", clientA)

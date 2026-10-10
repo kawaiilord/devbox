@@ -1,0 +1,14 @@
+{
+  "shaka-player": {
+    "version": "5.2.13",
+    "source": "https://registry.npmjs.org/shaka-player/-/shaka-player-5.2.13.tgz",
+    "sha256": "62c615e1156f107ca49f72281710390d44babbc780785cc7dda8bf7b0e393fb3",
+    "file": "shaka-player.compiled.js"
+  },
+  "mpegts.js": {
+    "version": "1.8.2",
+    "source": "https://registry.npmjs.org/mpegts.js/-/mpegts.js-1.8.2.tgz",
+    "sha256": "bda31748736a69cb610c2edf4623e633f1f4f47b5bda83668c8d287e51b0c3a8",
+    "file": "mpegts.js"
+  }
+}

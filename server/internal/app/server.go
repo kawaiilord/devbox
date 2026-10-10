@@ -44,17 +44,18 @@ type Options struct {
 }
 
 type Server struct {
-	options Options
-	store   *Store
-	hub     *Hub
-	repo    Repository
-	auth    *AuthService
-	redis   *RedisCoordinator
-	limiter *RateLimiter
-	sources *MediaSourceManager
-	http    *http.Server
-	start   sync.Once
-	metrics *Metrics
+	roomMutationMu sync.Mutex
+	options        Options
+	store          *Store
+	hub            *Hub
+	repo           Repository
+	auth           *AuthService
+	redis          *RedisCoordinator
+	limiter        *RateLimiter
+	sources        *MediaSourceManager
+	http           *http.Server
+	start          sync.Once
+	metrics        *Metrics
 }
 
 type apiResponse struct {
@@ -138,6 +139,24 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/admin/copyright-complaints", s.adminCopyrightComplaints)
 	mux.HandleFunc("POST /api/v1/admin/copyright-complaints/{id}/resolve", s.adminResolveCopyrightComplaint)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
+	mux.HandleFunc("GET /api/v1/public/rooms", s.discoverPublicRooms)
+	mux.HandleFunc("GET /api/v1/providers", s.providerCatalog)
+	mux.HandleFunc("POST /api/v1/sources/nas", s.saveNASSource)
+	mux.HandleFunc("PUT /api/v1/sources/{id}/nas", s.saveNASSource)
+	mux.HandleFunc("POST /api/v1/sources/platform", s.savePlatformSource)
+	mux.HandleFunc("PUT /api/v1/sources/{id}/platform", s.savePlatformSource)
+	mux.HandleFunc("POST /api/v1/sources/{id}/resolve", s.resolvePlatformSource)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/guest", s.joinRoomAsGuest)
+	mux.HandleFunc("PUT /api/v1/rooms/{code}/settings", s.updateRoomSettings)
+	mux.HandleFunc("PUT /api/v1/rooms/{code}/members/{userID}", s.updateRoomMember)
+	mux.HandleFunc("DELETE /api/v1/rooms/{code}/members/{userID}", s.removeRoomMember)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/playlist", s.getRoomPlaylist)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/playlist", s.addPlaylistItems)
+	mux.HandleFunc("PUT /api/v1/rooms/{code}/playlist", s.reorderPlaylist)
+	mux.HandleFunc("DELETE /api/v1/rooms/{code}/playlist/{itemID}", s.deletePlaylistItem)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/playlist/{itemID}/sources", s.addPlaylistSource)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/playback/select", s.selectPlaylistMedia)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/variants", s.roomMediaVariants)
 	mux.HandleFunc("GET /api/v1/metadata/search", s.searchMetadata)
 	mux.HandleFunc("GET /api/v1/social/users", s.searchSocialUsers)
 	mux.HandleFunc("GET /api/v1/social/users/{id}", s.socialProfile)
@@ -207,6 +226,8 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/sources/{id}/ticket", s.issueMediaTicket)
 	mux.HandleFunc("GET /media/{ticket}", s.proxyMedia)
 	mux.HandleFunc("HEAD /media/{ticket}", s.proxyMedia)
+	mux.HandleFunc("GET /media/{ticket}/{resource...}", s.proxyMedia)
+	mux.HandleFunc("HEAD /media/{ticket}/{resource...}", s.proxyMedia)
 	mux.HandleFunc("POST /api/v1/rooms", s.createRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/join", s.joinRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
@@ -755,7 +776,7 @@ func (s *Server) issueMediaTicket(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue media ticket"))
 		return
 	}
-	playURL := s.mediaPlaybackURL(raw)
+	playURL := s.mediaTicketURL(raw, ticket)
 	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: map[string]any{
 		"url": playURL, "expires_at": expiresAt.UnixMilli(),
 	}, Msg: "created"})
@@ -781,7 +802,7 @@ func (s *Server) issueRoomMediaTicket(w http.ResponseWriter, r *http.Request) {
 		writeStoreError(w, err)
 		return
 	}
-	hydrated, expiresAt, err := s.issueTicketForRoom(r.Context(), room)
+	hydrated, expiresAt, err := s.issueTicketForRoom(r.Context(), room, user.ID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
 		return
@@ -802,8 +823,9 @@ func (s *Server) roomMessages(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
 		return
 	}
-	if _, err := s.store.GetRoom(code, user.ID); err != nil {
-		writeStoreError(w, err)
+	room, features, roomErr := s.authorizedRoom(r.Context(), code, user)
+	if roomErr != nil {
+		writeStoreError(w, roomErr)
 		return
 	}
 	before, _ := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
@@ -816,7 +838,7 @@ func (s *Server) roomMessages(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, errors.New("could not load privacy settings"))
 		return
 	}
-	if !privacy.AllowRoomChat {
+	if !privacy.AllowRoomChat || !features.grants(room, user.ID).Chat {
 		writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"messages": []ChatMessage{}}, Msg: "ok"})
 		return
 	}
@@ -914,28 +936,39 @@ func (s *Server) hydrateRoomMediaURL(ctx context.Context, room Room) (Room, erro
 	if room.MediaSourceID == "" {
 		return room, nil
 	}
-	hydrated, _, err := s.issueTicketForRoom(ctx, room)
+	hydrated, _, err := s.issueTicketForRoom(ctx, room, room.OwnerID)
 	return hydrated, err
 }
 
 func (s *Server) issueTicketForRoom(
 	ctx context.Context,
 	room Room,
+	viewer string,
 ) (Room, time.Time, error) {
 	if s.redis == nil || s.sources == nil {
 		return Room{}, time.Time{}, errors.New("media tickets unavailable")
 	}
-	ticket, err := s.sources.PrepareMediaTicket(
-		ctx, room.OwnerID, room.MediaSourceID, room.MediaPath,
-	)
+	f, err := s.repo.GetRoomFeatures(ctx, room.Code)
 	if err != nil {
 		return Room{}, time.Time{}, err
 	}
+	owner, variant := room.OwnerID, ""
+	if selected, _, ok := f.activeSource(); ok && selected.MediaSourceID == room.MediaSourceID && selected.MediaPath == room.MediaPath {
+		owner = selected.OwnerID
+		variant = selected.VariantID
+	}
+	ticket, err := s.sources.PrepareMediaVariant(ctx, owner, room.MediaSourceID, room.MediaPath, variant)
+	if err != nil {
+		return Room{}, time.Time{}, err
+	}
+	ticket.RoomCode = room.Code
+	ticket.ViewerID = viewer
+	ticket.SourceVersion = room.Playback.SourceVersion
 	raw, expiresAt, err := s.redis.IssueMediaTicket(ctx, ticket, 5*time.Minute)
 	if err != nil {
 		return Room{}, time.Time{}, err
 	}
-	room.SourceURL = s.mediaPlaybackURL(raw)
+	room.SourceURL = s.mediaTicketURL(raw, ticket)
 	return room, expiresAt, nil
 }
 
@@ -964,6 +997,33 @@ func (s *Server) proxyMedia(w http.ResponseWriter, r *http.Request) {
 	ticket, err := s.redis.MediaTicket(r.Context(), raw)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, ErrUnauthorized)
+		return
+	}
+	if ticket.RoomCode != "" {
+		room, f, err := s.authorizedRoom(r.Context(), ticket.RoomCode, User{ID: ticket.ViewerID})
+		if err != nil || f.blocked(ticket.ViewerID) || room.Playback.SourceVersion != ticket.SourceVersion {
+			writeError(w, http.StatusUnauthorized, ErrUnauthorized)
+			return
+		}
+	}
+	if encrypted := r.URL.Query().Get("asset"); encrypted != "" {
+		if !strings.HasPrefix(ticket.Kind, "platform-") {
+			writeError(w, 401, ErrUnauthorized)
+			return
+		}
+		asset, err := s.decodePlatformAsset(raw, encrypted)
+		if err != nil {
+			writeError(w, 401, ErrUnauthorized)
+			return
+		}
+		ticket.StreamURL = asset.URL
+		ticket.AudioURL = ""
+		ticket.Kind = "platform-asset"
+		if asset.Manifest {
+			ticket.Kind = "platform-hls"
+		}
+	}
+	if s.proxyPlatformManifest(w, r, raw, ticket) {
 		return
 	}
 	rangeHeader := r.Header.Get("Range")
@@ -1019,12 +1079,13 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		Name          string  `json:"name"`
-		SourceURL     string  `json:"source_url"`
-		MediaSourceID string  `json:"media_source_id"`
-		MediaPath     string  `json:"media_path"`
-		MaxMembers    int     `json:"max_members"`
-		StartPosition float64 `json:"start_position"`
+		Name          string            `json:"name"`
+		Settings      roomSettingsInput `json:"settings"`
+		SourceURL     string            `json:"source_url"`
+		MediaSourceID string            `json:"media_source_id"`
+		MediaPath     string            `json:"media_path"`
+		MaxMembers    int               `json:"max_members"`
+		StartPosition float64           `json:"start_position"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -1034,13 +1095,19 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("invalid start position"))
 		return
 	}
+	settingsCheck := defaultRoomFeatures()
+	if err := applyRoomSettings(&settingsCheck, request.Settings); err != nil {
+		writeRoomFeatureError(w, err)
+		return
+	}
 	var room Room
+	var initialMediaTicket MediaTicket
 	if request.MediaSourceID != "" {
 		if s.sources == nil {
 			writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
 			return
 		}
-		if _, err := s.sources.PrepareMediaTicket(
+		if ticket, err := s.sources.PrepareMediaTicket(
 			r.Context(), user.ID, request.MediaSourceID, request.MediaPath,
 		); err != nil {
 			if errors.Is(err, ErrNotFound) {
@@ -1049,6 +1116,8 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusBadGateway, err)
 			}
 			return
+		} else {
+			initialMediaTicket = ticket
 		}
 		room, err = s.store.CreateMediaRoom(
 			user, request.Name, request.MediaSourceID, request.MediaPath, request.MaxMembers,
@@ -1075,6 +1144,20 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, errors.New("could not persist room"))
 		return
 	}
+	features, _ := initialRoomFeatures(room, roomSettingsInput{})
+	features.Visibility = settingsCheck.Visibility
+	features.Description = settingsCheck.Description
+	features.Category = settingsCheck.Category
+	features.Tags = settingsCheck.Tags
+	features.AllowGuests = settingsCheck.AllowGuests
+	features.PasswordHash = settingsCheck.PasswordHash
+	features.AutoNext = settingsCheck.AutoNext
+	features.Version = 1
+	features.Playlist[0].Sources[0].IsLive = initialMediaTicket.IsLive
+	if err := s.repo.SaveRoomFeatures(r.Context(), room.Code, 0, features, nil); err != nil {
+		writeRoomFeatureError(w, err)
+		return
+	}
 	if s.redis != nil {
 		if err := s.redis.InitializeRoom(r.Context(), room); err != nil {
 			s.options.Logger.Error("initialize Redis room", "error", err, "room", room.Code)
@@ -1088,7 +1171,7 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		}
 		s.broadcastRoomState(r.Context(), state, sequence)
 	}
-	clientRoom, err := s.hydrateRoomMediaURL(r.Context(), room)
+	clientRoom, err := s.clientRoom(r.Context(), room, user.ID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
 		return
@@ -1102,42 +1185,25 @@ func (s *Server) joinRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
-	code := strings.ToUpper(r.PathValue("code"))
-	if err := s.refreshRedisRoom(r.Context(), code); err != nil && !errors.Is(err, ErrNotFound) {
-		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
+	if !s.enforceRateLimit(w, r, "room-join", user.ID, 30, time.Minute) {
 		return
 	}
-	room, err := s.store.JoinRoom(code, user)
+	password, err := decodeOptionalRoomPassword(r)
 	if err != nil {
-		writeStoreError(w, err)
+		writeError(w, 400, err)
 		return
 	}
-	for _, member := range room.Members {
-		if member.UserID == user.ID {
-			if err := s.repo.SaveMember(r.Context(), room.Code, member); err != nil {
-				s.options.Logger.Error("persist room member", "error", err, "room", room.Code, "user", user.ID)
-				writeError(w, http.StatusInternalServerError, errors.New("could not persist room membership"))
-				return
-			}
-			break
-		}
-	}
-	if s.redis != nil {
-		if err := s.redis.CacheRoom(r.Context(), room); err != nil {
-			writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
-			return
-		}
-	}
-	state, sequence, snapshotErr := s.roomStateForBroadcast(r.Context(), room.Code)
-	if snapshotErr == nil {
-		s.broadcastRoomState(r.Context(), state, sequence)
-	}
-	clientRoom, err := s.hydrateRoomMediaURL(r.Context(), room)
+	room, err := s.joinRoomMember(r.Context(), strings.ToUpper(r.PathValue("code")), user, password)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
+		writeRoomFeatureError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: clientRoom, Msg: "joined"})
+	room, err = s.clientRoom(r.Context(), room, user.ID)
+	if err != nil {
+		writeRoomFeatureError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: room, Msg: "joined"})
 }
 
 func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
@@ -1157,7 +1223,7 @@ func (s *Server) getRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	room = s.syncRedisPlayback(r.Context(), room)
-	room, err = s.hydrateRoomMediaURL(r.Context(), room)
+	room, err = s.clientRoom(r.Context(), room, user.ID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
 		return
@@ -1210,13 +1276,13 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
 		return
 	}
-	room, err := s.store.GetRoom(code, user.ID)
+	room, _, err := s.authorizedRoom(r.Context(), code, user)
 	if err != nil {
 		writeStoreError(w, err)
 		return
 	}
 	room = s.syncRedisPlayback(r.Context(), room)
-	room, err = s.hydrateRoomMediaURL(r.Context(), room)
+	room, err = s.clientRoom(r.Context(), room, user.ID)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue room media ticket"))
 		return
@@ -1234,7 +1300,7 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	client := &socketClient{user: user, send: make(chan []byte, 16)}
+	client := &socketClient{user: user, send: make(chan []byte, 16), cancel: cancel}
 	unsubscribe := s.hub.Subscribe(code, client)
 	connectionID := mustRandomString(12)
 	if s.redis != nil {
@@ -1288,6 +1354,10 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 			s.handleDanmakuMessage(ctx, client, code, user, envelope.Payload)
 			continue
 		}
+		if envelope.Type == "rtc.signal" {
+			s.handleRTCSignal(ctx, client, code, user, envelope.Payload)
+			continue
+		}
 		if envelope.Type != "playback.control" {
 			continue
 		}
@@ -1295,37 +1365,9 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(envelope.Payload, &control) != nil {
 			continue
 		}
-		currentRoom, membershipErr := s.store.GetRoom(code, user.ID)
-		if membershipErr != nil || currentRoom.OwnerID != user.ID {
-			s.sendSocketError(client, code, ErrForbidden)
-			continue
+		if err := s.processPlaybackControl(ctx, code, user, envelope.Seq, control); err != nil {
+			s.sendSocketError(client, code, err)
 		}
-		var updated Room
-		var serverSeq int64
-		var applyErr error
-		if s.redis != nil {
-			var playback Playback
-			playback, serverSeq, applyErr = s.redis.ApplyControl(ctx, code, user.ID, envelope.Seq, control)
-			if applyErr == nil {
-				updated, applyErr = s.store.ApplyAuthoritativePlayback(code, playback, serverSeq)
-			}
-			if envelope.Type == "rtc.signal" {
-				s.handleRTCSignal(ctx, client, code, user, envelope.Payload)
-				continue
-			}
-		} else {
-			updated, serverSeq, applyErr = s.store.ApplyControl(code, user, envelope.Seq, control)
-		}
-		if applyErr != nil {
-			s.sendSocketError(client, code, applyErr)
-			continue
-		}
-		if persistErr := s.repo.UpdatePlayback(ctx, code, updated.Playback); persistErr != nil {
-			s.options.Logger.Error("persist playback", "error", persistErr, "room", code)
-			s.sendSocketError(client, code, errors.New("playback persistence failed"))
-			continue
-		}
-		s.broadcastSnapshot(ctx, updated, serverSeq, user.ID)
 	}
 }
 
@@ -1336,7 +1378,8 @@ func (s *Server) handleChatMessage(
 	user User,
 	payload json.RawMessage,
 ) {
-	if _, err := s.store.GetRoom(roomCode, user.ID); err != nil {
+	room, features, roomErr := s.authorizedRoom(ctx, roomCode, user)
+	if roomErr != nil || !features.grants(room, user.ID).Chat {
 		s.sendSocketError(client, roomCode, ErrForbidden)
 		return
 	}
@@ -1459,19 +1502,101 @@ func (s *Server) emitEnvelope(ctx context.Context, envelope Envelope) {
 }
 
 func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
+	if envelope.Type == "room.member_removed" {
+		var payload struct {
+			UserID string `json:"user_id"`
+		}
+		if json.Unmarshal(envelope.Payload, &payload) == nil {
+			s.hub.Disconnect(envelope.Room, payload.UserID)
+		}
+		return
+	}
+	if envelope.Type == "room.state" {
+		var room Room
+		if json.Unmarshal(envelope.Payload, &room) != nil {
+			return
+		}
+		f, err := s.repo.GetRoomFeatures(ctx, room.Code)
+		if err != nil {
+			return
+		}
+		s.hub.BroadcastFor(room.Code, func(user User) *Envelope {
+			member := false
+			for _, m := range room.Members {
+				if m.UserID == user.ID {
+					member = true
+					break
+				}
+			}
+			if !member || f.blocked(user.ID) || (f.role(room, user.ID) == "guest" && !f.AllowGuests) {
+				s.hub.Disconnect(room.Code, user.ID)
+				return nil
+			}
+			copy := room
+			view := f.view(room, user.ID)
+			copy.Features = &view
+			copy.Members = append([]Member(nil), room.Members...)
+			for i := range copy.Members {
+				copy.Members[i].Role = f.role(room, copy.Members[i].UserID)
+			}
+			out := envelope
+			out.Payload, _ = json.Marshal(copy)
+			return &out
+		})
+		return
+	}
+	var currentRoom Room
+	var features RoomFeatures
+	if len(envelope.Room) == 6 {
+		var err error
+		currentRoom, err = s.store.Room(envelope.Room)
+		if err != nil {
+			return
+		}
+		features, err = s.repo.GetRoomFeatures(ctx, envelope.Room)
+		if err != nil {
+			return
+		}
+	}
+	allowed := func(user User) bool {
+		if len(envelope.Room) != 6 {
+			return true
+		}
+		if features.blocked(user.ID) || currentRoom.Closed || currentRoom.ExpiresAt <= time.Now().UnixMilli() {
+			return false
+		}
+		if features.role(currentRoom, user.ID) == "guest" && (!features.AllowGuests || user.GuestExpiresAt <= time.Now().UnixMilli()) {
+			return false
+		}
+		for _, m := range currentRoom.Members {
+			if m.UserID == user.ID {
+				return true
+			}
+		}
+		return false
+	}
 	if envelope.Type != "chat.message" && envelope.Type != "danmaku.message" {
 		if envelope.Type == "rtc.signal" {
 			var signal RTCSignal
 			if json.Unmarshal(envelope.Payload, &signal) != nil {
 				return
 			}
-			s.hub.BroadcastWhere(envelope.Room, envelope, func(recipient User) bool { return recipient.ID == signal.TargetUserID })
+			s.hub.BroadcastWhere(envelope.Room, envelope, func(recipient User) bool {
+				return allowed(recipient) && features.grants(currentRoom, recipient.ID).Voice && recipient.ID == signal.TargetUserID
+			})
 			return
 		}
-		s.hub.Broadcast(envelope.Room, envelope)
+		s.hub.BroadcastWhere(envelope.Room, envelope, allowed)
 		return
 	}
 	s.hub.BroadcastWhere(envelope.Room, envelope, func(recipient User) bool {
+		if !allowed(recipient) {
+			return false
+		}
+		p := features.grants(currentRoom, recipient.ID)
+		if (envelope.Type == "chat.message" && !p.Chat) || (envelope.Type == "danmaku.message" && !p.Danmaku) {
+			return false
+		}
 		privacy, err := s.repo.GetPrivacy(ctx, recipient.ID)
 		if err != nil || !privacy.AllowRoomChat {
 			return false
@@ -1631,11 +1756,26 @@ func (s *Server) userFromRequest(r *http.Request) (User, error) {
 	if !strings.HasPrefix(auth, prefix) {
 		return User{}, ErrUnauthorized
 	}
-	return s.auth.AuthenticateAccess(
+	user, err := s.auth.AuthenticateAccess(
 		r.Context(),
 		strings.TrimSpace(strings.TrimPrefix(auth, prefix)),
 		r.Header.Get("X-Device-ID"),
 	)
+	if err != nil {
+		return User{}, err
+	}
+	if user.GuestRoomCode != "" {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/blocks" {
+			return user, nil
+		}
+		if !strings.HasPrefix(r.URL.Path, "/api/v1/rooms/") || strings.ToUpper(r.PathValue("code")) != user.GuestRoomCode {
+			return User{}, ErrForbidden
+		}
+		if _, _, err := s.authorizedRoom(r.Context(), user.GuestRoomCode, user); err != nil {
+			return User{}, err
+		}
+	}
+	return user, nil
 }
 
 func deviceFromRequest(r *http.Request) (DeviceInfo, error) {

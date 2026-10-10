@@ -40,8 +40,12 @@ class SecureSessionStore implements SessionStore {
   }
 
   @override
-  Future<void> write(Session session) =>
-      _storage.write(key: _key, value: jsonEncode(session.toJson()));
+  Future<void> write(Session session) async {
+    if (session.user.isGuest) {
+      return;
+    }
+    await _storage.write(key: _key, value: jsonEncode(session.toJson()));
+  }
 
   @override
   Future<void> clear() => _storage.delete(key: _key);

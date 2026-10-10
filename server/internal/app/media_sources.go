@@ -30,11 +30,13 @@ type webDAVCredentials struct {
 }
 
 type MediaSourceManager struct {
-	repository   Repository
-	vault        *CredentialVault
-	client       *http.Client
-	quarkClient  *http.Client
-	allowPrivate bool
+	repository     Repository
+	vault          *CredentialVault
+	client         *http.Client
+	quarkClient    *http.Client
+	platformClient *http.Client
+	platform       *platformResolver
+	allowPrivate   bool
 }
 
 func NewMediaSourceManager(
@@ -47,6 +49,8 @@ func NewMediaSourceManager(
 	}
 	manager.client = newSourceHTTPClient(allowPrivate)
 	manager.quarkClient = newSourceHTTPClient(false)
+	manager.platformClient = newSourceHTTPClient(false)
+	manager.platform = newPlatformResolver()
 	return manager
 }
 
@@ -116,7 +120,12 @@ func (m *MediaSourceManager) Browse(
 		return m.browseEmby(ctx, source, secret, requestedPath)
 	case "quark":
 		return m.browseQuark(ctx, source, secret, requestedPath)
+	case "synology", "qnap", "fnos", "nextcloud", "seafile", "truenas":
+		return m.browseNAS(ctx, source, secret, requestedPath)
 	default:
+		if _, ok := platformDefinitions[source.Type]; ok {
+			return []MediaFile{}, nil
+		}
 		return nil, errors.New("unsupported media source type")
 	}
 }
@@ -194,7 +203,12 @@ func (m *MediaSourceManager) Open(
 		return m.openEmby(ctx, source, secret, ticket, method, rangeHeader, ifRange)
 	case "quark":
 		return m.openQuark(ctx, source, secret, ticket, method, rangeHeader, ifRange)
+	case "synology", "qnap", "fnos", "nextcloud", "seafile", "truenas":
+		return m.openNAS(ctx, source, secret, ticket, method, rangeHeader, ifRange)
 	default:
+		if _, ok := platformDefinitions[source.Type]; ok {
+			return m.openPlatform(ctx, source, secret, ticket, method, rangeHeader, ifRange)
+		}
 		return nil, errors.New("unsupported media source type")
 	}
 }
@@ -244,7 +258,12 @@ func (m *MediaSourceManager) PrepareMediaTicket(
 		return m.prepareEmbyMediaTicket(ctx, source, secret, userID, requestedPath)
 	case "quark":
 		return m.prepareQuarkMediaTicket(ctx, source, secret, requestedPath)
+	case "synology", "qnap", "fnos", "nextcloud", "seafile", "truenas":
+		return m.prepareNASTicket(ctx, source, secret, requestedPath)
 	default:
+		if _, ok := platformDefinitions[source.Type]; ok {
+			return m.preparePlatformTicket(ctx, source, secret, requestedPath, "")
+		}
 		return MediaTicket{}, errors.New("unsupported media source type")
 	}
 }
@@ -256,6 +275,9 @@ func (m *MediaSourceManager) Subtitles(
 	source, secret, err := m.loadSourceSecret(ctx, userID, sourceID)
 	if err != nil {
 		return nil, err
+	}
+	if _, ok := platformDefinitions[source.Type]; ok {
+		return []MediaFile{}, nil
 	}
 	switch source.Type {
 	case "webdav":
@@ -280,6 +302,18 @@ func (m *MediaSourceManager) Subtitles(
 		// Embedded subtitle tracks remain available to the player. External
 		// subtitle authorization needs provider folder identity, not file names.
 		return []MediaFile{}, nil
+	case "synology", "qnap", "fnos", "nextcloud", "seafile", "truenas":
+		files, err := m.browseNAS(ctx, source, secret, path.Dir(mediaPath))
+		if err != nil {
+			return nil, err
+		}
+		result := []MediaFile{}
+		for _, file := range files {
+			if !file.IsDirectory && isSubtitlePath(file.Name) {
+				result = append(result, file)
+			}
+		}
+		return result, nil
 	default:
 		return nil, errors.New("unsupported media source type")
 	}
@@ -307,6 +341,11 @@ func (m *MediaSourceManager) PrepareSubtitleTicket(
 		}, nil
 	case "emby":
 		return m.prepareEmbySubtitleTicket(ctx, source, secret, userID, mediaPath, subtitlePath)
+	case "synology", "qnap", "fnos", "nextcloud", "seafile", "truenas":
+		if path.Dir(cleanMediaPath(mediaPath)) != path.Dir(cleanMediaPath(subtitlePath)) || !isSubtitlePath(subtitlePath) {
+			return MediaTicket{}, ErrForbidden
+		}
+		return m.prepareNASTicket(ctx, source, secret, subtitlePath)
 	default:
 		return MediaTicket{}, errors.New("unsupported media source type")
 	}

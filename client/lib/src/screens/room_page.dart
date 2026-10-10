@@ -7,6 +7,8 @@ import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
 import '../room_controller.dart';
+import 'playlist_dialog.dart';
+import 'room_management_dialogs.dart';
 
 class RoomPage extends StatefulWidget {
   const RoomPage({
@@ -471,6 +473,66 @@ class _RoomPageState extends State<RoomPage> {
         .showSnackBar(SnackBar(content: Text('操作失败：$exception')));
   }
 
+  Future<void> _showPlaylist() => showDialog<void>(
+    context: context,
+    builder: (_) => PlaylistDialog(controller: controller),
+  );
+  Future<void> _showSettings() => showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => RoomSettingsDialog(controller: controller),
+  );
+  Future<void> _showMembers() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) => AlertDialog(
+          title: const Text('管理成员权限'),
+          content: SizedBox(
+            width: 480,
+            height: 350,
+            child: ListView(
+              children: [
+                for (final member in controller.room.members)
+                  ListTile(
+                    title: Text(member.displayName),
+                    subtitle: Text(
+                      member.role == 'owner'
+                          ? '房主'
+                          : member.role == 'moderator'
+                          ? '协管员'
+                          : member.role == 'guest'
+                          ? '访客'
+                          : '成员',
+                    ),
+                    trailing: member.userId == controller.room.ownerId
+                        ? const Icon(Icons.star_rounded)
+                        : const Icon(Icons.tune_rounded),
+                    onTap: member.userId == controller.room.ownerId
+                        ? null
+                        : () => showDialog<void>(
+                            context: context,
+                            builder: (_) => RoomMemberDialog(
+                              controller: controller,
+                              member: member,
+                            ),
+                          ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showSubtitles() async {
     final files = await controller.availableSubtitles();
     if (!mounted) return;
@@ -527,7 +589,12 @@ class _RoomPageState extends State<RoomPage> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(controller.room.name),
+                Text(
+                  controller.room.features?.activeItem?.title ??
+                      controller.room.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 Text(
                   '房间 ${controller.room.code}',
                   style: Theme.of(context).textTheme.labelMedium
@@ -542,6 +609,15 @@ class _RoomPageState extends State<RoomPage> {
                       tooltip: '房间功能',
                       onSelected: (value) {
                         switch (value) {
+                          case 'playlist':
+                            _showPlaylist();
+                            break;
+                          case 'settings':
+                            _showSettings();
+                            break;
+                          case 'members':
+                            _showMembers();
+                            break;
                           case 'chat':
                             _showChat();
                             break;
@@ -560,6 +636,20 @@ class _RoomPageState extends State<RoomPage> {
                         }
                       },
                       itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'playlist',
+                          child: Text('片单 / 画质 / 来源'),
+                        ),
+                        if (controller.isOwner)
+                          const PopupMenuItem(
+                            value: 'settings',
+                            child: Text('房间设置'),
+                          ),
+                        if (controller.isOwner)
+                          const PopupMenuItem(
+                            value: 'members',
+                            child: Text('成员权限'),
+                          ),
                         PopupMenuItem(
                           value: 'chat',
                           enabled: !controller.room.closed,
@@ -588,6 +678,23 @@ class _RoomPageState extends State<RoomPage> {
                     ),
                   ]
                 : [
+                    IconButton(
+                      tooltip: '片单 / 画质 / 来源',
+                      onPressed: _showPlaylist,
+                      icon: const Icon(Icons.playlist_play_rounded),
+                    ),
+                    if (controller.isOwner)
+                      IconButton(
+                        tooltip: '房间设置',
+                        onPressed: _showSettings,
+                        icon: const Icon(Icons.settings_outlined),
+                      ),
+                    if (controller.isOwner)
+                      IconButton(
+                        tooltip: '成员权限',
+                        onPressed: _showMembers,
+                        icon: const Icon(Icons.manage_accounts_outlined),
+                      ),
                     IconButton(
                       tooltip: '举报房间',
                       onPressed: _showReport,
@@ -723,8 +830,8 @@ class _PlayerPanel extends StatelessWidget {
                       stream: controller.player.playingStream,
                       initialData: controller.player.playing,
                       builder: (context, snapshot) => IconButton.filled(
-                        tooltip: controller.isOwner ? '播放/暂停' : '仅房主可控制',
-                        onPressed: controller.isOwner
+                        tooltip: controller.canControl ? '播放/暂停' : '跟随房间播放',
+                        onPressed: controller.canControl
                             ? () => snapshot.data == true
                                   ? controller.pause()
                                   : controller.play()
@@ -738,7 +845,7 @@ class _PlayerPanel extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     PopupMenuButton<double>(
-                      enabled: controller.isOwner,
+                      enabled: controller.canControl && !controller.isLive,
                       tooltip: '播放速度',
                       onSelected: controller.setSpeed,
                       itemBuilder: (_) => const [0.75, 1.0, 1.25, 1.5, 2.0]
@@ -772,7 +879,7 @@ class _PlayerPanel extends StatelessWidget {
                       size: 18,
                     ),
                     const SizedBox(width: 6),
-                    Text(controller.isOwner ? '房主控制' : '跟随房主'),
+                    Text(controller.canControl ? '可控制播放' : '跟随房间'),
                   ],
                 ),
                 if (controller.error != null) ...[
@@ -905,8 +1012,10 @@ class _Timeline extends StatelessWidget {
                 Slider(
                   value: value,
                   max: maxMilliseconds.toDouble(),
-                  onChanged: controller.isOwner ? (_) {} : null,
-                  onChangeEnd: controller.isOwner
+                  onChanged: controller.canControl && !controller.isLive
+                      ? (_) {}
+                      : null,
+                  onChangeEnd: controller.canControl && !controller.isLive
                       ? (next) => controller.seek(
                           Duration(milliseconds: next.round()),
                         )

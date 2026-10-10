@@ -25,6 +25,7 @@ const (
 )
 
 type accessClaims struct {
+	GuestRoomCode  string `json:"grc,omitempty"`
 	DisplayName    string `json:"name"`
 	Email          string `json:"email"`
 	DeviceHash     string `json:"did"`
@@ -57,8 +58,13 @@ func NewTokenManager(secret, issuer string) (*TokenManager, error) {
 }
 
 func (m *TokenManager) IssueAccess(user User, deviceHash string) (string, error) {
+	return m.issueAccessUntil(user, deviceHash, m.now().Add(accessLifetime))
+}
+
+func (m *TokenManager) issueAccessUntil(user User, deviceHash string, expires time.Time) (string, error) {
 	now := m.now()
 	claims := accessClaims{
+		GuestRoomCode:  user.GuestRoomCode,
 		DisplayName:    user.DisplayName,
 		Email:          user.Email,
 		DeviceHash:     deviceHash,
@@ -69,7 +75,7 @@ func (m *TokenManager) IssueAccess(user User, deviceHash string) (string, error)
 			Audience:  jwt.ClaimStrings{m.audience},
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now.Add(-5 * time.Second)),
-			ExpiresAt: jwt.NewNumericDate(now.Add(accessLifetime)),
+			ExpiresAt: jwt.NewNumericDate(expires),
 			ID:        mustRandomString(12),
 		},
 	}
@@ -97,7 +103,9 @@ func (m *TokenManager) ParseAccess(raw string) (AccessIdentity, error) {
 	}
 	return AccessIdentity{
 		User: User{
-			ID: claims.Subject, DisplayName: claims.DisplayName, Email: claims.Email,
+			GuestRoomCode:  claims.GuestRoomCode,
+			GuestExpiresAt: claims.ExpiresAt.Time.UnixMilli(),
+			ID:             claims.Subject, DisplayName: claims.DisplayName, Email: claims.Email,
 			SessionVersion: claims.SessionVersion,
 		},
 		DeviceHash: claims.DeviceHash,
@@ -283,6 +291,11 @@ func (s *AuthService) AuthenticateAccess(ctx context.Context, raw, rawDeviceID s
 	}
 	if account.SessionVersion != identity.User.SessionVersion {
 		return User{}, ErrUnauthorized
+	}
+	account.User.GuestRoomCode = identity.User.GuestRoomCode
+	if account.User.GuestRoomCode != "" {
+		account.User.GuestExpiresAt = identity.User.GuestExpiresAt
+		account.User.Email = ""
 	}
 	return account.User, nil
 }

@@ -1,3 +1,6 @@
+import 'room_features_models.dart';
+export 'room_features_models.dart';
+
 class AppUser {
   const AppUser({
     required this.id,
@@ -6,6 +9,7 @@ class AppUser {
     required this.emailVerified,
     this.isAdmin = false,
     this.vipExpiresAt = 0,
+    this.guestRoomCode = '',
   });
 
   final String id;
@@ -14,6 +18,8 @@ class AppUser {
   final bool emailVerified;
   final bool isAdmin;
   final int vipExpiresAt;
+  final String guestRoomCode;
+  bool get isGuest => guestRoomCode.isNotEmpty;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
@@ -22,6 +28,7 @@ class AppUser {
     emailVerified: json['email_verified'] as bool? ?? false,
     isAdmin: json['is_admin'] as bool? ?? false,
     vipExpiresAt: (json['vip_expires_at'] as num?)?.toInt() ?? 0,
+    guestRoomCode: json['guest_room_code']?.toString() ?? '',
   );
 }
 
@@ -238,6 +245,21 @@ class UserDevice {
 }
 
 String mediaSourceLabel(String type) => switch (type) {
+  'synology' => '群晖 Synology',
+  'fnos' => '飞牛 fnOS',
+  'qnap' => 'QNAP',
+  'nextcloud' => 'Nextcloud',
+  'seafile' => 'Seafile',
+  'truenas' => 'TrueNAS',
+  'bilibili' => '哔哩哔哩',
+  'youtube' => 'YouTube',
+  'douyin' => '抖音',
+  'tiktok' => 'TikTok',
+  'twitch' => 'Twitch',
+  'huya' => '虎牙',
+  'douyu' => '斗鱼',
+  'acfun' => 'AcFun',
+  'cctv' => '央视',
   'quark' => '夸克网盘',
   'emby' => 'Emby',
   'webdav' => 'WebDAV',
@@ -760,16 +782,19 @@ class RoomMember {
     required this.userId,
     required this.displayName,
     required this.joinedAt,
+    this.role = 'member',
   });
 
   final String userId;
   final String displayName;
   final int joinedAt;
+  final String role;
 
   factory RoomMember.fromJson(Map<String, dynamic> json) => RoomMember(
     userId: json['user_id'] as String,
     displayName: json['display_name'] as String,
     joinedAt: (json['joined_at'] as num).toInt(),
+    role: json['role']?.toString() ?? 'member',
   );
 }
 
@@ -814,6 +839,7 @@ class Room {
     required this.members,
     required this.playback,
     this.closed = false,
+    this.features,
   });
 
   final String code;
@@ -827,6 +853,7 @@ class Room {
   final List<RoomMember> members;
   final PlaybackSnapshot playback;
   final bool closed;
+  final RoomFeatures? features;
 
   factory Room.fromJson(Map<String, dynamic> json) => Room(
     code: json['code'] as String,
@@ -844,6 +871,9 @@ class Room {
       json['playback'] as Map<String, dynamic>,
     ),
     closed: json['closed'] as bool? ?? false,
+    features: json['features'] is Map<String, dynamic>
+        ? RoomFeatures.fromJson(json['features'] as Map<String, dynamic>)
+        : null,
   );
 
   Room withSourceUrl(String value) => Room(
@@ -858,6 +888,7 @@ class Room {
     members: members,
     playback: playback,
     closed: closed,
+    features: features,
   );
 
   Room withPlayback(PlaybackSnapshot value) => Room(
@@ -872,6 +903,7 @@ class Room {
     members: members,
     playback: value,
     closed: closed,
+    features: features,
   );
 }
 

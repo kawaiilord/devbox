@@ -333,13 +333,17 @@ func (s *Store) CloseRoom(code string) (Room, int64, error) {
 }
 
 func (s *Store) ApplyControl(code string, user User, clientSeq int64, control Control) (Room, int64, error) {
+	return s.applyControl(code, user, clientSeq, control, false)
+}
+
+func (s *Store) applyControl(code string, user User, clientSeq int64, control Control, authorized bool) (Room, int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	record, ok := s.rooms[strings.ToUpper(code)]
 	if !ok {
 		return Room{}, 0, ErrNotFound
 	}
-	if record.room.OwnerID != user.ID {
+	if record.room.OwnerID != user.ID && !authorized {
 		return Room{}, 0, ErrForbidden
 	}
 	if record.room.Closed {

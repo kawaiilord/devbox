@@ -814,6 +814,7 @@ class ApiClient {
     String mediaSourceId = '',
     String mediaPath = '',
     double startPosition = 0,
+    Map<String, dynamic>? settings,
   }) async {
     final data = await _request(
       'POST',
@@ -826,6 +827,7 @@ class ApiClient {
         'media_path': mediaPath,
         'max_members': 8,
         'start_position': startPosition,
+        if (settings != null) 'settings': settings,
       },
     );
     return _roomFromJson(data);
@@ -834,13 +836,251 @@ class ApiClient {
   Future<Room> joinRoom({
     required Session session,
     required String code,
+    String password = '',
   }) async {
     final data = await _request(
       'POST',
       '/api/v1/rooms/${code.trim().toUpperCase()}/join',
       session: session,
+      body: password.isEmpty ? null : {'password': password},
     );
     return _roomFromJson(data);
+  }
+
+  Future<List<ProviderDescriptor>> providerCatalog() async {
+    final data = await _request('GET', '/api/v1/providers');
+    return (data['providers'] as List<dynamic>)
+        .map((v) => ProviderDescriptor.fromJson(v as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<MediaSource> saveProviderSource(
+    Session session,
+    Map<String, dynamic> values, {
+    String? sourceId,
+  }) async {
+    final kind = platformSourceTypes.contains(values['provider'])
+        ? 'platform'
+        : 'nas';
+    final data = await _request(
+      sourceId == null ? 'POST' : 'PUT',
+      sourceId == null
+          ? '/api/v1/sources/$kind'
+          : '/api/v1/sources/$sourceId/$kind',
+      session: session,
+      body: values,
+    );
+    return MediaSource.fromJson(data);
+  }
+
+  Future<List<MediaFile>> resolvePlatformSource(
+    Session session,
+    String sourceId,
+    String url, {
+    int offset = 0,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/sources/$sourceId/resolve',
+      session: session,
+      body: {'url': url, 'offset': offset},
+    );
+    return (data['files'] as List<dynamic>)
+        .map((v) => MediaFile.fromJson(v as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<({List<PublicRoom> rooms, bool hasMore, int nextOffset})>
+  discoverRooms({
+    String query = '',
+    String category = '',
+    String tag = '',
+    int offset = 0,
+  }) async {
+    final uri = Uri(
+      path: '/api/v1/public/rooms',
+      queryParameters: {
+        'q': query,
+        'category': category,
+        'tag': tag,
+        'offset': '$offset',
+        'limit': '20',
+      },
+    );
+    final data = await _request('GET', uri.toString());
+    return (
+      rooms: (data['rooms'] as List<dynamic>)
+          .map((v) => PublicRoom.fromJson(v as Map<String, dynamic>))
+          .toList(),
+      hasMore: data['has_more'] == true,
+      nextOffset: (data['next_offset'] as num).toInt(),
+    );
+  }
+
+  Future<({Session session, Room room})> joinAsGuest({
+    required String code,
+    required String displayName,
+    String password = '',
+  }) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/rooms/${code.trim().toUpperCase()}/guest',
+      body: {'display_name': displayName, 'password': password},
+    );
+    return (
+      session: Session.fromJson(data['session'] as Map<String, dynamic>),
+      room: _roomFromJson(data['room'] as Map<String, dynamic>),
+    );
+  }
+
+  Future<Room> getRoom(Session session, String code) async => _roomFromJson(
+    await _request('GET', '/api/v1/rooms/$code', session: session),
+  );
+
+  Future<Room> updateRoomSettings(
+    Session session,
+    Room room,
+    Map<String, dynamic> settings,
+  ) async => _roomFromJson(
+    await _request(
+      'PUT',
+      '/api/v1/rooms/${room.code}/settings',
+      session: session,
+      body: {...settings, 'expected_version': room.features?.version ?? 0},
+    ),
+  );
+
+  Future<Room> updateRoomMember(
+    Session session,
+    Room room,
+    String userId, {
+    String role = 'member',
+    RoomPermissions? permissions,
+    bool unban = false,
+  }) async => _roomFromJson(
+    await _request(
+      'PUT',
+      '/api/v1/rooms/${room.code}/members/$userId',
+      session: session,
+      body: {
+        'expected_version': room.features?.version ?? 0,
+        'role': role,
+        'permissions': permissions?.toJson(),
+        'unban': unban,
+      },
+    ),
+  );
+
+  Future<Room> removeRoomMember(
+    Session session,
+    Room room,
+    String userId,
+  ) async => _roomFromJson(
+    await _request(
+      'DELETE',
+      '/api/v1/rooms/${room.code}/members/$userId',
+      session: session,
+    ),
+  );
+
+  Future<Room> addPlaylistItems(
+    Session session,
+    Room room,
+    List<PlaylistEntry> items,
+  ) async => _roomFromJson(
+    await _request(
+      'POST',
+      '/api/v1/rooms/${room.code}/playlist',
+      session: session,
+      body: {
+        'expected_version': room.features?.version ?? 0,
+        'items': items.map((e) => e.toJson()).toList(),
+      },
+    ),
+  );
+
+  Future<Room> reorderPlaylist(
+    Session session,
+    Room room,
+    List<String> order,
+  ) async => _roomFromJson(
+    await _request(
+      'PUT',
+      '/api/v1/rooms/${room.code}/playlist',
+      session: session,
+      body: {'expected_version': room.features?.version ?? 0, 'order': order},
+    ),
+  );
+
+  Future<Room> removePlaylistItem(
+    Session session,
+    Room room,
+    String itemId,
+  ) async => _roomFromJson(
+    await _request(
+      'DELETE',
+      '/api/v1/rooms/${room.code}/playlist/$itemId',
+      session: session,
+      body: {'expected_version': room.features?.version ?? 0},
+    ),
+  );
+
+  Future<Room> addPlaylistSource(
+    Session session,
+    Room room,
+    String itemId,
+    PlaylistSource source,
+  ) async => _roomFromJson(
+    await _request(
+      'POST',
+      '/api/v1/rooms/${room.code}/playlist/$itemId/sources',
+      session: session,
+      body: {
+        'expected_version': room.features?.version ?? 0,
+        'source': source.toJson(),
+      },
+    ),
+  );
+
+  Future<Room> selectPlaylistMedia(
+    Session session,
+    Room room, {
+    String itemId = '',
+    String sourceId = '',
+    String? variantId,
+    String direction = '',
+    bool auto = false,
+  }) async => _roomFromJson(
+    await _request(
+      'POST',
+      '/api/v1/rooms/${room.code}/playback/select',
+      session: session,
+      body: {
+        'expected_version': room.features?.version ?? 0,
+        'item_id': itemId,
+        'source_id': sourceId,
+        ...(variantId == null ? {} : {'variant_id': variantId}),
+        'direction': direction,
+        'auto': auto,
+        'expected_item_id': room.features?.activeItemId ?? '',
+      },
+    ),
+  );
+
+  Future<List<MediaVariant>> roomMediaVariants(
+    Session session,
+    Room room, {
+    String itemId = '',
+    String sourceId = '',
+  }) async {
+    final uri = Uri(
+      path: '/api/v1/rooms/${room.code}/variants',
+      queryParameters: {'item_id': itemId, 'source_id': sourceId},
+    );
+    final data = await _request('GET', uri.toString(), session: session);
+    return (data['variants'] as List<dynamic>)
+        .map((v) => MediaVariant.fromJson(v as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Duration> measureClockOffset() async {
@@ -905,7 +1145,10 @@ class ApiClient {
     final streamed = await _client.send(request);
     final response = await http.Response.fromStream(streamed);
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode == 401 && session != null && allowRefresh) {
+    if (response.statusCode == 401 &&
+        session != null &&
+        session.refreshToken.isNotEmpty &&
+        allowRefresh) {
       if (session.accessToken == requestAccessToken) {
         final refreshed = await _refreshSingleFlight(session.refreshToken);
         session.replaceTokens(refreshed);

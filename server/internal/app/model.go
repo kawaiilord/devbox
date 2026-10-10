@@ -6,6 +6,8 @@ import (
 )
 
 type User struct {
+	GuestRoomCode  string `json:"guest_room_code,omitempty"`
+	GuestExpiresAt int64  `json:"guest_expires_at,omitempty"`
 	ID             string `json:"id"`
 	DisplayName    string `json:"display_name"`
 	Email          string `json:"email,omitempty"`
@@ -53,16 +55,30 @@ type MediaFile struct {
 }
 
 type MediaTicket struct {
-	UserID         string `json:"user_id"`
-	SourceID       string `json:"source_id"`
-	Path           string `json:"path"`
-	Kind           string `json:"kind,omitempty"`
-	ItemID         string `json:"item_id,omitempty"`
-	MediaSourceID  string `json:"media_source_id,omitempty"`
-	Container      string `json:"container,omitempty"`
-	PlaySessionID  string `json:"play_session_id,omitempty"`
-	SubtitleIndex  int    `json:"subtitle_index,omitempty"`
-	SubtitleFormat string `json:"subtitle_format,omitempty"`
+	IsLive         bool              `json:"is_live,omitempty"`
+	StreamURL      string            `json:"stream_url,omitempty"`
+	AudioURL       string            `json:"audio_url,omitempty"`
+	StreamHeaders  map[string]string `json:"stream_headers,omitempty"`
+	Duration       float64           `json:"duration,omitempty"`
+	VideoCodec     string            `json:"video_codec,omitempty"`
+	AudioCodec     string            `json:"audio_codec,omitempty"`
+	Width          int               `json:"width,omitempty"`
+	Height         int               `json:"height,omitempty"`
+	Bandwidth      int64             `json:"bandwidth,omitempty"`
+	VariantID      string            `json:"variant_id,omitempty"`
+	RoomCode       string            `json:"room_code,omitempty"`
+	ViewerID       string            `json:"viewer_id,omitempty"`
+	SourceVersion  int64             `json:"source_version,omitempty"`
+	UserID         string            `json:"user_id"`
+	SourceID       string            `json:"source_id"`
+	Path           string            `json:"path"`
+	Kind           string            `json:"kind,omitempty"`
+	ItemID         string            `json:"item_id,omitempty"`
+	MediaSourceID  string            `json:"media_source_id,omitempty"`
+	Container      string            `json:"container,omitempty"`
+	PlaySessionID  string            `json:"play_session_id,omitempty"`
+	SubtitleIndex  int               `json:"subtitle_index,omitempty"`
+	SubtitleFormat string            `json:"subtitle_format,omitempty"`
 }
 
 type Favorite struct {
@@ -464,6 +480,7 @@ type Session struct {
 }
 
 type Member struct {
+	Role        string `json:"role,omitempty"`
 	UserID      string `json:"user_id"`
 	DisplayName string `json:"display_name"`
 	JoinedAt    int64  `json:"joined_at"`
@@ -479,18 +496,19 @@ type Playback struct {
 }
 
 type Room struct {
-	Code          string   `json:"code"`
-	Name          string   `json:"name"`
-	OwnerID       string   `json:"owner_id"`
-	SourceURL     string   `json:"source_url"`
-	MediaSourceID string   `json:"media_source_id,omitempty"`
-	MediaPath     string   `json:"media_path,omitempty"`
-	MaxMembers    int      `json:"max_members"`
-	CreatedAt     int64    `json:"created_at"`
-	ExpiresAt     int64    `json:"expires_at"`
-	Members       []Member `json:"members"`
-	Playback      Playback `json:"playback"`
-	Closed        bool     `json:"closed"`
+	Features      *RoomFeaturesView `json:"features,omitempty"`
+	Code          string            `json:"code"`
+	Name          string            `json:"name"`
+	OwnerID       string            `json:"owner_id"`
+	SourceURL     string            `json:"source_url"`
+	MediaSourceID string            `json:"media_source_id,omitempty"`
+	MediaPath     string            `json:"media_path,omitempty"`
+	MaxMembers    int               `json:"max_members"`
+	CreatedAt     int64             `json:"created_at"`
+	ExpiresAt     int64             `json:"expires_at"`
+	Members       []Member          `json:"members"`
+	Playback      Playback          `json:"playback"`
+	Closed        bool              `json:"closed"`
 }
 
 type Envelope struct {
@@ -503,10 +521,11 @@ type Envelope struct {
 }
 
 type Control struct {
-	Action   string   `json:"action"`
-	Position *float64 `json:"position,omitempty"`
-	Speed    *float64 `json:"speed,omitempty"`
-	Episode  *int     `json:"episode,omitempty"`
+	SourceVersion *int64   `json:"source_version,omitempty"`
+	Action        string   `json:"action"`
+	Position      *float64 `json:"position,omitempty"`
+	Speed         *float64 `json:"speed,omitempty"`
+	Episode       *int     `json:"episode,omitempty"`
 }
 
 func projected(playback Playback, now time.Time) Playback {

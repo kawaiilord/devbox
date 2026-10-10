@@ -73,8 +73,9 @@ func (s *Server) rtcConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := strings.ToUpper(r.PathValue("code"))
-	if _, err := s.store.GetRoom(code, user.ID); err != nil {
-		writeStoreError(w, err)
+	room, features, roomErr := s.authorizedRoom(r.Context(), code, user)
+	if roomErr != nil || !features.grants(room, user.ID).Voice {
+		writeStoreError(w, ErrForbidden)
 		return
 	}
 	servers, expires := s.options.RTC.Servers(user.ID, time.Now())
@@ -82,8 +83,8 @@ func (s *Server) rtcConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRTCSignal(ctx context.Context, client *socketClient, roomCode string, user User, payload json.RawMessage) {
-	room, err := s.store.GetRoom(roomCode, user.ID)
-	if err != nil {
+	room, features, err := s.authorizedRoom(ctx, roomCode, user)
+	if err != nil || !features.grants(room, user.ID).Voice {
 		s.sendSocketError(client, roomCode, ErrForbidden)
 		return
 	}

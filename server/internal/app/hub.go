@@ -6,8 +6,48 @@ import (
 )
 
 type socketClient struct {
-	user User
-	send chan []byte
+	user   User
+	send   chan []byte
+	cancel func()
+}
+
+func (h *Hub) BroadcastFor(roomCode string, transform func(User) *Envelope) {
+	h.mu.RLock()
+	clients := make([]*socketClient, 0, len(h.clients[roomCode]))
+	for c := range h.clients[roomCode] {
+		clients = append(clients, c)
+	}
+	h.mu.RUnlock()
+	for _, c := range clients {
+		e := transform(c.user)
+		if e == nil {
+			continue
+		}
+		b, err := json.Marshal(e)
+		if err != nil {
+			continue
+		}
+		select {
+		case c.send <- b:
+		default:
+		}
+	}
+}
+
+func (h *Hub) Disconnect(roomCode, userID string) {
+	h.mu.RLock()
+	clients := []*socketClient{}
+	for c := range h.clients[roomCode] {
+		if c.user.ID == userID {
+			clients = append(clients, c)
+		}
+	}
+	h.mu.RUnlock()
+	for _, c := range clients {
+		if c.cancel != nil {
+			c.cancel()
+		}
+	}
 }
 
 type Hub struct {

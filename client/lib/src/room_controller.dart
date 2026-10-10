@@ -59,7 +59,151 @@ class RoomController extends ChangeNotifier {
   String? voiceError;
   AppAnnouncement? roomAnnouncement;
 
+  bool _disposed = false;
+  bool _autoAdvancing = false;
+  int _sourceLoad = 0;
+  StreamSubscription<bool>? _completionSubscription;
   bool get isOwner => room.ownerId == session.user.id;
+  RoomPermissions get permissions =>
+      room.features?.permissions ??
+      RoomPermissions(playback: isOwner, playlist: isOwner);
+  bool get canControl => permissions.playback;
+  bool get isLive => room.features?.activeItem?.selectedSource?.isLive ?? false;
+  bool get canManagePlaylist => permissions.playlist;
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
+  }
+
+  Future<void> refreshRoom() async =>
+      acceptRoom(await api.getRoom(session, room.code));
+
+  Future<void> acceptRoom(Room incoming, {bool forceReload = false}) async {
+    if (_disposed ||
+        incoming.playback.sourceVersion < room.playback.sourceVersion ||
+        (incoming.features?.version ?? 0) < (room.features?.version ?? 0)) {
+      return;
+    }
+    final old = room;
+    final changed =
+        incoming.playback.sourceVersion != old.playback.sourceVersion ||
+        incoming.mediaSourceId != old.mediaSourceId ||
+        incoming.mediaPath != old.mediaPath;
+    final operation = ++_sourceLoad;
+    if (incoming.sourceUrl.isNotEmpty) {
+      incoming = incoming.withSourceUrl(
+        Uri.parse(api.baseUrl).resolve(incoming.sourceUrl).toString(),
+      );
+    } else if (!changed && incoming.mediaSourceId.isNotEmpty) {
+      incoming = incoming.withSourceUrl(old.sourceUrl);
+    }
+    room = incoming;
+    error = null;
+    if (!permissions.chat) {
+      messages.clear();
+    }
+    if (!permissions.danmaku) {
+      danmakuMessages.clear();
+    }
+    if (!permissions.voice && voice != null) {
+      await stopVoice();
+    }
+    if (changed &&
+        (old.features?.activeItemId != incoming.features?.activeItemId ||
+            old.mediaSourceId != incoming.mediaSourceId ||
+            old.mediaPath != incoming.mediaPath)) {
+      selectedSubtitlePath = null;
+      selectedSubtitleName = null;
+    }
+    notifyListeners();
+    if (room.closed) {
+      _mediaRenewal?.cancel();
+      await player.pause();
+      error = '房间已关闭。';
+      notifyListeners();
+      return;
+    }
+    try {
+      if (changed && room.mediaSourceId.isNotEmpty && room.sourceUrl.isEmpty) {
+        final hydrated = await api.getRoom(session, room.code);
+        if (_disposed || operation != _sourceLoad) {
+          return;
+        }
+        room = hydrated;
+      }
+      if (_disposed || operation != _sourceLoad) {
+        return;
+      }
+      if (room.sourceUrl.isEmpty) {
+        await player.pause();
+        _mediaRenewal?.cancel();
+        notifyListeners();
+        return;
+      }
+      if (forceReload || (old.sourceUrl != room.sourceUrl && !changed)) {
+        await player.open(
+          room.sourceUrl,
+          version: room.playback.sourceVersion,
+          episodeIndex: room.playback.episode,
+          initialPosition: Duration(
+            milliseconds: (room.playback.position * 1000).round(),
+          ),
+          cacheIdentity: _mediaCacheIdentity,
+          live: isLive,
+        );
+        if (_disposed || operation != _sourceLoad) {
+          return;
+        }
+      }
+      if (_danmakuEpisode != room.playback.episode) {
+        unawaited(_loadDanmaku(room.playback.episode));
+      }
+      _queueAlignment(room.playback);
+      _scheduleMediaRenewal();
+    } catch (e) {
+      if (!_disposed && operation == _sourceLoad) {
+        error = '影片切换失败：$e';
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> _completed(bool completed) async {
+    if (isLive ||
+        !completed ||
+        !isOwner ||
+        _autoAdvancing ||
+        room.features?.autoNext != true) {
+      return;
+    }
+    final features = room.features!;
+    final index = features.playlist.indexWhere(
+      (item) => item.id == features.activeItemId,
+    );
+    if (index < 0 ||
+        index + 1 >= features.playlist.length ||
+        player.sourceVersion != room.playback.sourceVersion) {
+      return;
+    }
+    _autoAdvancing = true;
+    try {
+      await acceptRoom(
+        await api.selectPlaylistMedia(
+          session,
+          room,
+          direction: 'next',
+          auto: true,
+        ),
+      );
+    } catch (e) {
+      error = '自动切集失败：$e';
+      notifyListeners();
+    } finally {
+      _autoAdvancing = false;
+    }
+  }
 
   void dismissAnnouncement() {
     roomAnnouncement = null;
@@ -85,31 +229,52 @@ class RoomController extends ChangeNotifier {
           ),
         );
       _danmakuEpisode = room.playback.episode;
-      await player.open(
-        room.sourceUrl,
-        version: room.playback.sourceVersion,
-        episodeIndex: room.playback.episode,
-        initialPosition: Duration(
-          milliseconds: (room.playback.position * 1000).round(),
-        ),
-        cacheIdentity: _mediaCacheIdentity,
-      );
-      await _synchronizer.apply(
-        snapshot: room.playback,
-        player: player,
-        sourceUrl: room.sourceUrl,
-        clockOffset: _clockOffset,
-        cacheIdentity: _mediaCacheIdentity,
-      );
+      if (room.sourceUrl.isNotEmpty) {
+        await player.open(
+          room.sourceUrl,
+          version: room.playback.sourceVersion,
+          episodeIndex: room.playback.episode,
+          initialPosition: Duration(
+            milliseconds: (room.playback.position * 1000).round(),
+          ),
+          cacheIdentity: _mediaCacheIdentity,
+          live: isLive,
+        );
+        if (isLive) {
+          if (room.playback.playing) {
+            await player.play();
+          }
+        } else {
+          await _synchronizer.apply(
+            snapshot: room.playback,
+            player: player,
+            sourceUrl: room.sourceUrl,
+            clockOffset: _clockOffset,
+            cacheIdentity: _mediaCacheIdentity,
+          );
+        }
+      }
+      if (_disposed) {
+        return;
+      }
       final socket = RoomSocket(() => api.roomSocketUri(room, session));
       _socket = socket;
       _eventSubscription = socket.events.listen(_handleEnvelope);
       _connectionSubscription = socket.connection.listen((value) {
+        if (connected && !value) {
+          unawaited(player.pause());
+        }
         connected = value;
         notifyListeners();
       });
       _playerErrorSubscription = player.errorStream.listen(_handlePlayerError);
+      _completionSubscription = player.player.stream.completed.listen(
+        (value) => unawaited(_completed(value)),
+      );
       await socket.connect();
+      if (_disposed) {
+        return;
+      }
       _scheduleMediaRenewal();
       _watchProgress = Timer.periodic(
         const Duration(seconds: 30),
@@ -135,7 +300,7 @@ class RoomController extends ChangeNotifier {
 
   void sendChat(String body) {
     final trimmed = body.trim();
-    if (trimmed.isEmpty || !connected) return;
+    if (trimmed.isEmpty || !connected || !permissions.chat) return;
     _socket?.send('chat.message', ++_clientSequence, {'body': trimmed});
   }
 
@@ -154,7 +319,11 @@ class RoomController extends ChangeNotifier {
     String mode = 'scroll',
   }) {
     final trimmed = body.trim();
-    if (trimmed.isEmpty || !connected || !danmakuEnabled) return;
+    if (trimmed.isEmpty ||
+        !connected ||
+        !danmakuEnabled ||
+        !permissions.danmaku)
+      return;
     _socket?.send('danmaku.message', ++_clientSequence, {
       'body': trimmed,
       'position_seconds': player.position.inMilliseconds / 1000,
@@ -164,6 +333,7 @@ class RoomController extends ChangeNotifier {
   }
 
   Future<void> startVoice() async {
+    if (!permissions.voice) return;
     if (voice?.active == true) return;
     try {
       _iceServers = await api.rtcConfig(session, room.code);
@@ -263,8 +433,11 @@ class RoomController extends ChangeNotifier {
   }
 
   void _sendControl(Map<String, dynamic> payload) {
-    if (!isOwner || !connected) return;
-    _socket?.sendControl(++_clientSequence, payload);
+    if (!canControl || !connected) return;
+    _socket?.sendControl(++_clientSequence, {
+      ...payload,
+      'source_version': room.playback.sourceVersion,
+    });
   }
 
   void _handleEnvelope(RoomEnvelope envelope) {
@@ -274,22 +447,8 @@ class RoomController extends ChangeNotifier {
       return;
     }
     if (envelope.type == 'room.state') {
-      final incoming = Room.fromJson(envelope.payload);
-      room = incoming.mediaSourceId.isNotEmpty && room.sourceUrl.isNotEmpty
-          ? incoming.withSourceUrl(room.sourceUrl)
-          : incoming;
-      if (room.closed) {
-        error = '房间已被管理员关闭。';
-        _mediaRenewal?.cancel();
-        player.pause();
-      }
-      if (_danmakuEpisode != room.playback.episode) {
-        unawaited(_loadDanmaku(room.playback.episode));
-      }
       _lastServerSequence = envelope.sequence;
-      _queueAlignment(room.playback);
-      if (!room.closed) _scheduleMediaRenewal();
-      notifyListeners();
+      unawaited(acceptRoom(Room.fromJson(envelope.payload)));
       return;
     }
     if (envelope.type == 'error') {
@@ -341,6 +500,17 @@ class RoomController extends ChangeNotifier {
     }
     _lastServerSequence = envelope.sequence;
     final snapshot = PlaybackSnapshot.fromJson(envelope.payload);
+    if (snapshot.sourceVersion != room.playback.sourceVersion) {
+      if (snapshot.sourceVersion > room.playback.sourceVersion) {
+        unawaited(
+          refreshRoom().catchError((Object e) {
+            error = '房间更新失败：$e';
+            notifyListeners();
+          }),
+        );
+      }
+      return;
+    }
     room = room.withPlayback(snapshot);
     if (_danmakuEpisode != snapshot.episode) {
       unawaited(_loadDanmaku(snapshot.episode));
@@ -375,8 +545,33 @@ class RoomController extends ChangeNotifier {
   }
 
   void _queueAlignment(PlaybackSnapshot snapshot) {
+    final source = room.sourceUrl;
     _alignmentQueue = _alignmentQueue
         .then((_) async {
+          if (_disposed ||
+              source.isEmpty ||
+              source != room.sourceUrl ||
+              snapshot.sourceVersion != room.playback.sourceVersion) {
+            return;
+          }
+          if (isLive) {
+            if (player.sourceVersion != snapshot.sourceVersion ||
+                player.episode != snapshot.episode) {
+              await player.open(
+                source,
+                version: snapshot.sourceVersion,
+                episodeIndex: snapshot.episode,
+                live: true,
+              );
+            }
+            if (snapshot.playing) {
+              await player.play();
+            } else {
+              await player.pause();
+            }
+            notifyListeners();
+            return;
+          }
           final alignment = await _synchronizer.apply(
             snapshot: snapshot,
             player: player,
@@ -407,25 +602,17 @@ class RoomController extends ChangeNotifier {
   }
 
   Future<void> _renewMediaTicket() async {
-    if (_renewingMedia || room.mediaSourceId.isEmpty) return;
+    if (_renewingMedia || room.mediaSourceId.isEmpty || _disposed) {
+      return;
+    }
     _renewingMedia = true;
     try {
-      final ticket = await api.renewRoomMediaTicket(session, room.code);
-      final position = player.position;
-      final wasPlaying = player.playing;
-      room = room.withSourceUrl(ticket.url);
-      await player.open(
-        ticket.url,
-        version: player.sourceVersion,
-        episodeIndex: player.episode,
-        initialPosition: position,
-        cacheIdentity: _mediaCacheIdentity,
-      );
-      if (wasPlaying) await player.play();
-      await _renewSubtitleIfNeeded();
-      notifyListeners();
-    } catch (exception) {
-      error = '媒体票据续期失败：$exception';
+      final fresh = await api.getRoom(session, room.code);
+      if (!_disposed) {
+        await acceptRoom(fresh, forceReload: true);
+      }
+    } catch (e) {
+      error = '播放地址更新失败：$e';
       notifyListeners();
     } finally {
       _renewingMedia = false;
@@ -450,7 +637,7 @@ class RoomController extends ChangeNotifier {
 
   String? get _mediaCacheIdentity => room.mediaSourceId.isEmpty
       ? null
-      : '${room.mediaSourceId}:${room.mediaPath}';
+      : '${room.mediaSourceId}:${room.mediaPath}:${room.playback.sourceVersion}';
 
   Future<void> _renewSubtitleIfNeeded() async {
     final path = selectedSubtitlePath;
@@ -478,6 +665,9 @@ class RoomController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _sourceLoad++;
+    _completionSubscription?.cancel();
     _eventSubscription?.cancel();
     _connectionSubscription?.cancel();
     _playerErrorSubscription?.cancel();

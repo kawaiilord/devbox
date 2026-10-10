@@ -148,6 +148,10 @@ type Repository interface {
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
 	LoadRooms(context.Context) ([]Room, error)
+	GetRoomFeatures(context.Context, string) (RoomFeatures, error)
+	SaveRoomFeatures(context.Context, string, int64, RoomFeatures, *RoomMediaSelection) error
+	DiscoverRooms(context.Context, RoomDiscoveryQuery) ([]PublicRoom, error)
+	DeleteRoomMember(context.Context, string, string) error
 	Close()
 }
 
@@ -199,6 +203,7 @@ type MemoryRepository struct {
 	messages               []ChatMessage
 	nextMessageID          int64
 	rooms                  map[string]Room
+	roomFeatures           map[string]RoomFeatures
 	privacy                map[string]PrivacySettings
 	blocks                 map[string]map[string]time.Time
 	reports                []Report
@@ -1323,6 +1328,9 @@ func (r *MemoryRepository) UpdatePlayback(_ context.Context, code string, playba
 	room, ok := r.rooms[code]
 	if !ok {
 		return ErrNotFound
+	}
+	if room.Playback.SourceVersion > playback.SourceVersion {
+		return ErrRoomConflict
 	}
 	room.Playback = playback
 	r.rooms[code] = room

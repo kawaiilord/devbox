@@ -6,6 +6,9 @@ import '../design.dart';
 import 'lobby_layout.dart';
 import 'media_source_browser.dart';
 import 'quark_source_dialog.dart';
+import 'provider_source_dialog.dart';
+import 'public_rooms_page.dart';
+import 'room_join_dialog.dart';
 import '../secure_session_store.dart';
 import 'library_page.dart';
 import 'couple_page.dart';
@@ -138,13 +141,66 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _joinRoom() async {
     final session = _session;
     if (session == null) return;
-    await _run(() async {
-      final room = await widget.api.joinRoom(
+    final joined = await showDialog<JoinedRoom>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => RoomJoinDialog(
+        api: widget.api,
         session: session,
-        code: _roomCode.text,
-      );
-      _openRoom(session, room);
-    });
+        code: _roomCode.text.trim().toUpperCase(),
+      ),
+    );
+    if (joined != null && mounted) {
+      _openRoom(joined.session, joined.room);
+    }
+  }
+
+  void _showPublicRooms() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PublicRoomsPage(
+          api: widget.api,
+          session: _session,
+          onJoined: _openRoom,
+          onLoginRequired: (code) {
+            if (mounted) {
+              setState(() {
+                _roomCode.text = code;
+                _registerMode = false;
+              });
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _joinGuest() async {
+    final joined = await showDialog<JoinedRoom>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => RoomJoinDialog(api: widget.api),
+    );
+    if (joined != null && mounted) {
+      _openRoom(joined.session, joined.room);
+    }
+  }
+
+  Future<bool> _promptAddProvider({MediaSource? source}) async {
+    final session = _session;
+    if (session == null) {
+      return false;
+    }
+    final result = await showDialog<MediaSource>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ProviderSourceDialog(
+        api: widget.api,
+        session: session,
+        source: source,
+      ),
+    );
+    return result != null;
   }
 
   Future<void> _logout() async {
@@ -365,10 +421,12 @@ class _LobbyPageState extends State<LobbyPage> {
                           trailing: PopupMenuButton<String>(
                             tooltip: '媒体源操作',
                             itemBuilder: (_) => [
-                              if (source.type == 'quark')
+                              if (source.type == 'quark' ||
+                                  platformSourceTypes.contains(source.type) ||
+                                  nasSourceTypes.contains(source.type))
                                 const PopupMenuItem(
                                   value: 'login',
-                                  child: Text('更新夸克登录'),
+                                  child: Text('更新登录'),
                                 ),
                               const PopupMenuItem(
                                 value: 'delete',
@@ -377,7 +435,11 @@ class _LobbyPageState extends State<LobbyPage> {
                             ],
                             onSelected: (action) async {
                               if (action == 'login') {
-                                await _promptAddQuark(source: source);
+                                if (source.type == 'quark') {
+                                  await _promptAddQuark(source: source);
+                                } else {
+                                  await _promptAddProvider(source: source);
+                                }
                               } else {
                                 try {
                                   await widget.api.deleteMediaSource(
@@ -411,6 +473,15 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
             ),
             actions: [
+              FilledButton.icon(
+                onPressed: () async {
+                  if (await _promptAddProvider() && dialogContext.mounted) {
+                    await reload();
+                  }
+                },
+                icon: const Icon(Icons.live_tv_rounded),
+                label: const Text('添加平台 / NAS'),
+              ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('关闭'),
@@ -723,6 +794,8 @@ class _LobbyPageState extends State<LobbyPage> {
     name: _session?.user.displayName ?? '',
     error: _error,
     onSearch: _showMetadataSearch,
+    onDiscover: _showPublicRooms,
+    onGuestJoin: _joinGuest,
     onMembership: _showMembership,
     onUpdates: _showUpdates,
     onLogout: _logout,

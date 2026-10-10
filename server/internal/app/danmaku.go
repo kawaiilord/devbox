@@ -24,7 +24,7 @@ func (s *Server) roomDanmaku(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, errors.New("realtime state unavailable"))
 		return
 	}
-	room, err := s.store.GetRoom(code, user.ID)
+	room, features, err := s.authorizedRoom(r.Context(), code, user)
 	if err != nil {
 		writeStoreError(w, err)
 		return
@@ -34,7 +34,7 @@ func (s *Server) roomDanmaku(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, errors.New("could not load privacy settings"))
 		return
 	}
-	if !privacy.AllowRoomChat {
+	if !privacy.AllowRoomChat || !features.grants(room, user.ID).Danmaku {
 		writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"messages": []DanmakuMessage{}}, Msg: "ok"})
 		return
 	}
@@ -86,8 +86,8 @@ func (s *Server) handleDanmakuMessage(
 	user User,
 	payload json.RawMessage,
 ) {
-	room, err := s.store.GetRoom(roomCode, user.ID)
-	if err != nil {
+	room, features, err := s.authorizedRoom(ctx, roomCode, user)
+	if err != nil || !features.grants(room, user.ID).Danmaku {
 		s.sendSocketError(client, roomCode, ErrForbidden)
 		return
 	}

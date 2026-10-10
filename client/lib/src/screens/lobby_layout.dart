@@ -20,6 +20,8 @@ class LobbyLayout extends StatelessWidget {
     required this.verification,
     required this.destinations,
     required this.onSearch,
+    required this.onDiscover,
+    required this.onGuestJoin,
     required this.onMembership,
     required this.onUpdates,
     required this.onLogout,
@@ -31,6 +33,7 @@ class LobbyLayout extends StatelessWidget {
   final Widget? verification;
   final List<LobbyDestination> destinations;
   final VoidCallback onSearch, onMembership, onUpdates, onLogout;
+  final VoidCallback onDiscover, onGuestJoin;
   final String? error;
 
   Widget _error(BuildContext context) => error == null
@@ -79,7 +82,24 @@ class LobbyLayout extends StatelessWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: wide ? 72 : 32),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: onDiscover,
+                            icon: const Icon(Icons.explore_outlined),
+                            label: const Text('发现公开房间'),
+                          ),
+                          TextButton.icon(
+                            onPressed: onGuestJoin,
+                            icon: const Icon(Icons.meeting_room_outlined),
+                            label: const Text('访客加入'),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: wide ? 48 : 24),
                       if (wide)
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -197,9 +217,20 @@ class LobbyLayout extends StatelessWidget {
                           const SizedBox(height: 24),
                           const _CinemaHero(),
                           const SizedBox(height: 28),
-                          Text(
-                            '开启一场共同放映',
-                            style: Theme.of(context).textTheme.titleLarge,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '开启一场共同放映',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: onDiscover,
+                                icon: const Icon(Icons.explore_outlined),
+                                label: const Text('发现房间'),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           LayoutBuilder(

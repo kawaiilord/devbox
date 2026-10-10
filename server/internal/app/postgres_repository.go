@@ -59,6 +59,12 @@ var deletionComplaintsMigration string
 //go:embed migrations/015_quark_sources.sql
 var quarkSourcesMigration string
 
+//go:embed migrations/016_room_features.sql
+var roomFeaturesMigration string
+
+//go:embed migrations/017_provider_sources.sql
+var providerSourcesMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -95,6 +101,8 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		adminConfigMigration,
 		deletionComplaintsMigration,
 		quarkSourcesMigration,
+		roomFeaturesMigration,
+		providerSourcesMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -1388,7 +1396,7 @@ func (r *PostgresRepository) UpdatePlayback(ctx context.Context, code string, pl
 	_, err := r.pool.Exec(
 		ctx,
 		`UPDATE rooms SET position=$2, playing=$3, speed=$4, episode=$5,
-		 position_ts=$6, source_version=$7 WHERE code=$1`,
+		 position_ts=$6, source_version=$7 WHERE code=$1 AND source_version<=$7`,
 		code,
 		playback.Position,
 		playback.Playing,
