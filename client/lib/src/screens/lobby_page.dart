@@ -4,6 +4,8 @@ import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
 import 'lobby_layout.dart';
+import 'media_source_browser.dart';
+import 'quark_source_dialog.dart';
 import '../secure_session_store.dart';
 import 'library_page.dart';
 import 'couple_page.dart';
@@ -299,20 +301,51 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _showMediaSources() async {
     final session = _session;
     if (session == null) return;
-    var sources = await widget.api.listMediaSources(session);
+    var sources = <MediaSource>[];
+    String? loadError;
+    try {
+      sources = await widget.api.listMediaSources(session);
+    } catch (_) {
+      loadError = '媒体源加载失败，请重试。';
+    }
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('媒体源'),
-          content: SizedBox(
-            width: 560,
-            child: sources.isEmpty
-                ? const Text('还没有媒体源。凭据只会加密保存在服务端。')
-                : Column(
+        builder: (context, setDialogState) {
+          Future<void> reload() async {
+            try {
+              final next = await widget.api.listMediaSources(session);
+              if (!dialogContext.mounted) return;
+              setDialogState(() {
+                sources = next;
+                loadError = null;
+              });
+            } catch (_) {
+              if (dialogContext.mounted)
+                setDialogState(() => loadError = '媒体源加载失败，请重试。');
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('我的媒体源'),
+            content: SizedBox(
+              width: 560,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 400),
+                child: SingleChildScrollView(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (loadError != null) ...[
+                        Text(loadError!),
+                        TextButton(onPressed: reload, child: const Text('重试')),
+                      ],
+                      if (sources.isEmpty && loadError == null)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Text('连接你的网盘或媒体库，选一部影片，和好友一起看。'),
+                        ),
                       for (final source in sources)
                         ListTile(
                           leading: Icon(
@@ -321,59 +354,103 @@ class _LobbyPageState extends State<LobbyPage> {
                                 : Icons.cloud_rounded,
                           ),
                           title: Text(source.name),
-                          subtitle: Text(
-                            '${source.type == 'emby' ? 'Emby' : 'WebDAV'} · ${source.baseUrl}',
-                          ),
-                          onTap: () => _browseMediaSource(source),
-                          trailing: IconButton(
-                            tooltip: '删除媒体源',
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            onPressed: () async {
-                              await widget.api.deleteMediaSource(
-                                session,
-                                source.id,
-                              );
-                              sources = await widget.api.listMediaSources(
-                                session,
-                              );
-                              setDialogState(() {});
+                          subtitle: Text(mediaSourceLabel(source.type)),
+                          onTap: () async {
+                            final selected = await _browseMediaSource(source);
+                            if (selected && dialogContext.mounted)
+                              Navigator.of(dialogContext).pop();
+                          },
+                          trailing: PopupMenuButton<String>(
+                            tooltip: '媒体源操作',
+                            itemBuilder: (_) => [
+                              if (source.type == 'quark')
+                                const PopupMenuItem(
+                                  value: 'login',
+                                  child: Text('更新夸克登录'),
+                                ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('移除媒体源'),
+                              ),
+                            ],
+                            onSelected: (action) async {
+                              if (action == 'login') {
+                                await _promptAddQuark(source: source);
+                              } else {
+                                try {
+                                  await widget.api.deleteMediaSource(
+                                    session,
+                                    source.id,
+                                  );
+                                  if (mounted &&
+                                      _selectedMediaSourceId == source.id) {
+                                    setState(() {
+                                      _selectedMediaSourceId = '';
+                                      _selectedMediaPath = '';
+                                      _source.clear();
+                                    });
+                                  }
+                                } catch (_) {
+                                  if (dialogContext.mounted)
+                                    setDialogState(
+                                      () => loadError = '移除失败，请重试。',
+                                    );
+                                  return;
+                                }
+                              }
+                              if (dialogContext.mounted) await reload();
                             },
                           ),
                         ),
                     ],
                   ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('关闭'),
+                ),
+              ),
             ),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final created = await _promptAddEmby();
-                if (created && dialogContext.mounted) {
-                  sources = await widget.api.listMediaSources(session);
-                  setDialogState(() {});
-                }
-              },
-              icon: const Icon(Icons.dns_rounded),
-              label: const Text('添加 Emby'),
-            ),
-            FilledButton.icon(
-              onPressed: () async {
-                final created = await _promptAddWebDAV();
-                if (created && dialogContext.mounted) {
-                  sources = await widget.api.listMediaSources(session);
-                  setDialogState(() {});
-                }
-              },
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('添加 WebDAV'),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('关闭'),
+              ),
+              OutlinedButton(
+                onPressed: () async {
+                  if (await _promptAddEmby() && dialogContext.mounted)
+                    await reload();
+                },
+                child: const Text('添加 Emby'),
+              ),
+              OutlinedButton(
+                onPressed: () async {
+                  if (await _promptAddWebDAV() && dialogContext.mounted)
+                    await reload();
+                },
+                child: const Text('添加 WebDAV'),
+              ),
+              FilledButton.icon(
+                onPressed: () async {
+                  if (await _promptAddQuark() && dialogContext.mounted)
+                    await reload();
+                },
+                icon: const Icon(Icons.cloud_outlined),
+                label: const Text('添加夸克'),
+              ),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Future<bool> _promptAddQuark({MediaSource? source}) async {
+    final session = _session;
+    if (session == null) return false;
+    final result = await showDialog<MediaSource>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          QuarkSourceDialog(api: widget.api, session: session, source: source),
+    );
+    return result != null;
   }
 
   Future<bool> _promptAddWebDAV() async {
@@ -522,140 +599,28 @@ class _LobbyPageState extends State<LobbyPage> {
     return created;
   }
 
-  Future<void> _browseMediaSource(MediaSource source) async {
+  Future<bool> _browseMediaSource(MediaSource source) async {
     final session = _session;
-    if (session == null) return;
-    var currentPath = '/';
-    var files = await widget.api.browseMediaSource(
-      session,
-      source.id,
-      currentPath,
-    );
-    if (!mounted) return;
-    await showDialog<void>(
+    if (session == null) return false;
+    final file = await showDialog<MediaFile>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('${source.name} · $currentPath'),
-          content: SizedBox(
-            width: 560,
-            height: 420,
-            child: ListView(
-              children: [
-                if (currentPath != '/')
-                  ListTile(
-                    leading: const Icon(Icons.arrow_upward_rounded),
-                    title: const Text('返回上级'),
-                    onTap: () async {
-                      final segments = currentPath.split('/')
-                        ..removeWhere((value) => value.isEmpty);
-                      if (segments.isNotEmpty) segments.removeLast();
-                      currentPath = '/${segments.join('/')}';
-                      if (currentPath != '/') currentPath += '/';
-                      files = await widget.api.browseMediaSource(
-                        session,
-                        source.id,
-                        currentPath,
-                      );
-                      setDialogState(() {});
-                    },
-                  ),
-                for (final file in files)
-                  ListTile(
-                    leading: Icon(
-                      file.isDirectory
-                          ? Icons.folder_rounded
-                          : Icons.movie_outlined,
-                    ),
-                    title: Text(file.name),
-                    subtitle: file.isDirectory
-                        ? null
-                        : Text(_formatBytes(file.size)),
-                    trailing: file.isDirectory
-                        ? null
-                        : IconButton(
-                            tooltip: '收藏',
-                            icon: const Icon(Icons.star_border_rounded),
-                            onPressed: () async {
-                              try {
-                                await widget.api.addFavorite(
-                                  session: session,
-                                  sourceId: source.id,
-                                  file: file,
-                                );
-                                if (mounted) {
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    SnackBar(content: Text('已收藏 ${file.name}')),
-                                  );
-                                }
-                              } catch (exception) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(
-                                    this.context,
-                                  ).showSnackBar(
-                                    SnackBar(content: Text('收藏失败：$exception')),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                    onTap: () async {
-                      if (file.isDirectory) {
-                        currentPath = file.path.endsWith('/')
-                            ? file.path
-                            : '${file.path}/';
-                        files = await widget.api.browseMediaSource(
-                          session,
-                          source.id,
-                          currentPath,
-                        );
-                        setDialogState(() {});
-                        return;
-                      }
-                      _selectedMediaSourceId = source.id;
-                      _selectedMediaPath = file.path;
-                      final sourceType = source.type == 'emby'
-                          ? 'Emby'
-                          : 'WebDAV';
-                      _source.text =
-                          '$sourceType · ${source.name} · ${file.name}';
-                      if (dialogContext.mounted) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                      if (mounted) {
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          SnackBar(content: Text('已选择 ${file.name}，现在可以创建房间。')),
-                        );
-                      }
-                    },
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('关闭'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) =>
+          MediaSourceBrowser(api: widget.api, session: session, source: source),
     );
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes >= 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-    if (bytes >= 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    if (bytes >= 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '$bytes B';
+    if (file == null || !mounted) return false;
+    setState(() {
+      _selectedMediaSourceId = source.id;
+      _selectedMediaPath = file.path;
+      _source.text =
+          '${mediaSourceLabel(source.type)} · ${source.name} · ${file.name}';
+      _roomName.text = file.name.trim().runes.length < 2
+          ? '网盘放映室'
+          : String.fromCharCodes(file.name.trim().runes.take(64));
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已选择 ${file.name}，点击“创建并播放”即可邀请好友。')),
+    );
+    return true;
   }
 
   Future<void> _showPasswordReset() async {
@@ -781,10 +746,13 @@ class _LobbyPageState extends State<LobbyPage> {
       source: _source,
       busy: _busy,
       onSubmit: _createRoom,
-      onSourceChanged: () {
+      hasMediaSource: _selectedMediaSourceId.isNotEmpty,
+      onPickSource: _showMediaSources,
+      onSourceChanged: () => setState(() {
         _selectedMediaSourceId = '';
         _selectedMediaPath = '';
-      },
+        _source.clear();
+      }),
     ),
     join: _JoinCard(roomCode: _roomCode, busy: _busy, onSubmit: _joinRoom),
     verification: _verifiedOverride
@@ -884,12 +852,16 @@ class _CreateCard extends StatelessWidget {
     required this.busy,
     required this.onSubmit,
     required this.onSourceChanged,
+    required this.hasMediaSource,
+    required this.onPickSource,
   });
   final TextEditingController roomName;
   final TextEditingController source;
   final bool busy;
   final VoidCallback onSubmit;
   final VoidCallback onSourceChanged;
+  final bool hasMediaSource;
+  final VoidCallback onPickSource;
 
   @override
   Widget build(BuildContext context) {
@@ -905,10 +877,27 @@ class _CreateCard extends StatelessWidget {
           const SizedBox(height: 12),
           TextField(
             controller: source,
-            decoration: const InputDecoration(labelText: '视频链接'),
+            readOnly: hasMediaSource,
+            decoration: InputDecoration(
+              labelText: hasMediaSource ? '已选影片' : '视频链接',
+              suffixIcon: hasMediaSource
+                  ? IconButton(
+                      tooltip: '清除选片，改用视频链接',
+                      onPressed: onSourceChanged,
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  : null,
+            ),
             minLines: 2,
             maxLines: 3,
-            onChanged: (_) => onSourceChanged(),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: busy ? null : onPickSource,
+              icon: const Icon(Icons.video_library_outlined),
+              label: const Text('从网盘或媒体库选片'),
+            ),
           ),
           const SizedBox(height: 16),
           SizedBox(

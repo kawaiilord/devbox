@@ -161,7 +161,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   leading: const Icon(Icons.star_rounded),
                   title: Text(favorite.title),
                   subtitle: Text(
-                    '${favorite.sourceType == 'emby' ? 'Emby' : 'WebDAV'} · ${favorite.sourceName} · ${_formatBytes(favorite.size)}',
+                    '${mediaSourceLabel(favorite.sourceType)} · ${favorite.sourceName} · ${_formatBytes(favorite.size)}',
                   ),
                   onTap: _busy ? null : () => _openFavorite(favorite),
                   trailing: IconButton(

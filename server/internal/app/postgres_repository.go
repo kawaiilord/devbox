@@ -56,6 +56,9 @@ var adminConfigMigration string
 //go:embed migrations/014_deletion_complaints.sql
 var deletionComplaintsMigration string
 
+//go:embed migrations/015_quark_sources.sql
+var quarkSourcesMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -91,6 +94,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		commerceMigration,
 		adminConfigMigration,
 		deletionComplaintsMigration,
+		quarkSourcesMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -528,6 +532,18 @@ func (r *PostgresRepository) ListMediaSources(ctx context.Context, userID string
 		sources = append(sources, source)
 	}
 	return sources, rows.Err()
+}
+
+func (r *PostgresRepository) ReplaceMediaSourceCredentials(ctx context.Context, userID, sourceID, previous, next string) (bool, error) {
+	result, err := r.pool.Exec(ctx,
+		`UPDATE media_sources SET credentials_ciphertext = $4, updated_at = now()
+		 WHERE user_id = $1 AND id = $2 AND credentials_ciphertext = $3`,
+		userID, sourceID, previous, next,
+	)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() == 1, nil
 }
 
 func (r *PostgresRepository) GetMediaSource(

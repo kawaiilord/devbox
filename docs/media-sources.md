@@ -48,6 +48,10 @@ transcoding or HLS. The implementation follows Emby's official
 
 ## Room playback tickets
 
+Quark sources use web Cookie import and the same vaulted room-ticket flow.
+See [Quark setup and validation scope](quark-drive.md) for the user flow,
+credential rotation, proxy restrictions, and live-account acceptance boundary.
+
 Rooms persist `media_source_id` and a virtual `media_path`, never a provider
 credential or long-lived playback URL. Any active room member may request a
 five-minute opaque ticket. Redis stores the ticket mapping to the room owner's

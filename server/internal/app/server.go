@@ -199,6 +199,8 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/admin/audit", s.adminAudit)
 	mux.HandleFunc("POST /api/v1/sources/webdav", s.createWebDAVSource)
 	mux.HandleFunc("POST /api/v1/sources/emby", s.createEmbySource)
+	mux.HandleFunc("POST /api/v1/sources/quark", s.saveQuarkSource)
+	mux.HandleFunc("PUT /api/v1/sources/{id}/quark-cookie", s.saveQuarkSource)
 	mux.HandleFunc("GET /api/v1/sources", s.listMediaSources)
 	mux.HandleFunc("DELETE /api/v1/sources/{id}", s.deleteMediaSource)
 	mux.HandleFunc("GET /api/v1/sources/{id}/files", s.browseMediaSource)
@@ -297,6 +299,7 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 		"media_sources":      s.sources != nil,
 		"external_subtitles": s.sources != nil,
 		"emby_sources":       s.sources != nil,
+		"quark_sources":      s.sources != nil,
 		"privacy_controls":   true,
 		"moderation":         true,
 		"personal_library":   true,

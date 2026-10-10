@@ -8,6 +8,49 @@ import 'package:sameframe_client/src/models.dart';
 
 void main() {
   test(
+    'Quark login stays in authenticated request bodies across reconnects',
+    () async {
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        expect(request.headers['Authorization'], 'Bearer old-access');
+        expect(request.url.toString(), isNot(contains('owner-secret')));
+        expect(request.headers['Cookie'], isNull);
+        expect(jsonDecode(request.body)['cookie'], '__pus=owner-secret');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {
+              'id': 'quark-source',
+              'type': 'quark',
+              'name': 'Quark',
+              'base_url': 'https://pan.quark.cn/',
+            },
+          }),
+          200,
+        );
+      });
+      final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+      final source = await api.saveQuarkSource(
+        session: _session(),
+        cookie: '__pus=owner-secret',
+      );
+      final updated = await api.saveQuarkSource(
+        session: _session(),
+        cookie: '__pus=owner-secret',
+        sourceId: source.id,
+      );
+      expect(requests.map((r) => '${r.method} ${r.url.path}').toList(), [
+        'POST /api/v1/sources/quark',
+        'PUT /api/v1/sources/quark-source/quark-cookie',
+      ]);
+      expect(updated.id, source.id);
+      expect(mediaSourceLabel(updated.type), '夸克网盘');
+      api.close();
+    },
+  );
+
+  test(
     'a 401 rotates the refresh token and replays the request once',
     () async {
       var roomAttempts = 0;

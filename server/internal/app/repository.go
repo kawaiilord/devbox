@@ -54,6 +54,7 @@ type Repository interface {
 	VerifyEmail(context.Context, string) error
 	UpdatePassword(context.Context, string, string) error
 	CreateMediaSource(context.Context, MediaSource) error
+	ReplaceMediaSourceCredentials(context.Context, string, string, string, string) (bool, error)
 	ListMediaSources(context.Context, string) ([]MediaSource, error)
 	GetMediaSource(context.Context, string, string) (MediaSource, error)
 	DeleteMediaSource(context.Context, string, string) error
@@ -546,6 +547,21 @@ func (r *MemoryRepository) ListMediaSources(_ context.Context, userID string) ([
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].CreatedAt < result[j].CreatedAt })
 	return result, nil
+}
+
+// ReplaceMediaSourceCredentials compares the ciphertext so an in-flight cookie
+// rotation cannot overwrite a newer login or recreate a deleted source.
+func (r *MemoryRepository) ReplaceMediaSourceCredentials(_ context.Context, userID, sourceID, previous, next string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	source, ok := r.mediaSources[sourceID]
+	if !ok || source.UserID != userID || source.CredentialsCiphertext != previous {
+		return false, nil
+	}
+	source.CredentialsCiphertext = next
+	source.UpdatedAt = time.Now().UnixMilli()
+	r.mediaSources[sourceID] = source
+	return true, nil
 }
 
 func (r *MemoryRepository) GetMediaSource(_ context.Context, userID, sourceID string) (MediaSource, error) {

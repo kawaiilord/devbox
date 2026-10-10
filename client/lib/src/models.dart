@@ -237,6 +237,13 @@ class UserDevice {
   );
 }
 
+String mediaSourceLabel(String type) => switch (type) {
+  'quark' => '夸克网盘',
+  'emby' => 'Emby',
+  'webdav' => 'WebDAV',
+  _ => '媒体源',
+};
+
 class MediaSource {
   const MediaSource({
     required this.id,

@@ -33,6 +33,7 @@ type MediaSourceManager struct {
 	repository   Repository
 	vault        *CredentialVault
 	client       *http.Client
+	quarkClient  *http.Client
 	allowPrivate bool
 }
 
@@ -45,6 +46,7 @@ func NewMediaSourceManager(
 		repository: repository, vault: vault, allowPrivate: allowPrivate,
 	}
 	manager.client = newSourceHTTPClient(allowPrivate)
+	manager.quarkClient = newSourceHTTPClient(false)
 	return manager
 }
 
@@ -112,6 +114,8 @@ func (m *MediaSourceManager) Browse(
 		return m.browseWebDAV(ctx, source, credentials, requestedPath)
 	case "emby":
 		return m.browseEmby(ctx, source, secret, requestedPath)
+	case "quark":
+		return m.browseQuark(ctx, source, secret, requestedPath)
 	default:
 		return nil, errors.New("unsupported media source type")
 	}
@@ -188,6 +192,8 @@ func (m *MediaSourceManager) Open(
 		return m.openWebDAV(ctx, source, credentials, ticket, method, rangeHeader, ifRange)
 	case "emby":
 		return m.openEmby(ctx, source, secret, ticket, method, rangeHeader, ifRange)
+	case "quark":
+		return m.openQuark(ctx, source, secret, ticket, method, rangeHeader, ifRange)
 	default:
 		return nil, errors.New("unsupported media source type")
 	}
@@ -236,6 +242,8 @@ func (m *MediaSourceManager) PrepareMediaTicket(
 		}, nil
 	case "emby":
 		return m.prepareEmbyMediaTicket(ctx, source, secret, userID, requestedPath)
+	case "quark":
+		return m.prepareQuarkMediaTicket(ctx, source, secret, requestedPath)
 	default:
 		return MediaTicket{}, errors.New("unsupported media source type")
 	}
@@ -268,6 +276,10 @@ func (m *MediaSourceManager) Subtitles(
 		return subtitles, nil
 	case "emby":
 		return m.embySubtitles(ctx, source, secret, mediaPath)
+	case "quark":
+		// Embedded subtitle tracks remain available to the player. External
+		// subtitle authorization needs provider folder identity, not file names.
+		return []MediaFile{}, nil
 	default:
 		return nil, errors.New("unsupported media source type")
 	}

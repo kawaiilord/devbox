@@ -246,6 +246,23 @@ class ApiClient {
         .toList(growable: false);
   }
 
+  Future<MediaSource> saveQuarkSource({
+    required Session session,
+    required String cookie,
+    String name = '我的夸克网盘',
+    String? sourceId,
+  }) async {
+    final data = await _request(
+      sourceId == null ? 'POST' : 'PUT',
+      sourceId == null
+          ? '/api/v1/sources/quark'
+          : '/api/v1/sources/$sourceId/quark-cookie',
+      session: session,
+      body: {'name': name, 'cookie': cookie},
+    );
+    return MediaSource.fromJson(data);
+  }
+
   Future<List<MediaFile>> browseMediaSource(
     Session session,
     String sourceId,

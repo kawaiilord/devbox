@@ -22,7 +22,7 @@ The current foundation contains:
   and password recovery;
 - single-use email verification and password-reset tokens delivered through a
   configurable authenticated webhook;
-- encrypted WebDAV and Emby sources, renewable five-minute media tickets,
+- encrypted WebDAV, Emby, and Quark (web Cookie import) sources, renewable five-minute media tickets,
   Range streaming, and a bounded desktop loopback cache;
 - persistent cross-node room chat, same-directory external subtitles, and
   actionable playback-error classification;
@@ -86,9 +86,14 @@ Windows binaries must be produced on a Windows runner; the workflow in
 
 ## Current boundary
 
-This repository now implements the supplied SameFrame application and
-operations blueprint, but a source tree cannot supply environment-specific
-production services or trust roots. A deployment must still provision TLS and
+This repository implements the capabilities listed above. Quark currently uses
+web login followed by Cookie import; native QR/password login, Quark transcoding,
+and Quark external subtitle discovery are not implemented. Automated provider
+fixtures cover the integration, but a real Quark account must still be used for
+live playback acceptance. See `docs/quark-drive.md` for setup and limitations.
+
+A source tree cannot supply environment-specific production services or trust
+roots. A deployment must still provision TLS and
 DNS, PostgreSQL/Redis/object storage, a mail provider, TURN, a payment gateway
 adapter, monitoring receivers, offline update-signing keys, and managed-KMS
 custody for the credential-vault key. Third-party source and Bot credentials are
