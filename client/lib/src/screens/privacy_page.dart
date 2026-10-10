@@ -122,9 +122,10 @@ class _PrivacyPageState extends State<PrivacyPage> {
           widget.session,
           reason.text.trim(),
         );
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(const SnackBar(content: Text('注销申请已提交，可在审核前撤回。')));
+        }
       } catch (error) {
         if (mounted) setState(() => _error = error.toString());
       }
@@ -223,10 +224,11 @@ class _PrivacyPageState extends State<PrivacyPage> {
               .toList(),
           signatureName: signature.text,
         );
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('投诉已提交，将在 24 小时目标时限内处理。')),
           );
+        }
       } catch (error) {
         if (mounted) setState(() => _error = error.toString());
       }

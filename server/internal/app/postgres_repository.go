@@ -1218,6 +1218,13 @@ func appendPostgresAudit(ctx context.Context, tx pgx.Tx, event AuditEvent) (Audi
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('sameframe-admin-audit'))`); err != nil {
 		return AuditEvent{}, err
 	}
+	var actorExists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id=$1)`, event.ActorID).Scan(&actorExists); err != nil {
+		return AuditEvent{}, err
+	}
+	if !actorExists {
+		return AuditEvent{}, ErrForbidden
+	}
 	err := tx.QueryRow(
 		ctx,
 		`SELECT entry_hash FROM admin_audit_logs ORDER BY id DESC LIMIT 1`,
