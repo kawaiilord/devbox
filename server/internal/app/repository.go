@@ -134,6 +134,14 @@ type Repository interface {
 	UpdateVIPPlan(context.Context, VIPPlan, string) (VIPPlan, error)
 	GetRoomBotConfig(context.Context) (RoomBotConfig, string, error)
 	UpdateRoomBotConfig(context.Context, RoomBotConfig, string, string) (RoomBotConfig, error)
+	CreateAccountDeletionRequest(context.Context, string, string) (AccountDeletionRequest, error)
+	GetAccountDeletionRequest(context.Context, string) (AccountDeletionRequest, error)
+	CancelAccountDeletionRequest(context.Context, string) error
+	ListAccountDeletionRequests(context.Context, string, int64, int) ([]AccountDeletionRequest, error)
+	ResolveAccountDeletionRequest(context.Context, int64, string, bool, string) (AccountDeletionRequest, error)
+	CreateCopyrightComplaint(context.Context, CopyrightComplaint) (CopyrightComplaint, error)
+	ListCopyrightComplaints(context.Context, string, int64, int) ([]CopyrightComplaint, error)
+	ResolveCopyrightComplaint(context.Context, int64, string, string, string) (CopyrightComplaint, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -170,63 +178,67 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
-	mu                    sync.RWMutex
-	usersByID             map[string]AccountRecord
-	usersByMail           map[string]string
-	refresh               map[string]memoryRefreshToken
-	devices               map[string]memoryDevice
-	userDevices           map[string]map[string]memoryUserDevice
-	actionTokens          map[string]memoryActionToken
-	mediaSources          map[string]MediaSource
-	favorites             map[int64]Favorite
-	favoriteKeys          map[string]int64
-	nextFavorite          int64
-	watchRecords          map[int64]WatchRecord
-	watchKeys             map[string]int64
-	nextWatch             int64
-	danmaku               []DanmakuMessage
-	nextDanmaku           int64
-	messages              []ChatMessage
-	nextMessageID         int64
-	rooms                 map[string]Room
-	privacy               map[string]PrivacySettings
-	blocks                map[string]map[string]time.Time
-	reports               []Report
-	nextReportID          int64
-	audit                 []AuditEvent
-	nextAuditID           int64
-	follows               map[string]map[string]time.Time
-	conversations         map[int64]memoryConversation
-	conversationKeys      map[string]int64
-	nextConversation      int64
-	directMessages        map[int64][]DirectMessage
-	nextDirectMessage     int64
-	conversationReads     map[int64]map[string]int64
-	coupleRequests        map[int64]memoryCoupleRequest
-	nextCoupleRequest     int64
-	couples               map[int64]memoryCouple
-	nextCouple            int64
-	coupleMoments         map[int64][]memoryCoupleMoment
-	nextCoupleMoment      int64
-	coupleEvents          map[int64][]CoupleEvent
-	nextCoupleEvent       int64
-	reviews               map[int64]Review
-	reviewKeys            map[string]int64
-	nextReview            int64
-	reviewComments        map[int64][]ReviewComment
-	nextReviewComment     int64
-	vipPlans              map[string]VIPPlan
-	orders                map[string]Order
-	activationCodes       map[string]ActivationCode
-	checkIns              map[string]map[string]CheckIn
-	pointsAccounts        map[string]memoryPointsAccount
-	pointsTransactions    map[string][]PointsTransaction
-	nextPointsTransaction int64
-	runtimeConfig         RuntimeConfig
-	announcements         []Announcement
-	nextAnnouncement      int64
-	roomBotConfig         RoomBotConfig
-	roomBotCiphertext     string
+	mu                     sync.RWMutex
+	usersByID              map[string]AccountRecord
+	usersByMail            map[string]string
+	refresh                map[string]memoryRefreshToken
+	devices                map[string]memoryDevice
+	userDevices            map[string]map[string]memoryUserDevice
+	actionTokens           map[string]memoryActionToken
+	mediaSources           map[string]MediaSource
+	favorites              map[int64]Favorite
+	favoriteKeys           map[string]int64
+	nextFavorite           int64
+	watchRecords           map[int64]WatchRecord
+	watchKeys              map[string]int64
+	nextWatch              int64
+	danmaku                []DanmakuMessage
+	nextDanmaku            int64
+	messages               []ChatMessage
+	nextMessageID          int64
+	rooms                  map[string]Room
+	privacy                map[string]PrivacySettings
+	blocks                 map[string]map[string]time.Time
+	reports                []Report
+	nextReportID           int64
+	audit                  []AuditEvent
+	nextAuditID            int64
+	follows                map[string]map[string]time.Time
+	conversations          map[int64]memoryConversation
+	conversationKeys       map[string]int64
+	nextConversation       int64
+	directMessages         map[int64][]DirectMessage
+	nextDirectMessage      int64
+	conversationReads      map[int64]map[string]int64
+	coupleRequests         map[int64]memoryCoupleRequest
+	nextCoupleRequest      int64
+	couples                map[int64]memoryCouple
+	nextCouple             int64
+	coupleMoments          map[int64][]memoryCoupleMoment
+	nextCoupleMoment       int64
+	coupleEvents           map[int64][]CoupleEvent
+	nextCoupleEvent        int64
+	reviews                map[int64]Review
+	reviewKeys             map[string]int64
+	nextReview             int64
+	reviewComments         map[int64][]ReviewComment
+	nextReviewComment      int64
+	vipPlans               map[string]VIPPlan
+	orders                 map[string]Order
+	activationCodes        map[string]ActivationCode
+	checkIns               map[string]map[string]CheckIn
+	pointsAccounts         map[string]memoryPointsAccount
+	pointsTransactions     map[string][]PointsTransaction
+	nextPointsTransaction  int64
+	runtimeConfig          RuntimeConfig
+	announcements          []Announcement
+	nextAnnouncement       int64
+	roomBotConfig          RoomBotConfig
+	roomBotCiphertext      string
+	deletionRequests       []AccountDeletionRequest
+	nextDeletionRequest    int64
+	copyrightComplaints    []CopyrightComplaint
+	nextCopyrightComplaint int64
 }
 
 type memoryConversation struct {
@@ -295,7 +307,8 @@ func NewMemoryRepository() *MemoryRepository {
 		checkIns: make(map[string]map[string]CheckIn), pointsAccounts: make(map[string]memoryPointsAccount),
 		pointsTransactions: make(map[string][]PointsTransaction), nextPointsTransaction: 1,
 		runtimeConfig: RuntimeConfig{Features: map[string]bool{}}, nextAnnouncement: 1,
-		roomBotConfig: RoomBotConfig{DisplayName: "SameFrame Bot", SummonPolicy: "admin", ReplyPolicy: "mention"},
+		roomBotConfig:       RoomBotConfig{DisplayName: "SameFrame Bot", SummonPolicy: "admin", ReplyPolicy: "mention"},
+		nextDeletionRequest: 1, nextCopyrightComplaint: 1,
 	}
 }
 

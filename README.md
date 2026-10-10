@@ -109,3 +109,5 @@ Membership and payment operations are in `docs/commerce.md`.
 Administrative deployment and permissions are in `docs/admin-console.md`.
 Credential storage and signed release updates are in
 `docs/client-security-updates.md`.
+Deletion and copyright response procedures are in
+`docs/compliance-workflows.md`.

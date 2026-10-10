@@ -53,6 +53,9 @@ var commerceMigration string
 //go:embed migrations/013_admin_config.sql
 var adminConfigMigration string
 
+//go:embed migrations/014_deletion_complaints.sql
+var deletionComplaintsMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -85,6 +88,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		reviewsMigration,
 		commerceMigration,
 		adminConfigMigration,
+		deletionComplaintsMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err

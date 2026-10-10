@@ -304,6 +304,20 @@ func (s *Store) Room(code string) (Room, error) {
 	return cloneRoom(record, s.now()), nil
 }
 
+func (s *Store) CloseRoomsByOwner(userID string) []Room {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now()
+	closed := []Room{}
+	for _, record := range s.rooms {
+		if record.room.OwnerID == userID && !record.room.Closed {
+			record.room.Closed = true
+			closed = append(closed, cloneRoom(record, now))
+		}
+	}
+	return closed
+}
+
 func (s *Store) CloseRoom(code string) (Room, int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -395,6 +395,37 @@ type AdminUser struct {
 	CreatedAt     int64  `json:"created_at"`
 }
 
+type AccountDeletionRequest struct {
+	ID          int64  `json:"id"`
+	UserID      string `json:"user_id,omitempty"`
+	Reason      string `json:"reason"`
+	Status      string `json:"status"`
+	RequestedAt int64  `json:"requested_at"`
+	ReviewedBy  string `json:"reviewed_by,omitempty"`
+	ReviewedAt  int64  `json:"reviewed_at,omitempty"`
+	Resolution  string `json:"resolution,omitempty"`
+	ExecutedAt  int64  `json:"executed_at,omitempty"`
+}
+
+type CopyrightComplaint struct {
+	ID                int64    `json:"id"`
+	ClaimantUserID    string   `json:"claimant_user_id,omitempty"`
+	ClaimantName      string   `json:"claimant_name"`
+	ClaimantEmail     string   `json:"claimant_email"`
+	RightsBasis       string   `json:"rights_basis"`
+	InfringementURL   string   `json:"infringement_url"`
+	RoomCode          string   `json:"room_code,omitempty"`
+	Evidence          []string `json:"evidence"`
+	StatementAccurate bool     `json:"statement_accurate"`
+	SignatureName     string   `json:"signature_name"`
+	Status            string   `json:"status"`
+	SubmittedAt       int64    `json:"submitted_at"`
+	DueAt             int64    `json:"due_at"`
+	ReviewedBy        string   `json:"reviewed_by,omitempty"`
+	ReviewedAt        int64    `json:"reviewed_at,omitempty"`
+	Resolution        string   `json:"resolution,omitempty"`
+}
+
 type Report struct {
 	ID         int64  `json:"id"`
 	ReporterID string `json:"reporter_id"`

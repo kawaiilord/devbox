@@ -143,6 +143,40 @@ class ApiClient {
     await _request('DELETE', '/api/v1/blocks/$userId', session: session);
   }
 
+  Future<void> requestAccountDeletion(Session session, String reason) =>
+      _request(
+        'POST',
+        '/api/v1/account/deletion',
+        session: session,
+        body: {'reason': reason, 'confirm': 'DELETE MY ACCOUNT'},
+      );
+  Future<void> cancelAccountDeletion(Session session) =>
+      _request('DELETE', '/api/v1/account/deletion', session: session);
+  Future<void> submitCopyrightComplaint({
+    required Session session,
+    required String claimantName,
+    required String claimantEmail,
+    required String rightsBasis,
+    required String infringementUrl,
+    required String roomCode,
+    required List<String> evidence,
+    required String signatureName,
+  }) => _request(
+    'POST',
+    '/api/v1/copyright-complaints',
+    session: session,
+    body: {
+      'claimant_name': claimantName,
+      'claimant_email': claimantEmail,
+      'rights_basis': rightsBasis,
+      'infringement_url': infringementUrl,
+      'room_code': roomCode,
+      'evidence': evidence,
+      'statement_accurate': true,
+      'signature_name': signatureName,
+    },
+  );
+
   Future<void> createReport({
     required Session session,
     required String targetType,
