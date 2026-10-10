@@ -360,17 +360,20 @@ type DeviceBan struct {
 }
 
 type AdminDashboard struct {
-	Users             int64 `json:"users"`
-	VerifiedUsers     int64 `json:"verified_users"`
-	ActiveVIPUsers    int64 `json:"active_vip_users"`
-	Rooms             int64 `json:"rooms"`
-	ActiveRooms       int64 `json:"active_rooms"`
-	Couples           int64 `json:"couples"`
-	PendingReports    int64 `json:"pending_reports"`
-	ActivatedOrders   int64 `json:"activated_orders"`
-	RevenueMinor      int64 `json:"revenue_minor"`
-	Reviews           int64 `json:"reviews"`
-	TogetherWatchings int64 `json:"together_watchings"`
+	Users                      int64 `json:"users"`
+	VerifiedUsers              int64 `json:"verified_users"`
+	ActiveVIPUsers             int64 `json:"active_vip_users"`
+	Rooms                      int64 `json:"rooms"`
+	ActiveRooms                int64 `json:"active_rooms"`
+	Couples                    int64 `json:"couples"`
+	PendingReports             int64 `json:"pending_reports"`
+	ActivatedOrders            int64 `json:"activated_orders"`
+	RevenueMinor               int64 `json:"revenue_minor"`
+	Reviews                    int64 `json:"reviews"`
+	TogetherWatchings          int64 `json:"together_watchings"`
+	PendingDeletions           int64 `json:"pending_deletions"`
+	OpenCopyrightComplaints    int64 `json:"open_copyright_complaints"`
+	OverdueCopyrightComplaints int64 `json:"overdue_copyright_complaints"`
 }
 
 type RoomBotConfig struct {

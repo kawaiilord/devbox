@@ -111,3 +111,5 @@ Credential storage and signed release updates are in
 `docs/client-security-updates.md`.
 Deletion and copyright response procedures are in
 `docs/compliance-workflows.md`.
+Production probes, Prometheus/Grafana assets, alerts, backup, retention, and
+restore drills are documented in `docs/production-operations.md`.

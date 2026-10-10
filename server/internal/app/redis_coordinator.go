@@ -51,7 +51,8 @@ func OpenRedis(ctx context.Context, redisURL, nodeID string) (*RedisCoordinator,
 	return &RedisCoordinator{client: client, prefix: defaultRedisPrefix, nodeID: nodeID}, nil
 }
 
-func (r *RedisCoordinator) Close() error { return r.client.Close() }
+func (r *RedisCoordinator) Close() error                   { return r.client.Close() }
+func (r *RedisCoordinator) Ping(ctx context.Context) error { return r.client.Ping(ctx).Err() }
 
 func (r *RedisCoordinator) InitializeRoom(ctx context.Context, room Room) error {
 	key := r.playbackKey(room.Code)

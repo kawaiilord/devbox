@@ -37,6 +37,7 @@ type ActionTokenRecord struct {
 }
 
 type Repository interface {
+	Ping(context.Context) error
 	CreateUser(context.Context, AccountRecord) error
 	UserByEmail(context.Context, string) (AccountRecord, error)
 	UserByID(context.Context, string) (AccountRecord, error)
@@ -311,6 +312,8 @@ func NewMemoryRepository() *MemoryRepository {
 		nextDeletionRequest: 1, nextCopyrightComplaint: 1,
 	}
 }
+
+func (r *MemoryRepository) Ping(context.Context) error { return nil }
 
 func (r *MemoryRepository) CreateUser(_ context.Context, account AccountRecord) error {
 	r.mu.Lock()

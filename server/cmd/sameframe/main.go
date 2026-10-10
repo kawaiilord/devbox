@@ -168,6 +168,7 @@ func main() {
 		VIPAnnouncement:      os.Getenv("SAMEFRAME_VIP_ANNOUNCEMENT"),
 		PointsPerCheckIn:     envInt("SAMEFRAME_POINTS_PER_CHECK_IN", 1),
 		PointsPerVIPDay:      envInt("SAMEFRAME_POINTS_PER_VIP_DAY", 0),
+		MetricsToken:         os.Getenv("SAMEFRAME_METRICS_TOKEN"),
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)

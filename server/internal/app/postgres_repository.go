@@ -60,6 +60,8 @@ type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
 
+func (r *PostgresRepository) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
+
 func OpenPostgres(ctx context.Context, databaseURL string) (*PostgresRepository, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {

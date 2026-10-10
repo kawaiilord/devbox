@@ -19,6 +19,16 @@ func NewHub() *Hub {
 	return &Hub{clients: make(map[string]map[*socketClient]struct{})}
 }
 
+func (h *Hub) Counts() (rooms, clients int) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	rooms = len(h.clients)
+	for _, members := range h.clients {
+		clients += len(members)
+	}
+	return rooms, clients
+}
+
 func (h *Hub) Subscribe(roomCode string, client *socketClient) func() {
 	h.mu.Lock()
 	if h.clients[roomCode] == nil {

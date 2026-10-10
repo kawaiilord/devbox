@@ -139,6 +139,19 @@ func (r *MemoryRepository) AdminDashboard(_ context.Context) (AdminDashboard, er
 			value.RevenueMinor += order.AmountMinor
 		}
 	}
+	for _, item := range r.deletionRequests {
+		if item.Status == "pending" {
+			value.PendingDeletions++
+		}
+	}
+	for _, item := range r.copyrightComplaints {
+		if item.Status == "submitted" || item.Status == "triaged" {
+			value.OpenCopyrightComplaints++
+			if item.DueAt < now {
+				value.OverdueCopyrightComplaints++
+			}
+		}
+	}
 	return value, nil
 }
 

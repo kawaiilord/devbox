@@ -40,6 +40,7 @@ type Options struct {
 	VIPAnnouncement      string
 	PointsPerCheckIn     int
 	PointsPerVIPDay      int
+	MetricsToken         string
 }
 
 type Server struct {
@@ -53,6 +54,7 @@ type Server struct {
 	sources *MediaSourceManager
 	http    *http.Server
 	start   sync.Once
+	metrics *Metrics
 }
 
 type apiResponse struct {
@@ -85,11 +87,14 @@ func NewServer(options Options) *Server {
 		auth: options.Auth, redis: options.Redis,
 		sources: options.Sources,
 	}
+	s.metrics = NewMetrics(s)
 	if options.Redis != nil {
 		s.limiter = options.Redis.RateLimiter()
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
+	mux.HandleFunc("GET /readyz", s.ready)
+	mux.Handle("GET /metrics", s.metrics.Handler(options.MetricsToken))
 	mux.HandleFunc("GET /api/v1/config", s.config)
 	mux.Handle("GET /admin/", s.adminWebHandler())
 	mux.HandleFunc("GET /api/v1/announcements", s.publicAnnouncements)
@@ -213,7 +218,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /ws/v1/rooms/{code}", s.roomSocket)
 	s.http = &http.Server{
 		Addr:              options.Address,
-		Handler:           s.withCORS(s.withRequestLog(s.withMaintenance(mux))),
+		Handler:           s.withCORS(s.metrics.Middleware(s.withRequestLog(s.withMaintenance(mux)))),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    64 * 1024,
@@ -246,7 +251,42 @@ func (s *Server) StartBackground(ctx context.Context) {
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]string{"status": "ok"}, Msg: "ok"})
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{"status": "ok", "timestamp": time.Now().UnixMilli()}, Msg: "ok"})
+}
+
+func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	components := map[string]string{"repository": "ok"}
+	ready := true
+	if err := s.repo.Ping(ctx); err != nil {
+		components["repository"] = "unavailable"
+		ready = false
+	}
+	if s.redis != nil {
+		components["redis"] = "ok"
+		if err := s.redis.Ping(ctx); err != nil {
+			components["redis"] = "unavailable"
+			ready = false
+		}
+	} else {
+		components["redis"] = "disabled"
+	}
+	status := http.StatusOK
+	state := "ready"
+	if !ready {
+		status = http.StatusServiceUnavailable
+		state = "not_ready"
+		w.Header().Set("Retry-After", "5")
+	}
+	writeJSON(w, status, apiResponse{Code: statusCode(status), Data: map[string]any{"status": state, "components": components, "timestamp": time.Now().UnixMilli()}, Msg: state})
+}
+
+func statusCode(status int) int {
+	if status < 300 {
+		return 0
+	}
+	return status
 }
 
 func (s *Server) config(w http.ResponseWriter, r *http.Request) {
@@ -1672,8 +1712,17 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 func (s *Server) withRequestLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
+		requestID, randomErr := randomString(12)
+		if randomErr != nil {
+			requestID = "unavailable"
+		}
+		w.Header().Set("X-Request-ID", requestID)
 		next.ServeHTTP(w, r)
-		s.options.Logger.Debug("request", "method", r.Method, "path", r.URL.Path, "duration", time.Since(started))
+		status := http.StatusOK
+		if recorder, ok := w.(interface{ Status() int }); ok {
+			status = recorder.Status()
+		}
+		s.options.Logger.Info("request", "request_id", requestID, "method", r.Method, "route", r.Pattern, "status", status, "duration_ms", time.Since(started).Milliseconds())
 	})
 }
 

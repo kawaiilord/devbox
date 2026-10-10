@@ -1,0 +1,38 @@
+groups:
+  - name: sameframe
+    rules:
+      - alert: SameFrameDown
+        expr: up{job="sameframe"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: "SameFrame metrics target is down"}
+      - alert: SameFrameHighServerErrorRate
+        expr: sum(rate(sameframe_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(sameframe_http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels: {severity: critical}
+        annotations: {summary: "SameFrame 5xx ratio exceeds 5%"}
+      - alert: SameFrameHighLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(sameframe_http_request_duration_seconds_bucket[10m]))) > 1
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "SameFrame p95 HTTP latency exceeds one second"}
+      - alert: SameFrameNoConnectedClients
+        expr: sameframe_websocket_clients == 0
+        for: 30m
+        labels: {severity: info}
+        annotations: {summary: "No room WebSocket clients are connected"}
+      - alert: SameFrameProcessMemoryHigh
+        expr: process_resident_memory_bytes > 1073741824
+        for: 15m
+        labels: {severity: warning}
+        annotations: {summary: "SameFrame process RSS exceeds 1 GiB"}
+      - alert: SameFrameCopyrightSlaBreach
+        expr: sameframe_overdue_copyright_complaints > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: "A copyright complaint exceeded its response deadline"}
+      - alert: SameFrameBusinessMetricsUnavailable
+        expr: sameframe_business_metrics_scrape_success == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "SameFrame business aggregate metrics query is failing"}

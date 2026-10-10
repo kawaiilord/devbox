@@ -44,7 +44,7 @@ func (s *Server) requirePermission(w http.ResponseWriter, r *http.Request, permi
 func (s *Server) withMaintenance(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if path == "/healthz" || path == "/api/v1/config" || path == "/api/v1/announcements" || strings.HasPrefix(path, "/api/v1/admin/") || strings.HasPrefix(path, "/api/v1/auth/") || path == "/api/v1/payments/callback" || strings.HasPrefix(path, "/admin") {
+		if path == "/healthz" || path == "/readyz" || path == "/metrics" || path == "/api/v1/config" || path == "/api/v1/announcements" || strings.HasPrefix(path, "/api/v1/admin/") || strings.HasPrefix(path, "/api/v1/auth/") || path == "/api/v1/payments/callback" || strings.HasPrefix(path, "/admin") {
 			next.ServeHTTP(w, r)
 			return
 		}
