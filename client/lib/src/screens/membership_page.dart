@@ -145,19 +145,22 @@ class _MembershipPageState extends State<MembershipPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                plan.lifetime
-                    ? Icons.all_inclusive_rounded
-                    : Icons.workspace_premium_outlined,
-                color: accent,
-                size: 24,
-              ),
-              const Spacer(),
-              if (plan.popular)
-                const FramePill('推荐之选', color: FrameColors.gold),
-            ],
+          SizedBox(
+            height: 32,
+            child: Row(
+              children: [
+                Icon(
+                  plan.lifetime
+                      ? Icons.all_inclusive_rounded
+                      : Icons.workspace_premium_outlined,
+                  color: accent,
+                  size: 24,
+                ),
+                const Spacer(),
+                if (plan.popular)
+                  const FramePill('推荐之选', color: FrameColors.gold),
+              ],
+            ),
           ),
           const SizedBox(height: 22),
           Text(
@@ -453,7 +456,14 @@ class _MembershipPageState extends State<MembershipPage> {
                   if (info != null)
                     LayoutBuilder(
                       builder: (context, box) {
-                        final cards = info.plans.map(_planCard).toList();
+                        int rank(VipPlan plan) => plan.lifetime
+                            ? 2
+                            : plan.popular
+                            ? 1
+                            : 0;
+                        final ordered = [...info.plans]
+                          ..sort((a, b) => rank(a).compareTo(rank(b)));
+                        final cards = ordered.map(_planCard).toList();
                         if (box.maxWidth < 760) {
                           return Column(
                             children: [

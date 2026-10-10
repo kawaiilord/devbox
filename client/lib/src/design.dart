@@ -32,22 +32,26 @@ ThemeData frameTheme() {
     scaffoldBackgroundColor: FrameColors.background,
     textTheme: base.textTheme.copyWith(
       headlineLarge: const TextStyle(
+        color: FrameColors.text,
         fontSize: 34,
         fontWeight: FontWeight.w700,
         height: 1.3,
         letterSpacing: -1,
       ),
       headlineSmall: const TextStyle(
+        color: FrameColors.text,
         fontSize: 25,
         fontWeight: FontWeight.w700,
         height: 1.4,
       ),
       titleLarge: const TextStyle(
+        color: FrameColors.text,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         height: 1.4,
       ),
       titleMedium: const TextStyle(
+        color: FrameColors.text,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         height: 1.4,
@@ -69,7 +73,11 @@ ThemeData frameTheme() {
       elevation: 0,
       scrolledUnderElevation: 0,
       toolbarHeight: 76,
-      titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      titleTextStyle: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: FrameColors.text,
+      ),
     ),
     cardTheme: CardThemeData(
       color: FrameColors.surface,

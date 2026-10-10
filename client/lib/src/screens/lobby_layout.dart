@@ -64,7 +64,11 @@ class LobbyLayout extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Expanded(child: FrameBrand()),
+                          Expanded(
+                            child: FrameBrand(
+                              compact: constraints.maxWidth < 420,
+                            ),
+                          ),
                           TextButton.icon(
                             onPressed: onUpdates,
                             icon: const Icon(
@@ -139,7 +143,7 @@ class LobbyLayout extends StatelessWidget {
             ? null
             : Drawer(
                 backgroundColor: FrameColors.background,
-                child: SafeArea(child: _navigation(context)),
+                child: SafeArea(child: _navigation(context, closeDrawer: true)),
               ),
         body: SafeArea(
           child: Row(
@@ -299,7 +303,15 @@ class LobbyLayout extends StatelessWidget {
     },
   );
 
-  Widget _navigation(BuildContext context) => Container(
+  void _navigate(BuildContext context, VoidCallback action, bool closeDrawer) {
+    if (closeDrawer) Navigator.of(context).pop();
+    action();
+  }
+
+  Widget _navigation(
+    BuildContext context, {
+    bool closeDrawer = false,
+  }) => Container(
     decoration: const BoxDecoration(
       color: Color(0xFF101720),
       border: Border(right: BorderSide(color: FrameColors.border)),
@@ -369,7 +381,8 @@ class LobbyLayout extends StatelessWidget {
                     destinations[i].label,
                     style: const TextStyle(fontSize: 13),
                   ),
-                  onTap: destinations[i].onTap,
+                  onTap: () =>
+                      _navigate(context, destinations[i].onTap, closeDrawer),
                 ),
               ],
               ListTile(
@@ -380,14 +393,14 @@ class LobbyLayout extends StatelessWidget {
                   color: FrameColors.muted,
                 ),
                 title: const Text('安全更新', style: TextStyle(fontSize: 13)),
-                onTap: onUpdates,
+                onTap: () => _navigate(context, onUpdates, closeDrawer),
               ),
               const SizedBox(height: 24),
               Card(
                 color: const Color(0xFF25271F),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  onTap: onMembership,
+                  onTap: () => _navigate(context, onMembership, closeDrawer),
                   child: const Padding(
                     padding: EdgeInsets.all(18),
                     child: Column(
@@ -458,7 +471,7 @@ class LobbyLayout extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: onLogout,
+                onPressed: () => _navigate(context, onLogout, closeDrawer),
                 tooltip: '退出登录',
                 icon: const Icon(
                   Icons.logout_rounded,
