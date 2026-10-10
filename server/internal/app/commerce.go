@@ -246,7 +246,7 @@ func (s *Server) pointsLeaderboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminCreateActivationCodes(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
+	admin, ok := s.requirePermission(w, r, "activation_code.manage")
 	if !ok {
 		return
 	}
@@ -291,7 +291,7 @@ func (s *Server) adminCreateActivationCodes(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) adminSetVIP(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
+	admin, ok := s.requirePermission(w, r, "user.vip.manage")
 	if !ok {
 		return
 	}
@@ -329,7 +329,7 @@ func (s *Server) adminSetVIP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminActivateOrder(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
+	admin, ok := s.requirePermission(w, r, "order.reconcile")
 	if !ok {
 		return
 	}

@@ -161,6 +161,29 @@ class PointsTransaction {
       );
 }
 
+class AppAnnouncement {
+  const AppAnnouncement({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.kind,
+    required this.createdAt,
+  });
+  final int id;
+  final String title;
+  final String body;
+  final String kind;
+  final int createdAt;
+  factory AppAnnouncement.fromJson(Map<String, dynamic> json) =>
+      AppAnnouncement(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        title: json['title'] as String,
+        body: json['body'] as String,
+        kind: json['kind'] as String,
+        createdAt: (json['created_at'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class PrivacySettings {
   const PrivacySettings({
     required this.allowRoomChat,

@@ -66,8 +66,28 @@ class _LobbyPageState extends State<LobbyPage> {
           _session = session;
           _verifiedOverride = session.user.emailVerified;
         });
+        await _showStartupAnnouncement();
       }
     });
+  }
+
+  Future<void> _showStartupAnnouncement() async {
+    final items = await widget.api.announcements();
+    final startup = items.where((item) => item.kind == 'startup').firstOrNull;
+    if (startup == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(startup.title),
+        content: Text(startup.body),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _createRoom() async {

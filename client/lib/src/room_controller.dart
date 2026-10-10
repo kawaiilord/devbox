@@ -57,8 +57,14 @@ class RoomController extends ChangeNotifier {
   VoiceSession? voice;
   List<RTCIceServerConfig> _iceServers = const [];
   String? voiceError;
+  AppAnnouncement? roomAnnouncement;
 
   bool get isOwner => room.ownerId == session.user.id;
+
+  void dismissAnnouncement() {
+    roomAnnouncement = null;
+    notifyListeners();
+  }
 
   Future<void> initialize() async {
     try {
@@ -262,6 +268,11 @@ class RoomController extends ChangeNotifier {
   }
 
   void _handleEnvelope(RoomEnvelope envelope) {
+    if (envelope.type == 'announcement') {
+      roomAnnouncement = AppAnnouncement.fromJson(envelope.payload);
+      notifyListeners();
+      return;
+    }
     if (envelope.type == 'room.state') {
       final incoming = Room.fromJson(envelope.payload);
       room = incoming.mediaSourceId.isNotEmpty && room.sourceUrl.isNotEmpty

@@ -40,6 +40,19 @@ func (h *Hub) Broadcast(roomCode string, envelope Envelope) {
 	h.BroadcastWhere(roomCode, envelope, nil)
 }
 
+func (h *Hub) BroadcastAll(envelope Envelope) {
+	h.mu.RLock()
+	rooms := make([]string, 0, len(h.clients))
+	for room := range h.clients {
+		rooms = append(rooms, room)
+	}
+	h.mu.RUnlock()
+	for _, room := range rooms {
+		envelope.Room = room
+		h.Broadcast(room, envelope)
+	}
+}
+
 func (h *Hub) BroadcastWhere(
 	roomCode string,
 	envelope Envelope,

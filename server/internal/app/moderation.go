@@ -162,7 +162,7 @@ func (s *Server) createReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminReports(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAdmin(w, r); !ok {
+	if _, ok := s.requirePermission(w, r, "report.review"); !ok {
 		return
 	}
 	status := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("status")))
@@ -182,7 +182,7 @@ func (s *Server) adminReports(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) resolveReport(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
+	admin, ok := s.requirePermission(w, r, "report.review")
 	if !ok {
 		return
 	}
@@ -215,7 +215,7 @@ func (s *Server) resolveReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminCloseRoom(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
+	admin, ok := s.requirePermission(w, r, "report.review")
 	if !ok {
 		return
 	}
@@ -251,7 +251,7 @@ func (s *Server) adminCloseRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminBanDevice(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
+	admin, ok := s.requirePermission(w, r, "device.ban")
 	if !ok {
 		return
 	}
@@ -280,7 +280,7 @@ func (s *Server) adminBanDevice(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) adminAudit(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAdmin(w, r); !ok {
+	if _, ok := s.requirePermission(w, r, "audit.view"); !ok {
 		return
 	}
 	before, limit := moderationPage(r)
@@ -301,7 +301,11 @@ func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) (User, boo
 		return User{}, false
 	}
 	account, err := s.repo.UserByID(r.Context(), user.ID)
-	if err != nil || !account.IsAdmin || !account.EmailVerified {
+	role := account.AdminRole
+	if role == "" && account.IsAdmin {
+		role = "super_admin"
+	}
+	if err != nil || (role != "super_admin" && role != "admin") || !account.EmailVerified {
 		writeError(w, http.StatusForbidden, ErrForbidden)
 		return User{}, false
 	}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SameFrame Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header><div><h1>SameFrame Admin</h1><p>独立运营与安全控制台</p></div><button id="logout" hidden>退出</button></header>
+  <main>
+    <section id="login" class="panel narrow">
+      <h2>管理员登录</h2>
+      <label>邮箱<input id="email" type="email" autocomplete="username"></label>
+      <label>密码<input id="password" type="password" autocomplete="current-password"></label>
+      <button id="loginButton">登录</button><p id="loginError" class="error"></p>
+    </section>
+    <section id="console" hidden>
+      <nav id="tabs"></nav>
+      <p id="notice" class="notice"></p>
+      <div id="content" class="panel"></div>
+    </section>
+  </main>
+  <script src="admin.js"></script>
+</body>
+</html>

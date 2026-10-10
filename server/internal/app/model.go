@@ -385,6 +385,16 @@ type RoomBotConfig struct {
 	UpdatedAt       int64  `json:"updated_at"`
 }
 
+type AdminUser struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	DisplayName   string `json:"display_name"`
+	EmailVerified bool   `json:"email_verified"`
+	AdminRole     string `json:"admin_role,omitempty"`
+	VIPExpiresAt  int64  `json:"vip_expires_at,omitempty"`
+	CreatedAt     int64  `json:"created_at"`
+}
+
 type Report struct {
 	ID         int64  `json:"id"`
 	ReporterID string `json:"reporter_id"`

@@ -120,6 +120,20 @@ type Repository interface {
 	RedeemPointsForVIP(context.Context, string, int, int) (int64, error)
 	ListPointsTransactions(context.Context, string, int64, int) ([]PointsTransaction, error)
 	PointsLeaderboard(context.Context, string, int) ([]PointsLeaderboardEntry, error)
+	GetRuntimeConfig(context.Context) (RuntimeConfig, error)
+	UpdateRuntimeConfig(context.Context, RuntimeConfig, string) (RuntimeConfig, error)
+	ListAnnouncements(context.Context, bool, int64, int) ([]Announcement, error)
+	CreateAnnouncement(context.Context, Announcement) (Announcement, error)
+	DeleteAnnouncement(context.Context, int64, string) error
+	ListDeviceBans(context.Context, int64, int) ([]DeviceBan, error)
+	UnbanDevice(context.Context, string, string) error
+	AdminDashboard(context.Context) (AdminDashboard, error)
+	SearchAdminUsers(context.Context, string, int64, int) ([]AdminUser, error)
+	SetAdminRole(context.Context, string, string, string) error
+	AdminListOrders(context.Context, string, int64, int) ([]Order, error)
+	UpdateVIPPlan(context.Context, VIPPlan, string) (VIPPlan, error)
+	GetRoomBotConfig(context.Context) (RoomBotConfig, string, error)
+	UpdateRoomBotConfig(context.Context, RoomBotConfig, string, string) (RoomBotConfig, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -139,11 +153,15 @@ type memoryDevice struct {
 	createdAt time.Time
 	lastSeen  time.Time
 	banned    bool
+	bannedAt  time.Time
+	banReason string
+	bannedBy  string
 }
 
 type memoryUserDevice struct {
-	revoked  bool
-	lastSeen time.Time
+	revoked      bool
+	revokedByBan bool
+	lastSeen     time.Time
 }
 
 type memoryActionToken struct {
@@ -204,6 +222,11 @@ type MemoryRepository struct {
 	pointsAccounts        map[string]memoryPointsAccount
 	pointsTransactions    map[string][]PointsTransaction
 	nextPointsTransaction int64
+	runtimeConfig         RuntimeConfig
+	announcements         []Announcement
+	nextAnnouncement      int64
+	roomBotConfig         RoomBotConfig
+	roomBotCiphertext     string
 }
 
 type memoryConversation struct {
@@ -271,6 +294,8 @@ func NewMemoryRepository() *MemoryRepository {
 		orders: make(map[string]Order), activationCodes: make(map[string]ActivationCode),
 		checkIns: make(map[string]map[string]CheckIn), pointsAccounts: make(map[string]memoryPointsAccount),
 		pointsTransactions: make(map[string][]PointsTransaction), nextPointsTransaction: 1,
+		runtimeConfig: RuntimeConfig{Features: map[string]bool{}}, nextAnnouncement: 1,
+		roomBotConfig: RoomBotConfig{DisplayName: "SameFrame Bot", SummonPolicy: "admin", ReplyPolicy: "mention"},
 	}
 }
 
@@ -884,9 +909,15 @@ func (r *MemoryRepository) BanDevice(_ context.Context, deviceHash, reason, acto
 		return ErrNotFound
 	}
 	device.banned = true
+	device.bannedAt = time.Now()
+	device.banReason = reason
+	device.bannedBy = actorID
 	r.devices[deviceHash] = device
 	for userID, links := range r.userDevices {
 		if link, ok := links[deviceHash]; ok {
+			if !link.revoked {
+				link.revokedByBan = true
+			}
 			link.revoked = true
 			links[deviceHash] = link
 			for hash, token := range r.refresh {

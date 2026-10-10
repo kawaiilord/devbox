@@ -43,6 +43,9 @@ The current foundation contains:
   using short-lived presigned URLs;
 - server-configured membership plans, signed and idempotent payment callbacks,
   one-time activation codes, daily check-ins, points ledgers, and VIP redemption;
+- a separately served administrative web console with RBAC, runtime feature and
+  maintenance controls, announcements, moderation, commerce, Bot secrets,
+  device recovery, dashboards, and chained audit history;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -103,3 +106,4 @@ Couple relationship invariants are in `docs/couple-space.md`.
 Voice signaling and TURN credential handling are in `docs/voice.md`.
 Review and object-storage deployment are in `docs/reviews-object-storage.md`.
 Membership and payment operations are in `docs/commerce.md`.
+Administrative deployment and permissions are in `docs/admin-console.md`.

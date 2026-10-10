@@ -51,6 +51,10 @@ jobs:
         with:
           name: sameframe-server-linux
           path: bin/sameframe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sameframe-admin-web
+          path: server/internal/app/admin_web
 
   flutter-web:
     runs-on: ubuntu-24.04

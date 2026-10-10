@@ -571,31 +571,53 @@ class _RoomPageState extends State<RoomPage> {
               ),
             ],
           ),
-          body: controller.loading
-              ? const Center(child: CircularProgressIndicator())
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final player = _PlayerPanel(controller: controller);
-                    final members = _MembersPanel(controller: controller);
-                    if (constraints.maxWidth < 900) {
-                      return ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [player, const SizedBox(height: 16), members],
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 4, child: player),
-                          const SizedBox(width: 18),
-                          SizedBox(width: 290, child: members),
-                        ],
-                      ),
-                    );
-                  },
+          body: Column(
+            children: [
+              if (controller.roomAnnouncement != null)
+                MaterialBanner(
+                  content: Text(
+                    '${controller.roomAnnouncement!.title}：${controller.roomAnnouncement!.body}',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: controller.dismissAnnouncement,
+                      child: const Text('知道了'),
+                    ),
+                  ],
                 ),
+              Expanded(
+                child: controller.loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final player = _PlayerPanel(controller: controller);
+                          final members = _MembersPanel(controller: controller);
+                          if (constraints.maxWidth < 900) {
+                            return ListView(
+                              padding: const EdgeInsets.all(16),
+                              children: [
+                                player,
+                                const SizedBox(height: 16),
+                                members,
+                              ],
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(flex: 4, child: player),
+                                const SizedBox(width: 18),
+                                SizedBox(width: 290, child: members),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );

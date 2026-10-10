@@ -82,6 +82,7 @@ func main() {
 		os.Exit(1)
 	}
 	var sourceManager *app.MediaSourceManager
+	var credentialVault *app.CredentialVault
 	if vaultKey := os.Getenv("SAMEFRAME_VAULT_KEY"); vaultKey != "" {
 		vault, vaultErr := app.NewCredentialVault(vaultKey)
 		if vaultErr != nil {
@@ -93,6 +94,7 @@ func main() {
 			vault,
 			envBool("SAMEFRAME_ALLOW_PRIVATE_SOURCES", false),
 		)
+		credentialVault = vault
 		logger.Info("media source vault enabled")
 	}
 	addr := envOr("SAMEFRAME_ADDR", ":8080")
@@ -162,6 +164,7 @@ func main() {
 		RTC:                  rtcManager,
 		Objects:              objectStore,
 		Payment:              payment,
+		Vault:                credentialVault,
 		VIPAnnouncement:      os.Getenv("SAMEFRAME_VIP_ANNOUNCEMENT"),
 		PointsPerCheckIn:     envInt("SAMEFRAME_POINTS_PER_CHECK_IN", 1),
 		PointsPerVIPDay:      envInt("SAMEFRAME_POINTS_PER_VIP_DAY", 0),

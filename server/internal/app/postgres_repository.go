@@ -1136,10 +1136,11 @@ func (r *PostgresRepository) BanDevice(ctx context.Context, deviceHash, reason, 
 	defer tx.Rollback(ctx)
 	command, err := tx.Exec(
 		ctx,
-		`UPDATE devices SET banned_at = COALESCE(banned_at, now()), ban_reason = $2
+		`UPDATE devices SET banned_at=COALESCE(banned_at,now()),ban_reason=$2,banned_by=$3,unbanned_at=NULL,unbanned_by=NULL
 		 WHERE device_hash = $1`,
 		deviceHash,
 		reason,
+		actorID,
 	)
 	if err != nil {
 		return err
@@ -1149,7 +1150,7 @@ func (r *PostgresRepository) BanDevice(ctx context.Context, deviceHash, reason, 
 	}
 	if _, err := tx.Exec(
 		ctx,
-		`UPDATE user_devices SET revoked_at = COALESCE(revoked_at, now())
+		`UPDATE user_devices SET revoked_by_ban=(revoked_at IS NULL OR revoked_by_ban),revoked_at=COALESCE(revoked_at,now())
 		 WHERE device_hash = $1`,
 		deviceHash,
 	); err != nil {

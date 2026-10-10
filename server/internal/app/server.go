@@ -36,6 +36,7 @@ type Options struct {
 	RTC                  *RTCConfigManager
 	Objects              ObjectStore
 	Payment              PaymentProvider
+	Vault                *CredentialVault
 	VIPAnnouncement      string
 	PointsPerCheckIn     int
 	PointsPerVIPDay      int
@@ -90,6 +91,8 @@ func NewServer(options Options) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/config", s.config)
+	mux.Handle("GET /admin/", s.adminWebHandler())
+	mux.HandleFunc("GET /api/v1/announcements", s.publicAnnouncements)
 	mux.HandleFunc("GET /api/v1/vip", s.vipInfo)
 	mux.HandleFunc("GET /api/v1/membership", s.membershipStatus)
 	mux.HandleFunc("POST /api/v1/orders", s.createOrder)
@@ -105,6 +108,22 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("POST /api/v1/admin/activation-codes", s.adminCreateActivationCodes)
 	mux.HandleFunc("PUT /api/v1/admin/users/{id}/vip", s.adminSetVIP)
 	mux.HandleFunc("POST /api/v1/admin/orders/{orderNo}/activate", s.adminActivateOrder)
+	mux.HandleFunc("GET /api/v1/admin/config", s.adminGetConfig)
+	mux.HandleFunc("PUT /api/v1/admin/config", s.adminUpdateConfig)
+	mux.HandleFunc("GET /api/v1/admin/announcements", s.adminAnnouncements)
+	mux.HandleFunc("POST /api/v1/admin/announcements", s.adminCreateAnnouncement)
+	mux.HandleFunc("DELETE /api/v1/admin/announcements/{id}", s.adminDeleteAnnouncement)
+	mux.HandleFunc("POST /api/v1/admin/broadcast", s.adminBroadcast)
+	mux.HandleFunc("GET /api/v1/admin/device-bans", s.adminDeviceBans)
+	mux.HandleFunc("DELETE /api/v1/admin/device-bans/{hash}", s.adminUnbanDevice)
+	mux.HandleFunc("GET /api/v1/admin/dashboard", s.adminDashboard)
+	mux.HandleFunc("GET /api/v1/admin/users", s.adminUsers)
+	mux.HandleFunc("PUT /api/v1/admin/users/{id}/role", s.adminSetRole)
+	mux.HandleFunc("GET /api/v1/admin/orders", s.adminOrders)
+	mux.HandleFunc("GET /api/v1/admin/plans", s.adminPlans)
+	mux.HandleFunc("PUT /api/v1/admin/plans/{id}", s.adminUpdatePlan)
+	mux.HandleFunc("GET /api/v1/admin/room-bot", s.adminGetRoomBot)
+	mux.HandleFunc("PUT /api/v1/admin/room-bot", s.adminUpdateRoomBot)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.HandleFunc("GET /api/v1/metadata/search", s.searchMetadata)
 	mux.HandleFunc("GET /api/v1/social/users", s.searchSocialUsers)
@@ -186,7 +205,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /ws/v1/rooms/{code}", s.roomSocket)
 	s.http = &http.Server{
 		Addr:              options.Address,
-		Handler:           s.withCORS(s.withRequestLog(mux)),
+		Handler:           s.withCORS(s.withRequestLog(s.withMaintenance(mux))),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    64 * 1024,
@@ -222,7 +241,7 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]string{"status": "ok"}, Msg: "ok"})
 }
 
-func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 	features := map[string]bool{
 		"room": true, "direct_source": true, "chat": true, "voice": s.options.RTC != nil,
 		"multi_node_realtime": s.redis != nil, "presence": s.redis != nil,
@@ -242,8 +261,16 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"membership":         true,
 		"payments":           s.options.Payment != nil,
 	}
+	runtimeConfig, err := s.repo.GetRuntimeConfig(r.Context())
+	if err == nil {
+		for key, enabled := range runtimeConfig.Features {
+			features[key] = enabled
+		}
+	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
-		"maintenance_mode":     false,
+		"maintenance_mode":     runtimeConfig.Maintenance.Enabled,
+		"maintenance_message":  runtimeConfig.Maintenance.Message,
+		"global_announcement":  runtimeConfig.Branding.GlobalAnnouncement,
 		"features":             features,
 		"snapshot_interval_ms": 3000,
 	}, Msg: "ok"})

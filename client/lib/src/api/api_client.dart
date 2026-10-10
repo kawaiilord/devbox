@@ -390,6 +390,13 @@ class ApiClient {
         await _request('GET', '/api/v1/membership', session: session),
       );
 
+  Future<List<AppAnnouncement>> announcements() async {
+    final data = await _request('GET', '/api/v1/announcements');
+    return (data['announcements'] as List<dynamic>)
+        .map((value) => AppAnnouncement.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   Future<VipOrder> createOrder(Session session, String planId) async =>
       VipOrder.fromJson(
         await _request(
