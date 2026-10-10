@@ -667,6 +667,7 @@ void main() {
         return http.Response(
           jsonEncode({'code': 0, 'data': data, 'msg': 'ok'}),
           200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
         );
       });
       final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
