@@ -127,24 +127,22 @@ class _MembershipPageState extends State<MembershipPage> {
                   leading: const Icon(Icons.campaign_outlined),
                   title: Text(info!.announcement),
                 ),
-                Card(
-                  child: ListTile(
-                    leading: Icon(
-                      _membership?.active == true
-                          ? Icons.verified_rounded
-                          : Icons.lock_clock_outlined,
-                    ),
-                    title: Text(
-                      _membership?.active == true ? '会员有效' : '当前为免费用户',
-                    ),
-                    subtitle: _membership?.vipExpiresAt == 0
-                        ? null
-                        : Text(
-                            '有效期至 ${DateTime.fromMillisecondsSinceEpoch(_membership!.vipExpiresAt, isUtc: true).toLocal()}',
-                          ),
-                  ),
-                ),
               ),
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  _membership?.active == true
+                      ? Icons.verified_rounded
+                      : Icons.lock_clock_outlined,
+                ),
+                title: Text(_membership?.active == true ? '会员有效' : '当前为免费用户'),
+                subtitle: _membership?.vipExpiresAt == 0
+                    ? null
+                    : Text(
+                        '有效期至 ${DateTime.fromMillisecondsSinceEpoch(_membership!.vipExpiresAt, isUtc: true).toLocal()}',
+                      ),
+              ),
+            ),
             Text('会员套餐', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             if (info != null)
