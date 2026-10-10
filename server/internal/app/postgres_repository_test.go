@@ -209,7 +209,7 @@ func TestPostgresModerationPersistenceAndAuditChain(t *testing.T) {
 	if err := repository.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.pool.Exec(ctx, "TRUNCATE users CASCADE"); err != nil {
+	if _, err := repository.pool.Exec(ctx, "TRUNCATE admin_audit_logs, users CASCADE"); err != nil {
 		t.Fatal(err)
 	}
 	tokens, _ := NewTokenManager("postgres-moderation-secret-with-32-characters", "postgres-moderation-test")
