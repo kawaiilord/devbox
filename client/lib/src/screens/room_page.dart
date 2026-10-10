@@ -1148,9 +1148,18 @@ class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54)),
-          const Spacer(),
-          Flexible(child: Text(value, textAlign: TextAlign.end)),
+          Text(
+            label,
+            style: const TextStyle(color: FrameColors.muted, fontSize: 12),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
         ],
       ),
     );
