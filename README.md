@@ -86,12 +86,15 @@ Windows binaries must be produced on a Windows runner; the workflow in
 
 ## Current boundary
 
-This is an engineering foundation, not a production release. Production work
-still requires platform secure storage for client session tokens, a production
-mail provider, managed-KMS wrapping for the credential vault, TURN, signed
-updates, abuse-operations tooling, and payment integration. Third-party source
-credentials are accepted only by the server-side encrypted media-source vault
-and are never returned to clients.
+This repository now implements the supplied SameFrame application and
+operations blueprint, but a source tree cannot supply environment-specific
+production services or trust roots. A deployment must still provision TLS and
+DNS, PostgreSQL/Redis/object storage, a mail provider, TURN, a payment gateway
+adapter, monitoring receivers, offline update-signing keys, and managed-KMS
+custody for the credential-vault key. Third-party source and Bot credentials are
+accepted only by the server-side encrypted vault and are never returned to
+clients. Production launch also requires jurisdiction-specific policy/legal
+review and a successful restore and incident-response drill.
 
 See `docs/architecture.md` for the topology, `docs/account-security.md` for
 identity controls, and `docs/media-sources.md` for the credential and playback
