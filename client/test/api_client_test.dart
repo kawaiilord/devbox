@@ -608,6 +608,79 @@ void main() {
     expect(requests, hasLength(4));
     api.close();
   });
+
+  test(
+    'membership API uses server plans and authenticated commerce routes',
+    () async {
+      final seen = <String>[];
+      final client = MockClient((request) async {
+        seen.add('${request.method} ${request.url.path}');
+        if (request.url.path != '/api/v1/vip') {
+          expect(request.headers['Authorization'], 'Bearer old-access');
+        }
+        Object data;
+        if (request.url.path == '/api/v1/vip') {
+          data = {
+            'announcement': 'Welcome',
+            'payment_method': 'hmac',
+            'plans': [
+              {
+                'id': 'monthly',
+                'title': '月度会员',
+                'price_minor': 800,
+                'duration_days': 30,
+                'lifetime': false,
+                'popular': false,
+              },
+            ],
+          };
+        } else if (request.url.path == '/api/v1/orders') {
+          data = request.method == 'POST'
+              ? {
+                  'order_no': 'SF1',
+                  'plan_title': '月度会员',
+                  'amount_minor': 800,
+                  'status': 'pending',
+                  'checkout_url': 'https://pay.test',
+                  'qr_expires_at': 1000,
+                }
+              : {'orders': <Object>[]};
+        } else if (request.url.path == '/api/v1/check-ins/status') {
+          data = {
+            'available_points': 2,
+            'total_points': 3,
+            'used_points': 1,
+            'checked_in_today': false,
+            'points_per_check_in': 1,
+            'points_per_vip_day': 2,
+            'total_check_ins': 3,
+            'consecutive_days': 2,
+            'recent_check_ins': <Object>[],
+          };
+        } else if (request.url.path == '/api/v1/membership') {
+          data = {'active': true, 'vip_expires_at': 2000};
+        } else if (request.url.path == '/api/v1/points/transactions') {
+          data = {'transactions': <Object>[]};
+        } else {
+          data = <String, dynamic>{};
+        }
+        return http.Response(
+          jsonEncode({'code': 0, 'data': data, 'msg': 'ok'}),
+          200,
+        );
+      });
+      final api = ApiClient(client: client, baseUrl: 'https://api.example.com');
+      final session = _session();
+      expect((await api.vipInfo()).plans.single.priceMinor, 800);
+      expect((await api.createOrder(session, 'monthly')).orderNo, 'SF1');
+      expect((await api.membership(session)).active, isTrue);
+      expect((await api.checkInStatus(session)).availablePoints, 2);
+      expect(await api.orders(session), isEmpty);
+      expect(await api.pointsTransactions(session), isEmpty);
+      expect(seen, hasLength(6));
+      api.close();
+    },
+  );
 }
 
 Session _session() => Session(

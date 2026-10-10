@@ -47,6 +47,9 @@ var coupleSpaceMigration string
 //go:embed migrations/011_reviews.sql
 var reviewsMigration string
 
+//go:embed migrations/012_commerce.sql
+var commerceMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -77,6 +80,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		socialMessagingMigration,
 		coupleSpaceMigration,
 		reviewsMigration,
+		commerceMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err

@@ -106,6 +106,20 @@ type Repository interface {
 	DeleteReview(context.Context, string, int64) ([]string, error)
 	AddReviewComment(context.Context, ReviewComment) (ReviewComment, error)
 	ListReviewComments(context.Context, string, int64, int64, int) ([]ReviewComment, error)
+	ListVIPPlans(context.Context, bool) ([]VIPPlan, error)
+	GetVIPPlan(context.Context, string) (VIPPlan, error)
+	CreateOrder(context.Context, Order) (Order, error)
+	SetOrderCheckout(context.Context, string, string, int64) error
+	GetOrder(context.Context, string, string) (Order, error)
+	ListUserOrders(context.Context, string, int64, int) ([]Order, error)
+	ActivatePaidOrder(context.Context, string, string, string, int64) (Order, bool, error)
+	StoreActivationCodes(context.Context, []ActivationCode) error
+	RedeemActivationCode(context.Context, string, string) (int64, error)
+	DailyCheckIn(context.Context, string, string, int) (CheckInStatus, error)
+	GetCheckInStatus(context.Context, string, string, int, int) (CheckInStatus, error)
+	RedeemPointsForVIP(context.Context, string, int, int) (int64, error)
+	ListPointsTransactions(context.Context, string, int64, int) ([]PointsTransaction, error)
+	PointsLeaderboard(context.Context, string, int) ([]PointsLeaderboardEntry, error)
 	SaveRoom(context.Context, Room) error
 	SaveMember(context.Context, string, Member) error
 	UpdatePlayback(context.Context, string, Playback) error
@@ -138,51 +152,58 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
-	mu                sync.RWMutex
-	usersByID         map[string]AccountRecord
-	usersByMail       map[string]string
-	refresh           map[string]memoryRefreshToken
-	devices           map[string]memoryDevice
-	userDevices       map[string]map[string]memoryUserDevice
-	actionTokens      map[string]memoryActionToken
-	mediaSources      map[string]MediaSource
-	favorites         map[int64]Favorite
-	favoriteKeys      map[string]int64
-	nextFavorite      int64
-	watchRecords      map[int64]WatchRecord
-	watchKeys         map[string]int64
-	nextWatch         int64
-	danmaku           []DanmakuMessage
-	nextDanmaku       int64
-	messages          []ChatMessage
-	nextMessageID     int64
-	rooms             map[string]Room
-	privacy           map[string]PrivacySettings
-	blocks            map[string]map[string]time.Time
-	reports           []Report
-	nextReportID      int64
-	audit             []AuditEvent
-	nextAuditID       int64
-	follows           map[string]map[string]time.Time
-	conversations     map[int64]memoryConversation
-	conversationKeys  map[string]int64
-	nextConversation  int64
-	directMessages    map[int64][]DirectMessage
-	nextDirectMessage int64
-	conversationReads map[int64]map[string]int64
-	coupleRequests    map[int64]memoryCoupleRequest
-	nextCoupleRequest int64
-	couples           map[int64]memoryCouple
-	nextCouple        int64
-	coupleMoments     map[int64][]memoryCoupleMoment
-	nextCoupleMoment  int64
-	coupleEvents      map[int64][]CoupleEvent
-	nextCoupleEvent   int64
-	reviews           map[int64]Review
-	reviewKeys        map[string]int64
-	nextReview        int64
-	reviewComments    map[int64][]ReviewComment
-	nextReviewComment int64
+	mu                    sync.RWMutex
+	usersByID             map[string]AccountRecord
+	usersByMail           map[string]string
+	refresh               map[string]memoryRefreshToken
+	devices               map[string]memoryDevice
+	userDevices           map[string]map[string]memoryUserDevice
+	actionTokens          map[string]memoryActionToken
+	mediaSources          map[string]MediaSource
+	favorites             map[int64]Favorite
+	favoriteKeys          map[string]int64
+	nextFavorite          int64
+	watchRecords          map[int64]WatchRecord
+	watchKeys             map[string]int64
+	nextWatch             int64
+	danmaku               []DanmakuMessage
+	nextDanmaku           int64
+	messages              []ChatMessage
+	nextMessageID         int64
+	rooms                 map[string]Room
+	privacy               map[string]PrivacySettings
+	blocks                map[string]map[string]time.Time
+	reports               []Report
+	nextReportID          int64
+	audit                 []AuditEvent
+	nextAuditID           int64
+	follows               map[string]map[string]time.Time
+	conversations         map[int64]memoryConversation
+	conversationKeys      map[string]int64
+	nextConversation      int64
+	directMessages        map[int64][]DirectMessage
+	nextDirectMessage     int64
+	conversationReads     map[int64]map[string]int64
+	coupleRequests        map[int64]memoryCoupleRequest
+	nextCoupleRequest     int64
+	couples               map[int64]memoryCouple
+	nextCouple            int64
+	coupleMoments         map[int64][]memoryCoupleMoment
+	nextCoupleMoment      int64
+	coupleEvents          map[int64][]CoupleEvent
+	nextCoupleEvent       int64
+	reviews               map[int64]Review
+	reviewKeys            map[string]int64
+	nextReview            int64
+	reviewComments        map[int64][]ReviewComment
+	nextReviewComment     int64
+	vipPlans              map[string]VIPPlan
+	orders                map[string]Order
+	activationCodes       map[string]ActivationCode
+	checkIns              map[string]map[string]CheckIn
+	pointsAccounts        map[string]memoryPointsAccount
+	pointsTransactions    map[string][]PointsTransaction
+	nextPointsTransaction int64
 }
 
 type memoryConversation struct {
@@ -242,6 +263,14 @@ func NewMemoryRepository() *MemoryRepository {
 		coupleEvents: make(map[int64][]CoupleEvent), nextCoupleEvent: 1,
 		reviews: make(map[int64]Review), reviewKeys: make(map[string]int64), nextReview: 1,
 		reviewComments: make(map[int64][]ReviewComment), nextReviewComment: 1,
+		vipPlans: map[string]VIPPlan{
+			"monthly":  {ID: "monthly", Title: "月度会员", PriceMinor: 800, DurationDays: 30, Enabled: true},
+			"annual":   {ID: "annual", Title: "年度会员", PriceMinor: 5800, OriginalPriceMinor: 9800, DurationDays: 365, Popular: true, Enabled: true},
+			"lifetime": {ID: "lifetime", Title: "终身会员", PriceMinor: 4900, OriginalPriceMinor: 13600, Lifetime: true, Enabled: true},
+		},
+		orders: make(map[string]Order), activationCodes: make(map[string]ActivationCode),
+		checkIns: make(map[string]map[string]CheckIn), pointsAccounts: make(map[string]memoryPointsAccount),
+		pointsTransactions: make(map[string][]PointsTransaction), nextPointsTransaction: 1,
 	}
 }
 

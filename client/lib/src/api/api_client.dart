@@ -382,6 +382,79 @@ class ApiClient {
         .toList(growable: false);
   }
 
+  Future<VipInfo> vipInfo() async =>
+      VipInfo.fromJson(await _request('GET', '/api/v1/vip'));
+
+  Future<MembershipStatus> membership(Session session) async =>
+      MembershipStatus.fromJson(
+        await _request('GET', '/api/v1/membership', session: session),
+      );
+
+  Future<VipOrder> createOrder(Session session, String planId) async =>
+      VipOrder.fromJson(
+        await _request(
+          'POST',
+          '/api/v1/orders',
+          session: session,
+          body: {'plan_id': planId},
+        ),
+      );
+
+  Future<VipOrder> order(Session session, String orderNo) async =>
+      VipOrder.fromJson(
+        await _request('GET', '/api/v1/orders/$orderNo', session: session),
+      );
+
+  Future<List<VipOrder>> orders(Session session) async {
+    final data = await _request('GET', '/api/v1/orders', session: session);
+    return (data['orders'] as List<dynamic>)
+        .map((value) => VipOrder.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<int> redeemActivationCode(Session session, String code) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/activation-codes/redeem',
+      session: session,
+      body: {'code': code},
+    );
+    return (data['vip_expires_at'] as num).toInt();
+  }
+
+  Future<CheckInStatus> checkInStatus(Session session) async =>
+      CheckInStatus.fromJson(
+        await _request('GET', '/api/v1/check-ins/status', session: session),
+      );
+
+  Future<CheckInStatus> dailyCheckIn(Session session) async =>
+      CheckInStatus.fromJson(
+        await _request('POST', '/api/v1/check-ins', session: session),
+      );
+
+  Future<int> redeemPoints(Session session, int days) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/points/redeem-vip',
+      session: session,
+      body: {'days': days},
+    );
+    return (data['vip_expires_at'] as num).toInt();
+  }
+
+  Future<List<PointsTransaction>> pointsTransactions(Session session) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/points/transactions',
+      session: session,
+    );
+    return (data['transactions'] as List<dynamic>)
+        .map(
+          (value) => PointsTransaction.fromJson(value as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
   Future<ObjectUpload> createReviewUpload({
     required Session session,
     required String filename,

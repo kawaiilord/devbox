@@ -225,6 +225,103 @@ type ObjectUpload struct {
 	ExpiresAt int64  `json:"expires_at"`
 }
 
+type VIPBenefit struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+}
+
+type VIPPlan struct {
+	ID                 string `json:"id"`
+	Title              string `json:"title"`
+	PriceMinor         int64  `json:"price_minor"`
+	OriginalPriceMinor int64  `json:"original_price_minor,omitempty"`
+	DurationDays       int    `json:"duration_days"`
+	Lifetime           bool   `json:"lifetime"`
+	Popular            bool   `json:"popular"`
+	Enabled            bool   `json:"enabled"`
+}
+
+type VIPInfo struct {
+	Announcement  string       `json:"announcement"`
+	PaymentMethod string       `json:"payment_method"`
+	Benefits      []VIPBenefit `json:"benefits"`
+	Plans         []VIPPlan    `json:"plans"`
+}
+
+type Order struct {
+	OrderNo     string `json:"order_no"`
+	UserID      string `json:"-"`
+	PlanID      string `json:"plan_id"`
+	PlanTitle   string `json:"plan_title"`
+	AmountMinor int64  `json:"amount_minor"`
+	Currency    string `json:"currency"`
+	Status      string `json:"status"`
+	PayChannel  string `json:"pay_channel,omitempty"`
+	PayTradeNo  string `json:"pay_trade_no,omitempty"`
+	CheckoutURL string `json:"checkout_url,omitempty"`
+	QRExpiresAt int64  `json:"qr_expires_at"`
+	CreatedAt   int64  `json:"created_at"`
+	PaidAt      int64  `json:"paid_at,omitempty"`
+	ActivatedAt int64  `json:"activated_at,omitempty"`
+}
+
+type PaymentIntent struct {
+	CheckoutURL string `json:"checkout_url"`
+	ExpiresAt   int64  `json:"expires_at"`
+}
+
+type ActivationCode struct {
+	ID           int64  `json:"id"`
+	CodeHash     string `json:"-"`
+	BatchID      string `json:"batch_id"`
+	PlanID       string `json:"plan_id,omitempty"`
+	DurationDays int    `json:"duration_days"`
+	UsedBy       string `json:"used_by,omitempty"`
+	UsedAt       int64  `json:"used_at,omitempty"`
+	CreatedAt    int64  `json:"created_at"`
+}
+
+type IssuedActivationCode struct {
+	Code         string `json:"code"`
+	BatchID      string `json:"batch_id"`
+	PlanID       string `json:"plan_id,omitempty"`
+	DurationDays int    `json:"duration_days"`
+}
+
+type CheckIn struct {
+	Date   string `json:"date"`
+	Points int    `json:"points"`
+}
+
+type CheckInStatus struct {
+	AvailablePoints  int64     `json:"available_points"`
+	TotalPoints      int64     `json:"total_points"`
+	UsedPoints       int64     `json:"used_points"`
+	CheckedInToday   bool      `json:"checked_in_today"`
+	PointsPerCheckIn int       `json:"points_per_check_in"`
+	PointsPerVIPDay  int       `json:"points_per_vip_day"`
+	TotalCheckIns    int       `json:"total_check_ins"`
+	ConsecutiveDays  int       `json:"consecutive_days"`
+	RecentCheckIns   []CheckIn `json:"recent_check_ins"`
+}
+
+type PointsTransaction struct {
+	ID           int64  `json:"id"`
+	Change       int64  `json:"change"`
+	BalanceAfter int64  `json:"balance_after"`
+	Type         string `json:"type"`
+	RefID        string `json:"ref_id,omitempty"`
+	CreatedAt    int64  `json:"created_at"`
+}
+
+type PointsLeaderboardEntry struct {
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+	Points      int64  `json:"points"`
+	CheckIns    int    `json:"check_ins"`
+}
+
 type Report struct {
 	ID         int64  `json:"id"`
 	ReporterID string `json:"reporter_id"`

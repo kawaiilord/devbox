@@ -35,6 +35,10 @@ type Options struct {
 	Metadata             *MetadataClient
 	RTC                  *RTCConfigManager
 	Objects              ObjectStore
+	Payment              PaymentProvider
+	VIPAnnouncement      string
+	PointsPerCheckIn     int
+	PointsPerVIPDay      int
 }
 
 type Server struct {
@@ -66,6 +70,9 @@ func NewServer(options Options) *Server {
 	if options.Repository == nil {
 		options.Repository = NewMemoryRepository()
 	}
+	if options.PointsPerCheckIn < 1 {
+		options.PointsPerCheckIn = 1
+	}
 	if options.Auth == nil {
 		tokens, _ := NewTokenManager("development-only-secret-change-me-now", "sameframe-test")
 		options.Auth = NewAuthService(options.Repository, tokens)
@@ -83,6 +90,21 @@ func NewServer(options Options) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /api/v1/config", s.config)
+	mux.HandleFunc("GET /api/v1/vip", s.vipInfo)
+	mux.HandleFunc("GET /api/v1/membership", s.membershipStatus)
+	mux.HandleFunc("POST /api/v1/orders", s.createOrder)
+	mux.HandleFunc("GET /api/v1/orders", s.listOrders)
+	mux.HandleFunc("GET /api/v1/orders/{orderNo}", s.queryOrder)
+	mux.HandleFunc("POST /api/v1/payments/callback", s.paymentCallback)
+	mux.HandleFunc("POST /api/v1/activation-codes/redeem", s.redeemActivationCode)
+	mux.HandleFunc("GET /api/v1/check-ins/status", s.checkInStatus)
+	mux.HandleFunc("POST /api/v1/check-ins", s.dailyCheckIn)
+	mux.HandleFunc("POST /api/v1/points/redeem-vip", s.redeemPoints)
+	mux.HandleFunc("GET /api/v1/points/transactions", s.pointsTransactions)
+	mux.HandleFunc("GET /api/v1/points/leaderboard", s.pointsLeaderboard)
+	mux.HandleFunc("POST /api/v1/admin/activation-codes", s.adminCreateActivationCodes)
+	mux.HandleFunc("PUT /api/v1/admin/users/{id}/vip", s.adminSetVIP)
+	mux.HandleFunc("POST /api/v1/admin/orders/{orderNo}/activate", s.adminActivateOrder)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.HandleFunc("GET /api/v1/metadata/search", s.searchMetadata)
 	mux.HandleFunc("GET /api/v1/social/users", s.searchSocialUsers)
@@ -217,6 +239,8 @@ func (s *Server) config(w http.ResponseWriter, _ *http.Request) {
 		"couple_space":       true,
 		"reviews":            true,
 		"object_storage":     s.options.Objects != nil,
+		"membership":         true,
+		"payments":           s.options.Payment != nil,
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     false,
@@ -487,6 +511,12 @@ func (s *Server) createWebDAVSource(w http.ResponseWriter, r *http.Request) {
 	user, err := s.userFromRequest(r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	if account, lookupErr := s.repo.UserByID(r.Context(), user.ID); lookupErr == nil {
+		user = account.User
+	} else {
+		writeError(w, http.StatusUnauthorized, lookupErr)
 		return
 	}
 	if s.options.RequireVerifiedEmail && !user.EmailVerified {
@@ -900,6 +930,12 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
+	account, err := s.repo.UserByID(r.Context(), user.ID)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	user = account.User
 	if s.options.RequireVerifiedEmail && !user.EmailVerified {
 		writeError(w, http.StatusForbidden, errors.New("email verification required"))
 		return

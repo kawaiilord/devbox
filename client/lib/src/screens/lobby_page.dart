@@ -5,6 +5,7 @@ import '../models.dart';
 import 'library_page.dart';
 import 'couple_page.dart';
 import 'metadata_search_page.dart';
+import 'membership_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
 import 'social_page.dart';
@@ -227,6 +228,16 @@ class _LobbyPageState extends State<LobbyPage> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => CouplePage(api: widget.api, session: session),
+      ),
+    );
+  }
+
+  void _showMembership() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MembershipPage(api: widget.api, session: session),
       ),
     );
   }
@@ -703,6 +714,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     onMetadata: _session == null ? null : _showMetadataSearch,
                     onSocial: _session == null ? null : _showSocial,
                     onCouple: _session == null ? null : _showCouple,
+                    onMembership: _session == null ? null : _showMembership,
                   ),
                   const SizedBox(height: 40),
                   if (_session == null)
@@ -803,6 +815,7 @@ class _Brand extends StatelessWidget {
     required this.onMetadata,
     required this.onSocial,
     required this.onCouple,
+    required this.onMembership,
   });
   final Session? session;
   final VoidCallback? onLogout;
@@ -813,6 +826,7 @@ class _Brand extends StatelessWidget {
   final VoidCallback? onMetadata;
   final VoidCallback? onSocial;
   final VoidCallback? onCouple;
+  final VoidCallback? onMembership;
 
   @override
   Widget build(BuildContext context) {
@@ -847,6 +861,14 @@ class _Brand extends StatelessWidget {
           ),
         ),
         const _StatusPill(text: 'Clean-room MVP'),
+        if (onMembership != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: onMembership,
+            tooltip: '会员中心',
+            icon: const Icon(Icons.workspace_premium_outlined),
+          ),
+        ],
         if (onCouple != null) ...[
           const SizedBox(width: 8),
           IconButton(

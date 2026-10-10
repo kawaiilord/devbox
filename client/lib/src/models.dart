@@ -5,6 +5,7 @@ class AppUser {
     required this.email,
     required this.emailVerified,
     this.isAdmin = false,
+    this.vipExpiresAt = 0,
   });
 
   final String id;
@@ -12,6 +13,7 @@ class AppUser {
   final String email;
   final bool emailVerified;
   final bool isAdmin;
+  final int vipExpiresAt;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
@@ -19,7 +21,144 @@ class AppUser {
     email: json['email']?.toString() ?? '',
     emailVerified: json['email_verified'] as bool? ?? false,
     isAdmin: json['is_admin'] as bool? ?? false,
+    vipExpiresAt: (json['vip_expires_at'] as num?)?.toInt() ?? 0,
   );
+}
+
+class VipPlan {
+  const VipPlan({
+    required this.id,
+    required this.title,
+    required this.priceMinor,
+    required this.originalPriceMinor,
+    required this.durationDays,
+    required this.lifetime,
+    required this.popular,
+  });
+  final String id;
+  final String title;
+  final int priceMinor;
+  final int originalPriceMinor;
+  final int durationDays;
+  final bool lifetime;
+  final bool popular;
+  factory VipPlan.fromJson(Map<String, dynamic> json) => VipPlan(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    priceMinor: (json['price_minor'] as num).toInt(),
+    originalPriceMinor: (json['original_price_minor'] as num?)?.toInt() ?? 0,
+    durationDays: (json['duration_days'] as num).toInt(),
+    lifetime: json['lifetime'] as bool? ?? false,
+    popular: json['popular'] as bool? ?? false,
+  );
+}
+
+class VipInfo {
+  const VipInfo({
+    required this.announcement,
+    required this.paymentMethod,
+    required this.plans,
+  });
+  final String announcement;
+  final String paymentMethod;
+  final List<VipPlan> plans;
+  factory VipInfo.fromJson(Map<String, dynamic> json) => VipInfo(
+    announcement: json['announcement']?.toString() ?? '',
+    paymentMethod: json['payment_method']?.toString() ?? 'disabled',
+    plans: (json['plans'] as List<dynamic>)
+        .map((value) => VipPlan.fromJson(value as Map<String, dynamic>))
+        .toList(growable: false),
+  );
+}
+
+class MembershipStatus {
+  const MembershipStatus({required this.active, required this.vipExpiresAt});
+  final bool active;
+  final int vipExpiresAt;
+  factory MembershipStatus.fromJson(Map<String, dynamic> json) =>
+      MembershipStatus(
+        active: json['active'] as bool,
+        vipExpiresAt: (json['vip_expires_at'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class VipOrder {
+  const VipOrder({
+    required this.orderNo,
+    required this.planTitle,
+    required this.amountMinor,
+    required this.status,
+    required this.checkoutUrl,
+    required this.qrExpiresAt,
+  });
+  final String orderNo;
+  final String planTitle;
+  final int amountMinor;
+  final String status;
+  final String checkoutUrl;
+  final int qrExpiresAt;
+  factory VipOrder.fromJson(Map<String, dynamic> json) => VipOrder(
+    orderNo: json['order_no'] as String,
+    planTitle: json['plan_title'] as String,
+    amountMinor: (json['amount_minor'] as num).toInt(),
+    status: json['status'] as String,
+    checkoutUrl: json['checkout_url']?.toString() ?? '',
+    qrExpiresAt: (json['qr_expires_at'] as num).toInt(),
+  );
+}
+
+class CheckInStatus {
+  const CheckInStatus({
+    required this.availablePoints,
+    required this.totalPoints,
+    required this.usedPoints,
+    required this.checkedInToday,
+    required this.pointsPerCheckIn,
+    required this.pointsPerVipDay,
+    required this.totalCheckIns,
+    required this.consecutiveDays,
+  });
+  final int availablePoints;
+  final int totalPoints;
+  final int usedPoints;
+  final bool checkedInToday;
+  final int pointsPerCheckIn;
+  final int pointsPerVipDay;
+  final int totalCheckIns;
+  final int consecutiveDays;
+  factory CheckInStatus.fromJson(Map<String, dynamic> json) => CheckInStatus(
+    availablePoints: (json['available_points'] as num).toInt(),
+    totalPoints: (json['total_points'] as num).toInt(),
+    usedPoints: (json['used_points'] as num).toInt(),
+    checkedInToday: json['checked_in_today'] as bool,
+    pointsPerCheckIn: (json['points_per_check_in'] as num).toInt(),
+    pointsPerVipDay: (json['points_per_vip_day'] as num).toInt(),
+    totalCheckIns: (json['total_check_ins'] as num).toInt(),
+    consecutiveDays: (json['consecutive_days'] as num).toInt(),
+  );
+}
+
+class PointsTransaction {
+  const PointsTransaction({
+    required this.id,
+    required this.change,
+    required this.balanceAfter,
+    required this.type,
+    required this.createdAt,
+  });
+  final int id;
+  final int change;
+  final int balanceAfter;
+  final String type;
+  final int createdAt;
+  factory PointsTransaction.fromJson(Map<String, dynamic> json) =>
+      PointsTransaction(
+        id: (json['id'] as num).toInt(),
+        change: (json['change'] as num).toInt(),
+        balanceAfter: (json['balance_after'] as num).toInt(),
+        type: json['type'] as String,
+        createdAt: (json['created_at'] as num).toInt(),
+      );
 }
 
 class PrivacySettings {

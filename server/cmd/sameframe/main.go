@@ -137,6 +137,15 @@ func main() {
 		}
 		objectStore = store
 	}
+	var payment app.PaymentProvider
+	if checkoutURL := os.Getenv("SAMEFRAME_PAYMENT_CHECKOUT_URL"); checkoutURL != "" {
+		provider, paymentErr := app.NewHMACPaymentProvider(envOr("SAMEFRAME_PAYMENT_PROVIDER", "hmac"), checkoutURL, os.Getenv("SAMEFRAME_PAYMENT_CALLBACK_SECRET"))
+		if paymentErr != nil {
+			logger.Error("configure payment provider", "error", paymentErr)
+			os.Exit(1)
+		}
+		payment = provider
+	}
 	server := app.NewServer(app.Options{
 		Address:              addr,
 		AllowedOrigins:       origins,
@@ -152,6 +161,10 @@ func main() {
 		Metadata:             metadataClient,
 		RTC:                  rtcManager,
 		Objects:              objectStore,
+		Payment:              payment,
+		VIPAnnouncement:      os.Getenv("SAMEFRAME_VIP_ANNOUNCEMENT"),
+		PointsPerCheckIn:     envInt("SAMEFRAME_POINTS_PER_CHECK_IN", 1),
+		PointsPerVIPDay:      envInt("SAMEFRAME_POINTS_PER_VIP_DAY", 0),
 	})
 	if err := server.ListenAndServe(); err != nil {
 		slog.Error("server stopped", "error", err)
@@ -175,6 +188,18 @@ func envBool(key string, fallback bool) bool {
 		return fallback
 	}
 	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func envInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
 	if err != nil {
 		return fallback
 	}

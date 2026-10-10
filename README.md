@@ -41,6 +41,8 @@ The current foundation contains:
   HMAC TURN REST credentials;
 - user reviews, comments, ratings, and direct-to-S3-compatible image uploads
   using short-lived presigned URLs;
+- server-configured membership plans, signed and idempotent payment callbacks,
+  one-time activation codes, daily check-ins, points ledgers, and VIP redemption;
 - tests and reproducible local/container commands.
 
 ## Run locally
@@ -100,3 +102,4 @@ Social discovery and private messaging are in `docs/social-messaging.md`.
 Couple relationship invariants are in `docs/couple-space.md`.
 Voice signaling and TURN credential handling are in `docs/voice.md`.
 Review and object-storage deployment are in `docs/reviews-object-storage.md`.
+Membership and payment operations are in `docs/commerce.md`.

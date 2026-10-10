@@ -204,6 +204,10 @@ func (s *Store) createRoom(
 		return Room{}, fmt.Errorf("max_members must be between 2 and 100")
 	}
 	now := s.now()
+	expiresAt := now.Add(6 * time.Hour)
+	if owner.VIPExpiresAt > now.UnixMilli() {
+		expiresAt = time.UnixMilli(owner.VIPExpiresAt)
+	}
 	member := Member{UserID: owner.ID, DisplayName: owner.DisplayName, JoinedAt: now.UnixMilli()}
 
 	s.mu.Lock()
@@ -231,7 +235,7 @@ func (s *Store) createRoom(
 			MediaPath:     mediaPath,
 			MaxMembers:    maxMembers,
 			CreatedAt:     now.UnixMilli(),
-			ExpiresAt:     now.Add(6 * time.Hour).UnixMilli(),
+			ExpiresAt:     expiresAt.UnixMilli(),
 			Playback: Playback{
 				Speed:         1,
 				PositionTS:    now.UnixMilli(),
