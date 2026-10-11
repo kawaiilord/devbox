@@ -118,14 +118,15 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 func (r *PostgresRepository) CreateUser(ctx context.Context, account AccountRecord) error {
 	_, err := r.pool.Exec(
 		ctx,
-		`INSERT INTO users (id, email, display_name, password_hash, created_at, is_admin)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		`INSERT INTO users (id, email, display_name, password_hash, created_at, is_admin, admin_role)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		account.ID,
 		strings.ToLower(account.Email),
 		account.DisplayName,
 		account.PasswordHash,
 		account.CreatedAt,
 		account.IsAdmin,
+		account.AdminRole,
 	)
 	var postgresError *pgconn.PgError
 	if errors.As(err, &postgresError) && postgresError.Code == "23505" {

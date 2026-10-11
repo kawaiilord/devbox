@@ -172,6 +172,9 @@ func (s *AuthService) Register(
 		CreatedAt:    s.now(),
 	}
 	_, account.IsAdmin = s.adminEmails[normalizedEmail]
+	if account.IsAdmin {
+		account.AdminRole = "super_admin"
+	}
 	if err := s.repository.CreateUser(ctx, account); err != nil {
 		return Session{}, err
 	}

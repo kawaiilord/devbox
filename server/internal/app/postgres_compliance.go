@@ -17,7 +17,7 @@ func (r *PostgresRepository) CreateAccountDeletionRequest(ctx context.Context, u
 	if err != nil {
 		return AccountDeletionRequest{}, err
 	}
-	if account.AdminRole != "" {
+	if adminRole(account.User) != "" {
 		return AccountDeletionRequest{}, ErrForbidden
 	}
 	emailHash := sha256.Sum256([]byte(strings.ToLower(account.Email)))
@@ -88,10 +88,11 @@ func (r *PostgresRepository) ResolveAccountDeletionRequest(ctx context.Context, 
 		return r.deletionByID(ctx, id)
 	}
 	var role string
-	if err = tx.QueryRow(ctx, `SELECT admin_role FROM users WHERE id=$1 FOR UPDATE`, userID).Scan(&role); err != nil {
+	var isAdmin bool
+	if err = tx.QueryRow(ctx, `SELECT admin_role,is_admin FROM users WHERE id=$1 FOR UPDATE`, userID).Scan(&role, &isAdmin); err != nil {
 		return AccountDeletionRequest{}, err
 	}
-	if role != "" {
+	if role != "" || isAdmin {
 		return AccountDeletionRequest{}, ErrForbidden
 	}
 	if _, err = tx.Exec(ctx, `UPDATE payment_orders SET deleted_user_ref=$2,user_id=NULL WHERE user_id=$1`, userID, userRef); err != nil {

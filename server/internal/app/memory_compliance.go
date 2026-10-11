@@ -14,7 +14,7 @@ func (r *MemoryRepository) CreateAccountDeletionRequest(_ context.Context, userI
 	if !ok {
 		return AccountDeletionRequest{}, ErrNotFound
 	}
-	if account.AdminRole != "" {
+	if adminRole(account.User) != "" {
 		return AccountDeletionRequest{}, ErrForbidden
 	}
 	for _, item := range r.deletionRequests {
@@ -79,7 +79,7 @@ func (r *MemoryRepository) ResolveAccountDeletionRequest(_ context.Context, id i
 		if !ok {
 			return AccountDeletionRequest{}, ErrNotFound
 		}
-		if account.AdminRole != "" {
+		if adminRole(account.User) != "" {
 			return AccountDeletionRequest{}, ErrForbidden
 		}
 		for key, order := range r.orders {

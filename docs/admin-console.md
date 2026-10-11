@@ -32,9 +32,10 @@ state; stale JWT role claims cannot grant access.
 
 - `super_admin`: all permissions, including runtime configuration, roles, plans,
   device controls, and VIP adjustments.
-- `admin`: moderation, announcements/broadcasts, Bot management, device
-  ban/unban, order reconciliation, VIP adjustments, dashboard, and audit.
-- `operator`: dashboard, user lookup, announcements, and broadcasts.
+- `admin`: account and room management, source controls, taxonomy, moderation,
+  announcements/broadcasts, Bot management, device ban/unban, order
+  reconciliation, VIP adjustments, dashboard, and audit.
+- `operator`: dashboard, user/room lookup, announcements, and broadcasts.
 - `seller`: order visibility and one-time activation-code generation.
 
 The users, rooms, media sources, taxonomy, and site-policy workflows are described in

@@ -332,7 +332,7 @@ input[type="checkbox"]:not(.toggle) { width: 17px; min-width: 17px; height: 17px
 .detail-heading h2 { font-size: 20px; }
 .detail-heading p { color: var(--muted); font-size: 12px; }
 .management-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; }
-.management-grid .panel { margin: 0; }
+.management-grid > .panel { margin: 0; }
 .permission-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 16px; margin: 16px 0; }
 .permission-grid .check-label { margin: 0; }
 .policy-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }

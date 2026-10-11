@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -216,6 +217,16 @@ func testAdminManagementRooms(t *testing.T, repo Repository) {
 	if record.Features.grants(record.Room, f.operator.User.ID).Chat {
 		t.Fatal("member chat override ignored")
 	}
+	f.call(t, "PUT", path, AdminRoomChange{Action: "transfer_owner", Version: record.Features.Version, UserID: f.operator.User.ID}, f.root.AccessToken, 200)
+	record, _ = repo.AdminReadRoom(context.Background(), code)
+	if record.Room.OwnerID != f.operator.User.ID || record.Features.role(record.Room, f.member.User.ID) != "member" {
+		t.Fatal("ownership transfer failed")
+	}
+	f.call(t, "PUT", path, AdminRoomChange{Action: "transfer_owner", Version: record.Features.Version, UserID: f.member.User.ID}, f.root.AccessToken, 200)
+	record, _ = repo.AdminReadRoom(context.Background(), code)
+	if record.Features.role(record.Room, f.operator.User.ID) != "member" {
+		t.Fatal("former owner retained elevated room role")
+	}
 	f.call(t, "PUT", path, AdminRoomChange{Action: "member_remove", Version: record.Features.Version, UserID: f.member.User.ID, Reason: "owner"}, f.root.AccessToken, 403)
 	f.call(t, "PUT", path, AdminRoomChange{Action: "member_remove", Version: record.Features.Version, UserID: f.operator.User.ID, Reason: "moderation"}, f.root.AccessToken, 200)
 	f.call(t, "POST", "/api/v1/rooms/"+code+"/join", map[string]string{}, f.operator.AccessToken, 403)
@@ -302,6 +313,7 @@ func TestPostgresAdminManagementPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
+	defer repo.pool.Exec(context.Background(), "TRUNCATE users CASCADE")
 	if err = repo.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -315,5 +327,83 @@ func TestPostgresAdminManagementPersistence(t *testing.T) {
 			}
 			item.run(t, repo)
 		})
+	}
+}
+
+func TestAdminManagementLegacyBootstrapCannotRequestPermanentDeletion(t *testing.T) {
+	repo := NewMemoryRepository()
+	ctx := context.Background()
+	account := AccountRecord{User: User{ID: "legacy-bootstrap", Email: "legacy@management.test", DisplayName: "Legacy Root", IsAdmin: true, SessionVersion: 1}, CreatedAt: time.Now()}
+	if err := repo.CreateUser(ctx, account); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CreateAccountDeletionRequest(ctx, account.ID, "delete"); err != ErrForbidden {
+		t.Fatalf("legacy bootstrap deletion error=%v", err)
+	}
+}
+
+func TestAdminManagementRestoreAcrossRedisNodes(t *testing.T) {
+	redisURL := os.Getenv("TEST_REDIS_URL")
+	if redisURL == "" {
+		t.Skip("TEST_REDIS_URL is not configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	a, err := OpenRedis(ctx, redisURL, "admin-node-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	b, err := OpenRedis(ctx, redisURL, "admin-node-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	a.prefix = "admin-test:" + mustRandomString(8)
+	b.prefix = a.prefix
+	repo := NewMemoryRepository()
+	fixture := newManagementFixture(t, repo)
+	serverA := NewServer(Options{Repository: repo, Auth: fixture.auth, Redis: a})
+	serverB := NewServer(Options{Repository: repo, Auth: fixture.auth, Redis: b})
+	httpA := httptest.NewServer(serverA.Handler())
+	defer httpA.Close()
+	httpB := httptest.NewServer(serverB.Handler())
+	defer httpB.Close()
+	first := *fixture
+	first.http = httpA
+	first.server = serverA
+	second := *fixture
+	second.http = httpB
+	second.server = serverB
+	room := first.room(t)
+	path := "/api/v1/admin/rooms/" + room.Room.Code
+	second.call(t, "GET", "/api/v1/rooms/"+room.Room.Code, nil, fixture.member.AccessToken, 200)
+	ticket, err := a.IssueTicket(ctx, room.Room.Code, fixture.member.User)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := b.ConsumeTicket(ctx, ticket, room.Room.Code)
+	if err != nil || identity.SessionVersion != fixture.member.User.SessionVersion {
+		t.Fatalf("socket identity version=%d error=%v", identity.SessionVersion, err)
+	}
+	first.call(t, "POST", path+"/playback", map[string]any{"action": "play", "source_version": room.Room.Playback.SourceVersion}, fixture.root.AccessToken, 200)
+	first.call(t, "PUT", path, AdminRoomChange{Action: "ban", Version: room.Features.Version, Reason: "multi-node test"}, fixture.root.AccessToken, 200)
+	second.call(t, "GET", "/api/v1/rooms/"+room.Room.Code, nil, fixture.member.AccessToken, 403)
+	room, err = repo.AdminReadRoom(ctx, room.Room.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if room.Room.Playback.Playing {
+		t.Fatal("room ban did not persist paused playback")
+	}
+	first.call(t, "PUT", path, AdminRoomChange{Action: "unban", Version: room.Features.Version}, fixture.root.AccessToken, 200)
+	second.call(t, "GET", "/api/v1/rooms/"+room.Room.Code, nil, fixture.member.AccessToken, 200)
+	room, err = repo.AdminReadRoom(ctx, room.Room.Code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, _, err := b.Room(ctx, room.Room.Code)
+	if err != nil || remote.Closed || remote.AdminEpoch != room.Room.AdminEpoch {
+		t.Fatalf("restored room=%+v error=%v", remote, err)
 	}
 }

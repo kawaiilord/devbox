@@ -275,6 +275,9 @@ func (s *Server) publishManagedRoom(ctx context.Context, room Room) error {
 			if err == nil {
 				room.Playback = playback
 				sequence = seq
+				if err := s.repo.UpdatePlayback(ctx, room.Code, playback); err != nil {
+					return err
+				}
 			}
 		}
 		if err := s.redis.InitializeRoom(ctx, room); err != nil {
