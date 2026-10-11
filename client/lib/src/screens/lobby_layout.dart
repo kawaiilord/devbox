@@ -28,6 +28,8 @@ class LobbyLayout extends StatelessWidget {
     required this.onUpdates,
     required this.onLogout,
     this.error,
+    this.mobileTabs = false,
+    this.preferJoin = false,
   });
   final bool signedIn;
   final String name;
@@ -37,6 +39,7 @@ class LobbyLayout extends StatelessWidget {
   final VoidCallback onSearch, onMembership, onUpdates, onLogout;
   final VoidCallback onDiscover, onGuestJoin;
   final String? error;
+  final bool mobileTabs, preferJoin;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -46,6 +49,7 @@ class LobbyLayout extends StatelessWidget {
         appBar: desktop
             ? null
             : AppBar(
+                automaticallyImplyLeading: !mobileTabs,
                 toolbarHeight: constraints.maxWidth < 700 ? 60 : 68,
                 title: FrameBrand(compact: constraints.maxWidth < 420),
                 actions: [
@@ -61,7 +65,7 @@ class LobbyLayout extends StatelessWidget {
                   ),
                 ],
               ),
-        drawer: desktop
+        drawer: desktop || mobileTabs
             ? null
             : Drawer(
                 backgroundColor: FrameColors.of(context).sidebar,
@@ -95,20 +99,8 @@ class LobbyLayout extends StatelessWidget {
                                           name: name,
                                           create: create,
                                           join: join,
-                                          verification: verification,
                                           error: error,
-                                          onDiscover: onDiscover,
-                                          onSources: destinations[3].onTap,
-                                          shortcuts: destinations
-                                              .take(3)
-                                              .map(
-                                                (d) => (
-                                                  icon: d.icon,
-                                                  label: d.label,
-                                                  onTap: d.onTap,
-                                                ),
-                                              )
-                                              .toList(),
+                                          initiallyJoining: preferJoin,
                                         )
                                       : _mobileWelcome(context)
                                 : signedIn

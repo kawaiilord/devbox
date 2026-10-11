@@ -13,11 +13,13 @@ class PublicRoomsPage extends StatefulWidget {
     required this.session,
     required this.onJoined,
     required this.onLoginRequired,
+    this.embedded = false,
   });
   final ApiClient api;
   final Session? session;
   final void Function(Session, Room) onJoined;
   final void Function(String) onLoginRequired;
+  final bool embedded;
   @override
   State<PublicRoomsPage> createState() => _PublicRoomsPageState();
 }
@@ -77,7 +79,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
 
   Future<void> _join(PublicRoom room) async {
     if (widget.session == null && !room.allowGuests) {
-      Navigator.of(context).pop();
+      if (!widget.embedded) Navigator.of(context).pop();
       widget.onLoginRequired(room.code);
       return;
     }
@@ -92,7 +94,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
       ),
     );
     if (result != null && mounted) {
-      Navigator.of(context).pop();
+      if (!widget.embedded) Navigator.of(context).pop();
       widget.onJoined(result.session, result.room);
     }
   }
@@ -102,6 +104,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
     final mobile = MediaQuery.sizeOf(context).width < 700;
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         title: const Text('发现一起看的房间'),
         toolbarHeight: mobile ? 60 : 68,
         actions: [

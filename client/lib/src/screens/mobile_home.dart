@@ -8,26 +8,27 @@ class MobileHome extends StatefulWidget {
     required this.name,
     required this.create,
     required this.join,
-    required this.onDiscover,
-    required this.onSources,
-    required this.shortcuts,
-    this.verification,
+    this.initiallyJoining = false,
     this.error,
   });
 
   final String name;
   final Widget create, join;
-  final Widget? verification;
   final String? error;
-  final VoidCallback onDiscover, onSources;
-  final List<({IconData icon, String label, VoidCallback onTap})> shortcuts;
+  final bool initiallyJoining;
 
   @override
   State<MobileHome> createState() => _MobileHomeState();
 }
 
 class _MobileHomeState extends State<MobileHome> {
-  bool _joining = false;
+  late bool _joining = widget.initiallyJoining;
+
+  @override
+  void didUpdateWidget(covariant MobileHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.initiallyJoining && widget.initiallyJoining) _joining = true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,27 +83,7 @@ class _MobileHomeState extends State<MobileHome> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickEntry(
-                icon: Icons.explore_outlined,
-                label: '发现房间',
-                onTap: widget.onDiscover,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickEntry(
-                icon: Icons.video_library_outlined,
-                label: '我的媒体',
-                onTap: widget.onSources,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 20),
         SegmentedButton<bool>(
           showSelectedIcon: false,
           segments: const [
@@ -148,103 +129,13 @@ class _MobileHomeState extends State<MobileHome> {
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ],
-        const SizedBox(height: 22),
-        Text('你的观影空间', style: TextStyle(color: colors.muted, fontSize: 12)),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            for (var i = 0; i < widget.shortcuts.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              Expanded(
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: widget.shortcuts[i].onTap,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 16,
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            widget.shortcuts[i].icon,
-                            size: 22,
-                            color: colors.silver,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            widget.shortcuts[i].label,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
+        const SizedBox(height: 18),
+        Text(
+          '一部好电影，一次新的相聚。',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: colors.muted),
         ),
-        if (widget.verification != null) ...[
-          const SizedBox(height: 14),
-          Card(
-            child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: const Border(),
-              leading: Icon(
-                Icons.mark_email_unread_outlined,
-                size: 18,
-                color: colors.muted,
-              ),
-              title: const Text('验证邮箱，保护账号', style: TextStyle(fontSize: 12)),
-              children: [widget.verification!],
-            ),
-          ),
-        ],
       ],
     );
   }
-}
-
-class _QuickEntry extends StatelessWidget {
-  const _QuickEntry({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => Card(
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
-        child: Row(
-          children: [
-            Icon(icon, size: 19, color: FrameColors.of(context).silver),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 16,
-              color: FrameColors.of(context).muted,
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
