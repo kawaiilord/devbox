@@ -5,11 +5,8 @@ import 'appearance_platform_stub.dart'
     if (dart.library.js_interop) 'appearance_platform_web.dart';
 
 class FrameAppearance extends ChangeNotifier {
-  FrameAppearance({
-    ThemeMode mode = ThemeMode.light,
-    SharedPreferences? preferences,
-  }) : _mode = mode,
-       _preferences = preferences;
+  FrameAppearance() : _mode = ThemeMode.light, _preferences = null;
+  FrameAppearance._(this._mode, this._preferences);
 
   static const preferenceKey = 'appearance.theme';
   final SharedPreferences? _preferences;
@@ -23,14 +20,15 @@ class FrameAppearance extends ChangeNotifier {
         ThemeMode.values.where((mode) => mode.name == saved).firstOrNull ??
         ThemeMode.light;
     syncBrowserAppearance(mode.name);
-    return FrameAppearance(mode: mode, preferences: preferences);
+    return FrameAppearance._(mode, preferences);
   }
 
   Future<void> setMode(ThemeMode mode) async {
-    if (_mode == mode) return;
-    _mode = mode;
-    syncBrowserAppearance(mode.name);
-    notifyListeners();
+    if (_mode != mode) {
+      _mode = mode;
+      syncBrowserAppearance(mode.name);
+      notifyListeners();
+    }
     final preferences = _preferences;
     if (preferences != null &&
         !await preferences.setString(preferenceKey, mode.name)) {

@@ -14,6 +14,9 @@ void main() {
       final appearance = await FrameAppearance.load();
       addTearDown(appearance.dispose);
       expect(appearance.mode, ThemeMode.light);
+      await appearance.setMode(ThemeMode.light);
+      final preferences = await SharedPreferences.getInstance();
+      expect(preferences.getString('appearance.theme'), 'light');
 
       for (final mode in [ThemeMode.dark, ThemeMode.system, ThemeMode.light]) {
         await appearance.setMode(mode);
@@ -22,7 +25,6 @@ void main() {
         restored.dispose();
       }
 
-      final preferences = await SharedPreferences.getInstance();
       await preferences.setString('appearance.theme', 'unknown-future-mode');
       final fallback = await FrameAppearance.load();
       expect(fallback.mode, ThemeMode.light);
