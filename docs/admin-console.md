@@ -5,6 +5,25 @@ The administration console is an independent static web application served at
 files for a single deployable binary and serves them with a restrictive CSP,
 `no-store`, no framing, and no external script dependencies.
 
+The console uses the same monochrome palette and frame mark as the client.
+The appearance control offers light (default), dark, and system modes; the
+preference is saved locally and applied before the stylesheet loads. Session
+tokens remain in sessionStorage. Theme changes do not reload a form.
+
+Desktop navigation groups all 13 pages in a sidebar. At widths up to 820px,
+the bottom bar offers Overview, Users, Orders, and All; All opens the complete
+navigation drawer, with keyboard focus containment and Escape to close.
+Dashboard figures and pending-review counts come from the administrative API;
+no synthetic trends or example figures are displayed. Revenue is shown in CNY
+instead of minor units. Empty, loading, permission, and failure states use the
+same theme as forms and data cards.
+
+Rebuild the server binary or container when changing these embedded assets.
+The CI artifact `sameframe-admin-web` contains the standalone files, including
+the local theme initializer and frame mark. If serving them separately, keep
+them at `/admin/` and proxy `/api/` to the same backend origin; opening index.html
+directly is not supported.
+
 Administrators sign in with the normal account endpoint. Every admin API
 reloads the current database account and checks its role and verified-email
 state; stale JWT role claims cannot grant access.

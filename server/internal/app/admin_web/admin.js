@@ -1,26 +1,233 @@
-const state={token:sessionStorage.getItem('sf_admin_token')||'',device:localStorage.getItem('sf_admin_device')||crypto.randomUUID(),tab:'dashboard'};
-localStorage.setItem('sf_admin_device',state.device);
-const tabs=[['dashboard','看板'],['config','配置'],['announcements','公告'],['users','用户'],['reports','举报'],['deletions','注销'],['complaints','版权投诉'],['devices','设备'],['orders','订单'],['plans','套餐'],['codes','卡密'],['bot','Bot'],['audit','审计']];
-const $=id=>document.getElementById(id);const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function api(path,options={}){const headers={'Content-Type':'application/json','X-Device-ID':state.device,'X-Device-Name':'Admin Web','X-Device-Platform':'web-admin',...(options.headers||{})};if(state.token)headers.Authorization=`Bearer ${state.token}`;const response=await fetch(path,{...options,headers});const body=await response.json().catch(()=>({msg:'Invalid server response'}));if(!response.ok||body.code!==0)throw new Error(body.msg||`HTTP ${response.status}`);return body.data||{};}
-function notify(message,error=false){$('notice').textContent=message;$('notice').className=error?'error':'notice'}
-async function login(){try{const data=await api('/api/v1/auth/login',{method:'POST',body:JSON.stringify({email:$('email').value,password:$('password').value})});state.token=data.access_token;sessionStorage.setItem('sf_admin_token',state.token);await start()}catch(error){$('loginError').textContent=error.message}}
-function logout(){sessionStorage.removeItem('sf_admin_token');location.reload()}
-async function start(){$('login').hidden=true;$('console').hidden=false;$('logout').hidden=false;renderTabs();await loadTab()}
-function renderTabs(){$('tabs').innerHTML=tabs.map(([id,label])=>`<button data-tab="${id}" class="${state.tab===id?'active':''}">${label}</button>`).join('');$('tabs').querySelectorAll('button').forEach(button=>button.onclick=()=>{state.tab=button.dataset.tab;renderTabs();loadTab()})}
-async function loadTab(){notify('');$('content').innerHTML='<p>加载中…</p>';try{await ({dashboard,config,announcements,users,reports,deletions,complaints,devices,orders,plans,codes,bot,audit}[state.tab]||dashboard)()}catch(error){$('content').innerHTML=`<p class="error">${esc(error.message)}</p>`}}
-async function dashboard(){const d=await api('/api/v1/admin/dashboard');const labels={users:'用户',verified_users:'已验证',active_vip_users:'有效会员',rooms:'房间',active_rooms:'活跃房间',couples:'情侣',pending_reports:'待审举报',activated_orders:'已激活订单',revenue_minor:'收入（分）',reviews:'影评',together_watchings:'共同观看'};$('content').innerHTML=`<h2>运营看板</h2><div class="grid">${Object.entries(labels).map(([key,label])=>`<div class="metric">${label}<strong>${esc(d[key])}</strong></div>`).join('')}</div>`}
-async function config(){const d=await api('/api/v1/admin/config');$('content').innerHTML=`<h2>运行配置</h2><label><input class="toggle" id="maintenance" type="checkbox" ${d.maintenance.enabled?'checked':''}> 维护模式</label><label>维护提示<input id="maintenanceMessage" value="${esc(d.maintenance.message)}"></label><label>全局公告<textarea id="globalAnnouncement">${esc(d.branding.global_announcement)}</textarea></label><label>功能位（JSON）<textarea id="features">${esc(JSON.stringify(d.features,null,2))}</textarea></label><button id="saveConfig" class="danger">确认并更新配置</button>`;$('saveConfig').onclick=async()=>{if(!confirm('配置会立即影响所有用户，确认更新？'))return;try{await api('/api/v1/admin/config',{method:'PUT',headers:{'X-Confirm-Dangerous':'update-runtime-config'},body:JSON.stringify({maintenance:{enabled:$('maintenance').checked,message:$('maintenanceMessage').value},branding:{global_announcement:$('globalAnnouncement').value,startup_announcement_id:0},features:JSON.parse($('features').value)})});notify('配置已更新');await config()}catch(error){notify(error.message,true)}}}
-async function announcements(){const d=await api('/api/v1/admin/announcements');$('content').innerHTML=`<h2>公告</h2><div class="row"><label>标题<input id="aTitle"></label><label>类型<select id="aKind"><option value="list">列表</option><option value="startup">启动弹窗</option><option value="room">房间实时</option></select></label></div><label>内容<textarea id="aBody"></textarea></label><button id="createAnnouncement">发布</button><div>${d.announcements.map(a=>`<div class="item"><h3>${esc(a.title)}</h3><p>${esc(a.body)}</p><span class="muted">${esc(a.kind)}</span> <button class="danger deleteA" data-id="${a.id}">删除</button></div>`).join('')}</div>`;$('createAnnouncement').onclick=()=>mutate('/api/v1/admin/announcements','POST',{title:$('aTitle').value,body:$('aBody').value,kind:$('aKind').value,active:true},announcements);document.querySelectorAll('.deleteA').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/announcements/${b.dataset.id}`,'DELETE',null,announcements))}
-async function users(){const q=new URLSearchParams(location.hash.slice(1)).get('q')||'';const d=await api(`/api/v1/admin/users?q=${encodeURIComponent(q)}`);$('content').innerHTML=`<h2>用户</h2><div class="row"><label>搜索<input id="userQuery" value="${esc(q)}"></label><button id="searchUsers">搜索</button></div>${d.users.map(u=>`<div class="item"><h3>${esc(u.display_name)} <span class="muted">${esc(u.email)}</span></h3><div class="row"><label>角色<select class="role" data-id="${esc(u.id)}">${['','super_admin','admin','operator','seller'].map(role=>`<option ${u.admin_role===role?'selected':''}>${role}</option>`).join('')}</select></label><label>增加会员天数<input class="vipDays" data-id="${esc(u.id)}" type="number" min="1"></label><button class="saveUser" data-id="${esc(u.id)}">保存</button></div></div>`).join('')}`;$('searchUsers').onclick=()=>{location.hash=`q=${encodeURIComponent($('userQuery').value)}`;users()};document.querySelectorAll('.saveUser').forEach(b=>b.onclick=async()=>{const id=b.dataset.id,role=document.querySelector(`.role[data-id="${CSS.escape(id)}"]`).value,days=Number(document.querySelector(`.vipDays[data-id="${CSS.escape(id)}"]`).value||0);try{await api(`/api/v1/admin/users/${encodeURIComponent(id)}/role`,{method:'PUT',body:JSON.stringify({role})});if(days>0)await api(`/api/v1/admin/users/${encodeURIComponent(id)}/vip`,{method:'PUT',body:JSON.stringify({days})});notify('用户已更新')}catch(error){notify(error.message,true)}})}
-async function reports(){const d=await api('/api/v1/admin/reports?status=pending');$('content').innerHTML=`<h2>待审举报</h2>${d.reports.map(r=>`<div class="item"><h3>${esc(r.reason)} · ${esc(r.target_type)} ${esc(r.target_id)}</h3><p>${esc(r.details)}</p><button class="resolve" data-id="${r.id}" data-status="actioned">处理</button> <button class="resolve secondary" data-id="${r.id}" data-status="dismissed">驳回</button></div>`).join('')||'<p>暂无</p>'}`;document.querySelectorAll('.resolve').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/reports/${b.dataset.id}/resolve`,'POST',{status:b.dataset.status,resolution:'管理后台处理'},reports))}
-async function deletions(){const d=await api('/api/v1/admin/account-deletions?status=pending');$('content').innerHTML=`<h2>账号注销审核</h2>${d.requests.map(v=>`<div class="item"><h3>申请 #${v.id}</h3><p>${esc(v.reason)}</p><button class="approveDeletion danger" data-id="${v.id}">不可逆批准</button> <button class="rejectDeletion secondary" data-id="${v.id}">驳回</button></div>`).join('')||'<p>暂无待审申请</p>'}`;document.querySelectorAll('.approveDeletion').forEach(b=>b.onclick=()=>{if(confirm('将不可逆删除账号及关联数据，确认？'))mutate(`/api/v1/admin/account-deletions/${b.dataset.id}/resolve`,'POST',{approve:true,resolution:'身份及申请已核验',confirm:'IRREVERSIBLY DELETE ACCOUNT'},deletions)});document.querySelectorAll('.rejectDeletion').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/account-deletions/${b.dataset.id}/resolve`,'POST',{approve:false,resolution:'申请未通过核验'},deletions))}
-async function complaints(){const d=await api('/api/v1/admin/copyright-complaints');$('content').innerHTML=`<h2>版权投诉</h2>${d.complaints.map(v=>`<div class="item"><h3>#${v.id} · ${esc(v.status)} · 截止 ${new Date(v.due_at).toLocaleString()}</h3><p><b>${esc(v.claimant_name)}</b> ${esc(v.claimant_email)}</p><p>${esc(v.rights_basis)}</p><p><a href="${esc(v.infringement_url)}" target="_blank" rel="noreferrer">侵权链接</a> · 房间 ${esc(v.room_code||'-')}</p><pre>${esc((v.evidence||[]).join('\n'))}</pre><button class="actionComplaint danger" data-id="${v.id}" data-room="${esc(v.room_code||'')}">下架处理</button> <button class="rejectComplaint secondary" data-id="${v.id}">驳回</button></div>`).join('')||'<p>暂无投诉</p>'}`;document.querySelectorAll('.actionComplaint').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/copyright-complaints/${b.dataset.id}/resolve`,'POST',{status:'actioned',resolution:'权属核验后下架',close_room:Boolean(b.dataset.room)},complaints));document.querySelectorAll('.rejectComplaint').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/copyright-complaints/${b.dataset.id}/resolve`,'POST',{status:'rejected',resolution:'证据不足',close_room:false},complaints))}
-async function devices(){const d=await api('/api/v1/admin/device-bans');$('content').innerHTML=`<h2>设备封禁</h2>${d.bans.map(b=>`<div class="item"><code>${esc(b.device_hash)}</code><p>${esc(b.reason)}</p><button class="unban" data-hash="${esc(b.device_hash)}">解封</button></div>`).join('')||'<p>暂无封禁</p>'}`;document.querySelectorAll('.unban').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/device-bans/${b.dataset.hash}`,'DELETE',null,devices))}
-async function orders(){const d=await api('/api/v1/admin/orders');$('content').innerHTML=`<h2>订单</h2>${d.orders.map(o=>`<div class="item"><h3>${esc(o.order_no)} · ${esc(o.status)}</h3><p>${esc(o.plan_title)} / ¥${(o.amount_minor/100).toFixed(2)}</p>${o.status!=='activated'?`<button class="activate" data-id="${esc(o.order_no)}">人工补单</button>`:''}</div>`).join('')||'<p>暂无订单</p>'}`;document.querySelectorAll('.activate').forEach(b=>b.onclick=()=>mutate(`/api/v1/admin/orders/${b.dataset.id}/activate`,'POST',{},orders))}
-async function plans(){const d=await api('/api/v1/admin/plans');$('content').innerHTML=`<h2>会员套餐</h2>${d.plans.map(p=>`<div class="item"><h3>${esc(p.title)}</h3><div class="row"><label>价格（分）<input class="price" data-id="${p.id}" type="number" value="${p.price_minor}"></label><label>天数<input class="duration" data-id="${p.id}" type="number" value="${p.duration_days}"></label><label><input class="enabled toggle" data-id="${p.id}" type="checkbox" ${p.enabled?'checked':''}> 上架</label><button class="savePlan" data-id="${p.id}">保存</button></div></div>`).join('')}`;document.querySelectorAll('.savePlan').forEach(b=>b.onclick=()=>{const p=d.plans.find(x=>x.id===b.dataset.id);p.price_minor=Number(document.querySelector(`.price[data-id="${p.id}"]`).value);p.duration_days=Number(document.querySelector(`.duration[data-id="${p.id}"]`).value);p.enabled=document.querySelector(`.enabled[data-id="${p.id}"]`).checked;mutate(`/api/v1/admin/plans/${p.id}`,'PUT',p,plans)})}
-async function codes(){$('content').innerHTML='<h2>激活码批次</h2><div class="row"><label>套餐 ID<input id="codePlan" value="monthly"></label><label>数量<input id="codeCount" type="number" min="1" max="100" value="10"></label><button id="createCodes">生成</button></div><pre id="codeOutput">明文只显示一次，请安全导出。</pre>';$('createCodes').onclick=async()=>{try{const d=await api('/api/v1/admin/activation-codes',{method:'POST',body:JSON.stringify({plan_id:$('codePlan').value,count:Number($('codeCount').value)})});$('codeOutput').textContent=d.codes.map(c=>c.code).join('\n')}catch(error){notify(error.message,true)}}}
-async function bot(){const d=await api('/api/v1/admin/room-bot');$('content').innerHTML=`<h2>房间 Bot</h2><label><input id="botEnabled" class="toggle" type="checkbox" ${d.enabled?'checked':''}> 启用</label><label>名称<input id="botName" value="${esc(d.display_name)}"></label><div class="row"><label>召唤策略<select id="summon">${['admin','vip','allowlist','all'].map(v=>`<option ${d.summon_policy===v?'selected':''}>${v}</option>`).join('')}</select></label><label>回复策略<select id="reply">${['mention','all','off'].map(v=>`<option ${d.reply_policy===v?'selected':''}>${v}</option>`).join('')}</select></label></div><label>提供商 HTTPS URL<input id="botUrl" value="${esc(d.provider_base_url)}"></label><label>模型<input id="botModel" value="${esc(d.model)}"></label><label>新密钥（留空不修改）<input id="botCredential" type="password" placeholder="${d.has_credential?'已配置':'未配置'}"></label><button id="saveBot">保存</button>`;$('saveBot').onclick=()=>mutate('/api/v1/admin/room-bot','PUT',{enabled:$('botEnabled').checked,display_name:$('botName').value,summon_policy:$('summon').value,reply_policy:$('reply').value,provider_base_url:$('botUrl').value,model:$('botModel').value,credential:$('botCredential').value},bot)}
-async function audit(){const d=await api('/api/v1/admin/audit');$('content').innerHTML=`<h2>审计链 · ${d.chain_valid?'有效':'异常'}</h2><pre>${esc(JSON.stringify(d.events,null,2))}</pre>`}
-async function mutate(path,method,body,reload){try{await api(path,{method,body:body===null?undefined:JSON.stringify(body)});notify('操作成功');if(reload)await reload()}catch(error){notify(error.message,true)}}
-$('loginButton').onclick=login;$('password').onkeydown=e=>{if(e.key==='Enter')login()};$('logout').onclick=logout;if(state.token)start();
+'use strict';
+
+const $ = id => document.getElementById(id);
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icons = {
+  dashboard: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  users: '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v2"/>',
+  announcements: '<path d="m3 9 14-5v16L3 15zm3 7 2 5h3l-2-4M21 9v6"/>',
+  reports: '<path d="M5 21V4m0 0c5-5 9 5 14 0v10c-5 5-9-5-14 0"/>',
+  deletions: '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6m4-6v6"/>',
+  complaints: '<circle cx="12" cy="12" r="9"/><path d="M15 9a4 4 0 1 0 0 6"/>',
+  devices: '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',
+  orders: '<path d="M5 3h14v18l-3-2-4 2-4-2-3 2zM9 8h6m-6 4h6"/>',
+  plans: '<path d="m3 6 5 4 4-7 4 7 5-4-3 13H6zM8 22h8"/>',
+  codes: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 9v6m4-6v6m4-6v6"/>',
+  config: '<path d="M4 7h8m4 0h4M4 17h3m4 0h9"/><circle cx="14" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  bot: '<rect x="4" y="7" width="16" height="14" rx="4"/><path d="M12 7V3M2 12v5m20-5v5M9 17h6m-7-5h1m6 0h1"/>',
+  audit: '<path d="M14 3H5v18h14V8zm0 0v5h5M9 12h6m-6 4h6"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
+  moon: '<path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>',
+  monitor: '<rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/>',
+  arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
+  chevron: '<path d="m9 5 7 7-7 7"/>',
+  refresh: '<path d="M20 7v5h-5M4 17v-5h5m-5 0a8 8 0 0 1 13-6l3 3M4 15l3 3a8 8 0 0 0 13-6"/>',
+  close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  logout: '<path d="M10 4H4v16h6m-1-8h12m-4-4 4 4-4 4"/>',
+  grid: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+  layers: '<path d="m12 3 10 5-10 5L2 8zm-9 10 9 5 9-5M3 18l9 5 9-5"/>',
+  play: '<path d="m9 5 11 7-11 7z"/>',
+  room: '<rect x="2" y="5" width="15" height="14" rx="3"/><path d="m17 10 5-3v10l-5-3"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
+  shield: '<path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6zm-4 9 3 3 5-6"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
+  alert: '<path d="m12 3 10 18H2zM12 9v5m0 3v.1"/>',
+  money: '<rect x="2" y="5" width="20" height="14" rx="3"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/>'
+};
+function icon(name) {
+  return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name] || icons.dashboard}</svg>`;
+}
+const tabs = [
+  ['dashboard', '数据概览', 'OVERVIEW', '用户、房间与运营待办，一目了然。', '工作空间'],
+  ['users', '用户管理', 'PEOPLE', '查看用户信息，管理角色与会员权益。', '工作空间'],
+  ['announcements', '公告管理', 'ANNOUNCEMENTS', '把重要的消息，传递给每一位用户。', '工作空间'],
+  ['reports', '举报审核', 'MODERATION', '集中处理用户举报，维护良好的观影环境。', '内容与安全'],
+  ['deletions', '注销申请', 'ACCOUNT REQUESTS', '核验账号注销申请与处理结果。', '内容与安全'],
+  ['complaints', '版权投诉', 'COPYRIGHT', '审查权利证明、投诉证据与处理时限。', '内容与安全'],
+  ['devices', '设备管理', 'DEVICES', '查看设备封禁记录，管理访问限制。', '内容与安全'],
+  ['orders', '订单管理', 'ORDERS', '查看会员订单与支付激活状态。', '商业化'],
+  ['plans', '会员套餐', 'MEMBERSHIP', '管理套餐价格、有效期与上架状态。', '商业化'],
+  ['codes', '激活卡密', 'ACTIVATION CODES', '按批次生成会员激活码。', '商业化'],
+  ['config', '运行配置', 'CONFIGURATION', '管理维护模式、全局公告与功能开关。', '系统'],
+  ['bot', '房间 Bot', 'ROOM ASSISTANT', '配置房间助手的身份、策略与服务连接。', '系统'],
+  ['audit', '操作审计', 'AUDIT LOG', '追踪管理操作，查看审计链的完整性。', '系统']
+];
+const state = {
+  token: sessionStorage.getItem('sf_admin_token') || '',
+  device: localStorage.getItem('sf_admin_device') || crypto.randomUUID(),
+  tab: sessionStorage.getItem('sf_admin_tab') || 'dashboard',
+  request: 0
+};
+if (!tabs.some(([id]) => id === state.tab)) state.tab = 'dashboard';
+localStorage.setItem('sf_admin_device', state.device);
+const mobile = matchMedia('(max-width: 820px)');
+
+async function api(path, options = {}) {
+  const headers = {'Content-Type': 'application/json', 'X-Device-ID': state.device,
+    'X-Device-Name': 'Admin Web', 'X-Device-Platform': 'web-admin', ...options.headers};
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  const response = await fetch(path, {...options, headers});
+  const body = await response.json().catch(() => ({msg: '服务响应异常，请稍后重试'}));
+  if (!response.ok || body.code !== 0) {
+    const error = new Error(body.msg || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return body.data || {};
+}
+function notify(message, error = false) {
+  const notice = $('notice');
+  notice.hidden = !message;
+  notice.className = error ? 'error' : 'notice';
+  notice.setAttribute('role', error ? 'alert' : 'status');
+  notice.innerHTML = message ? `${icon(error ? 'alert' : 'check')}<span>${esc(message)}</span>` : '';
+}
+async function login(event) {
+  event.preventDefault();
+  $('loginButton').disabled = true;
+  $('loginError').hidden = true;
+  try {
+    const data = await api('/api/v1/auth/login', {method: 'POST', body: JSON.stringify({email: $('email').value, password: $('password').value})});
+    state.token = data.access_token;
+    sessionStorage.setItem('sf_admin_token', state.token);
+    $('password').value = '';
+    await start();
+  } catch (error) {
+    $('loginError').textContent = error.message;
+    $('loginError').hidden = false;
+  } finally { $('loginButton').disabled = false; }
+}
+function logout() {
+  sessionStorage.removeItem('sf_admin_token');
+  sessionStorage.removeItem('sf_admin_tab');
+  location.reload();
+}
+async function start() {
+  $('login').hidden = true;
+  $('console').hidden = false;
+  renderTabs();
+  setMenu(false, false);
+  await loadTab();
+}
+function renderTabs() {
+  const groups = [...new Set(tabs.map(tab => tab[4]))];
+  $('tabs').innerHTML = groups.map(group => `<div class="nav-group"><p class="nav-label">${group}</p>${tabs.filter(tab => tab[4] === group).map(([id, label]) => `<button type="button" class="nav-button" data-tab="${id}">${icon(id)}<span>${label}</span></button>`).join('')}</div>`).join('');
+  bindNavigation($('tabs'));
+}
+function bindNavigation(root) {
+  root.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => navigate(button.dataset.tab)));
+}
+function updateNavigation() {
+  document.querySelectorAll('#tabs [data-tab], #mobileDock [data-tab]').forEach(button => {
+    const active = button.dataset.tab === state.tab;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  $('openMenu').classList.toggle('active', !['dashboard', 'users', 'orders'].includes(state.tab));
+}
+function navigate(tab) {
+  if (!tabs.some(([id]) => id === tab)) return;
+  state.tab = tab;
+  sessionStorage.setItem('sf_admin_tab', tab);
+  setMenu(false, false);
+  window.scrollTo({top: 0, behavior: 'instant'});
+  loadTab().then(() => $('content').focus({preventScroll: true}));
+}
+async function loadTab({keepNotice = false} = {}) {
+  const request = ++state.request;
+  const tab = state.tab;
+  const [, title, eyebrow, description] = tabs.find(([id]) => id === tab);
+  $('pageTitle').textContent = title;
+  $('breadcrumbTitle').textContent = title;
+  $('pageEyebrow').textContent = eyebrow;
+  $('pageDescription').textContent = description;
+  document.title = `${title} · 同帧管理控制台`;
+  updateNavigation();
+  if (!keepNotice) notify('');
+  $('refresh').disabled = true;
+  $('content').setAttribute('aria-busy', 'true');
+  $('content').innerHTML = '<div class="panel loading-state" role="status"><span class="spinner" aria-hidden="true"></span><p>正在读取数据…</p></div>';
+  // Build each response offscreen; a slow previous tab cannot replace the current tab.
+  const view = document.createElement('div');
+  view.dataset.page = tab;
+  try {
+    await pages[tab](view);
+    if (request !== state.request) return;
+    $('content').replaceChildren(view);
+    bindNavigation(view);
+  } catch (error) {
+    if (request !== state.request) return;
+    $('content').innerHTML = `<div class="panel empty-state" role="alert">${icon('alert')}<h3>${error.status === 403 ? '当前账号没有此项权限' : error.status === 401 ? '登录已过期' : '暂时无法读取数据'}</h3><p>${esc(error.message)}</p><button id="retryPage" type="button" class="secondary">${error.status === 401 ? '重新登录' : '重新加载'}</button></div>`;
+    $('retryPage').onclick = error.status === 401 ? logout : () => loadTab();
+  } finally {
+    if (request === state.request) {
+      $('content').setAttribute('aria-busy', 'false');
+      $('refresh').disabled = false;
+    }
+  }
+}
+function setMenu(open, restoreFocus = true) {
+  open = Boolean(open && mobile.matches);
+  document.body.classList.toggle('menu-open', open);
+  $('drawerBackdrop').hidden = !open;
+  $('openMenu').setAttribute('aria-expanded', String(open));
+  $('sidebar').inert = mobile.matches && !open;
+  $('workspace').inert = open;
+  $('mobileDock').inert = open;
+  if (open) {
+    $('sidebar').setAttribute('role', 'dialog');
+    $('sidebar').setAttribute('aria-modal', 'true');
+    $('closeMenu').focus();
+  } else {
+    $('sidebar').removeAttribute('role');
+    $('sidebar').removeAttribute('aria-modal');
+    if (restoreFocus && mobile.matches) $('openMenu').focus();
+  }
+}
+async function perform(button, action) {
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try { await action(); } catch (error) { notify(error.message, true); }
+  finally { if (button) button.disabled = false; }
+}
+function bindForm(view, selector, action) {
+  view.querySelector(selector).addEventListener('submit', event => {
+    event.preventDefault();
+    perform(event.submitter, action);
+  });
+}
+function bindActions(view, selector, action) {
+  view.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => perform(button, () => action(button))));
+}
+async function mutate(path, method, body, reload = true, headers = {}) {
+  const tab = state.tab;
+  await api(path, {method, headers, body: body === null ? undefined : JSON.stringify(body)});
+  if (reload && state.tab === tab) await loadTab({keepNotice: true});
+  notify('操作已保存');
+}
+
+document.querySelectorAll('[data-icon]').forEach(element => { element.innerHTML = icon(element.dataset.icon); });
+window.adminTheme.apply();
+document.querySelectorAll('[data-theme-choice]').forEach(button => button.addEventListener('click', () => window.adminTheme.set(button.dataset.themeChoice)));
+$('loginForm').addEventListener('submit', login);
+$('logout').onclick = logout;
+$('refresh').onclick = () => loadTab();
+$('openMenu').onclick = () => setMenu(true);
+$('closeMenu').onclick = () => setMenu(false);
+$('drawerBackdrop').onclick = () => setMenu(false);
+bindNavigation($('mobileDock'));
+mobile.addEventListener('change', () => setMenu(false, false));
+document.addEventListener('keydown', event => {
+  if (!document.body.classList.contains('menu-open')) return;
+  if (event.key === 'Escape') { event.preventDefault(); setMenu(false); }
+  if (event.key === 'Tab') {
+    const focusable = [...$('sidebar').querySelectorAll('button:not([disabled])')];
+    const first = focusable[0], last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+});
+if (state.token) start();

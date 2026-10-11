@@ -1,26 +1,91 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SameFrame Admin</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>同帧 · 管理控制台</title>
+  <link rel="icon" href="frame-mark.svg" type="image/svg+xml">
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-  <header><div><h1>SameFrame Admin</h1><p>独立运营与安全控制台</p></div><button id="logout" hidden>退出</button></header>
-  <main>
-    <section id="login" class="panel narrow">
-      <h2>管理员登录</h2>
-      <label>邮箱<input id="email" type="email" autocomplete="username"></label>
-      <label>密码<input id="password" type="password" autocomplete="current-password"></label>
-      <button id="loginButton">登录</button><p id="loginError" class="error"></p>
-    </section>
-    <section id="console" hidden>
-      <nav id="tabs"></nav>
-      <p id="notice" class="notice"></p>
-      <div id="content" class="panel"></div>
-    </section>
-  </main>
+  <a class="skip-link" href="#content">跳转到主要内容</a>
+  <section id="login" class="login-view" aria-labelledby="loginTitle">
+    <header class="login-topbar">
+      <div class="brand"><img src="frame-mark.svg" width="38" height="38" alt=""><span>同帧 <small>SAMEFRAME</small></span></div>
+      <div class="theme-switch" role="group" aria-label="外观主题">
+        <button type="button" data-theme-choice="light" aria-label="浅色主题" title="浅色主题"><span data-icon="sun"></span></button>
+        <button type="button" data-theme-choice="dark" aria-label="深色主题" title="深色主题"><span data-icon="moon"></span></button>
+        <button type="button" data-theme-choice="system" aria-label="跟随系统" title="跟随系统"><span data-icon="monitor"></span></button>
+      </div>
+    </header>
+    <main class="login-main">
+      <div class="login-story">
+        <span class="eyebrow">SAMEFRAME / CONSOLE</span>
+        <h1>每一帧精彩，<br><span>都在掌握之中。</span></h1>
+        <p>连接用户、内容与服务。<br>在一个清晰的工作空间，专注每一天的运营。</p>
+        <div class="frame-art" aria-hidden="true"><div class="art-grid"></div><div class="art-frame one"></div><div class="art-frame two"><span data-icon="play"></span></div><span class="art-caption">A SHARED MOMENT. A CLEARER VIEW.</span></div>
+      </div>
+      <div class="login-card">
+        <span class="icon-tile"><span data-icon="lock"></span></span>
+        <h2 id="loginTitle">登录管理控制台</h2>
+        <p class="muted">使用已验证邮箱的管理员账号继续。</p>
+        <form id="loginForm">
+          <label for="email">邮箱地址</label>
+          <input id="email" type="email" autocomplete="username" placeholder="name@example.com" required>
+          <label for="password">登录密码</label>
+          <input id="password" type="password" autocomplete="current-password" placeholder="输入你的密码" required>
+          <p id="loginError" class="error" role="alert" hidden></p>
+          <button id="loginButton" class="login-submit" type="submit">进入控制台 <span data-icon="arrow"></span></button>
+        </form>
+        <div class="login-footnote"><span data-icon="shield"></span>访问与操作权限由账号角色决定</div>
+      </div>
+    </main>
+    <footer class="login-footer"><span>同帧管理控制台</span><span>为每一次相聚，做好幕后。</span></footer>
+  </section>
+  <div id="console" class="app-shell" hidden>
+    <button id="drawerBackdrop" class="drawer-backdrop" tabindex="-1" aria-label="关闭导航" hidden></button>
+    <aside id="sidebar" class="sidebar" aria-label="管理导航">
+      <div class="sidebar-brand">
+        <div class="brand"><img src="frame-mark.svg" width="38" height="38" alt=""><span>同帧 <small>SAMEFRAME</small></span></div>
+        <button id="closeMenu" class="icon-button" type="button" aria-label="关闭导航"><span data-icon="close"></span></button>
+      </div>
+      <div class="workspace-label"><span data-icon="layers"></span><span>管理工作空间</span><span class="tag">ADMIN</span></div>
+      <nav id="tabs" aria-label="全部管理功能"></nav>
+      <div class="sidebar-footer">
+        <div class="account-mark">SF</div><div class="account-copy"><strong>管理控制台</strong><span>同帧 · Administration</span></div>
+        <button id="logout" class="icon-button" type="button" title="退出登录" aria-label="退出登录"><span data-icon="logout"></span></button>
+      </div>
+    </aside>
+    <div id="workspace" class="workspace">
+      <header class="topbar">
+        <div class="breadcrumb"><img class="mobile-brand" src="frame-mark.svg" width="28" height="28" alt="同帧"><span class="breadcrumb-root">管理工作空间</span><span class="breadcrumb-slash">/</span><span id="breadcrumbTitle">数据概览</span></div>
+        <div class="theme-switch" role="group" aria-label="外观主题">
+          <button type="button" data-theme-choice="light" aria-label="浅色主题" title="浅色主题"><span data-icon="sun"></span></button>
+          <button type="button" data-theme-choice="dark" aria-label="深色主题" title="深色主题"><span data-icon="moon"></span></button>
+          <button type="button" data-theme-choice="system" aria-label="跟随系统" title="跟随系统"><span data-icon="monitor"></span></button>
+        </div>
+      </header>
+      <main class="main-content">
+        <div class="page-heading">
+          <div><p id="pageEyebrow" class="eyebrow">OVERVIEW</p><h1 id="pageTitle">数据概览</h1><p id="pageDescription" class="muted"></p></div>
+          <button id="refresh" class="secondary refresh-button" type="button"><span data-icon="refresh"></span><span>刷新数据</span></button>
+        </div>
+        <div id="notice" class="notice" role="status" hidden></div>
+        <div id="content" tabindex="-1" aria-labelledby="pageTitle"></div>
+        <footer class="workspace-footer"><span>SAMEFRAME CONSOLE</span><span>同帧 · 让相聚更简单</span></footer>
+      </main>
+    </div>
+    <nav id="mobileDock" class="mobile-dock" aria-label="常用管理功能">
+      <button type="button" data-tab="dashboard"><span data-icon="dashboard"></span><span>概览</span></button>
+      <button type="button" data-tab="users"><span data-icon="users"></span><span>用户</span></button>
+      <button type="button" data-tab="orders"><span data-icon="orders"></span><span>订单</span></button>
+      <button id="openMenu" type="button" aria-controls="sidebar" aria-expanded="false"><span data-icon="grid"></span><span>全部</span></button>
+    </nav>
+  </div>
+  <noscript>请启用 JavaScript 后使用同帧管理控制台。</noscript>
+  <script src="pages.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>
