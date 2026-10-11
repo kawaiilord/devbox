@@ -845,84 +845,86 @@ class _LobbyPageState extends State<LobbyPage> {
         if (!didPop) _selectMobileTab(0);
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: _mobileTab,
-          children: [
-            _buildLobby(mobileTabs: true),
-            if (_visitedTabs.contains(1))
-              PublicRoomsPage(
-                api: widget.api,
-                session: session,
-                embedded: true,
-                onJoined: _openRoom,
-                onLoginRequired: _loginForRoom,
-              )
-            else
-              const SizedBox.shrink(),
-            if (!_visitedTabs.contains(2))
-              const SizedBox.shrink()
-            else if (session != null)
-              LibraryPage(
-                key: ValueKey(session.user.id),
-                api: widget.api,
-                session: session,
-                embedded: true,
-              )
-            else
-              MobileLibrarySignIn(onLogin: () => _requestLogin(2)),
-            MobileProfile(
-              name: session?.user.displayName ?? '',
-              email: session?.user.email ?? '',
-              signedIn: session != null,
-              onLogin: () => _requestLogin(3),
-              onLogout: _logout,
-              verification: session == null || _verifiedOverride
-                  ? null
-                  : _VerificationCard(
-                      token: _verificationToken,
-                      busy: _busy,
-                      onRequest: _requestVerification,
-                      onVerify: _verifyEmail,
-                    ),
-              items: [
-                (
-                  icon: Icons.folder_open_rounded,
-                  label: '我的媒体源',
-                  onTap: session == null ? null : _showMediaSources,
-                ),
-                (
-                  icon: Icons.people_outline_rounded,
-                  label: '好友与私聊',
-                  onTap: session == null ? null : _showSocial,
-                ),
-                (
-                  icon: Icons.favorite_border_rounded,
-                  label: '情侣空间',
-                  onTap: session == null ? null : _showCouple,
-                ),
-                (
-                  icon: Icons.devices_rounded,
-                  label: '设备管理',
-                  onTap: session == null ? null : _showDevices,
-                ),
-                (
-                  icon: Icons.shield_outlined,
-                  label: '隐私与屏蔽',
-                  onTap: session == null ? null : _showPrivacy,
-                ),
-                (
-                  icon: Icons.workspace_premium_outlined,
-                  label: '会员中心',
-                  onTap: session == null ? null : _showMembership,
-                ),
-                (
-                  icon: Icons.system_update_alt_rounded,
-                  label: '安全更新',
-                  onTap: _showUpdates,
-                ),
-              ],
-            ),
-          ],
+        body: PrimaryScrollController.none(
+          child: IndexedStack(
+            index: _mobileTab,
+            children: [
+              _buildLobby(mobileTabs: true),
+              if (_visitedTabs.contains(1))
+                PublicRoomsPage(
+                  api: widget.api,
+                  session: session,
+                  embedded: true,
+                  onJoined: _openRoom,
+                  onLoginRequired: _loginForRoom,
+                )
+              else
+                const SizedBox.shrink(),
+              if (!_visitedTabs.contains(2))
+                const SizedBox.shrink()
+              else if (session != null)
+                LibraryPage(
+                  key: ValueKey(session.user.id),
+                  api: widget.api,
+                  session: session,
+                  embedded: true,
+                )
+              else
+                MobileLibrarySignIn(onLogin: () => _requestLogin(2)),
+              MobileProfile(
+                name: session?.user.displayName ?? '',
+                email: session?.user.email ?? '',
+                signedIn: session != null,
+                onLogin: () => _requestLogin(3),
+                onLogout: _logout,
+                verification: session == null || _verifiedOverride
+                    ? null
+                    : _VerificationCard(
+                        token: _verificationToken,
+                        busy: _busy,
+                        onRequest: _requestVerification,
+                        onVerify: _verifyEmail,
+                      ),
+                items: [
+                  (
+                    icon: Icons.folder_open_rounded,
+                    label: '我的媒体源',
+                    onTap: session == null ? null : _showMediaSources,
+                  ),
+                  (
+                    icon: Icons.people_outline_rounded,
+                    label: '好友与私聊',
+                    onTap: session == null ? null : _showSocial,
+                  ),
+                  (
+                    icon: Icons.favorite_border_rounded,
+                    label: '情侣空间',
+                    onTap: session == null ? null : _showCouple,
+                  ),
+                  (
+                    icon: Icons.devices_rounded,
+                    label: '设备管理',
+                    onTap: session == null ? null : _showDevices,
+                  ),
+                  (
+                    icon: Icons.shield_outlined,
+                    label: '隐私与屏蔽',
+                    onTap: session == null ? null : _showPrivacy,
+                  ),
+                  (
+                    icon: Icons.workspace_premium_outlined,
+                    label: '会员中心',
+                    onTap: session == null ? null : _showMembership,
+                  ),
+                  (
+                    icon: Icons.system_update_alt_rounded,
+                    label: '安全更新',
+                    onTap: _showUpdates,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
             ? null
