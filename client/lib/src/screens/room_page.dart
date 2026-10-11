@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -12,6 +11,7 @@ import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
 import '../room_controller.dart';
+import '../player/room_timeline.dart';
 import 'playlist_dialog.dart';
 import 'room_management_dialogs.dart';
 
@@ -1329,100 +1329,20 @@ class _DanmakuText extends StatelessWidget {
   }
 }
 
-class _Timeline extends StatefulWidget {
+class _Timeline extends StatelessWidget {
   const _Timeline({required this.controller});
   final RoomController controller;
 
   @override
-  State<_Timeline> createState() => _TimelineState();
-}
-
-class _TimelineState extends State<_Timeline> {
-  RoomController get controller => widget.controller;
-  double? _dragPosition;
-  int? _dragVersion;
-
-  @override
-  void didUpdateWidget(covariant _Timeline oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!controller.canControl ||
-        _dragVersion != controller.room.playback.sourceVersion) {
-      _dragPosition = null;
-      _dragVersion = null;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<Duration>(
-      stream: controller.player.durationStream,
-      initialData: controller.player.duration,
-      builder: (context, durationSnapshot) {
-        return StreamBuilder<Duration>(
-          stream: controller.player.positionStream,
-          initialData: controller.player.position,
-          builder: (context, positionSnapshot) {
-            final duration = durationSnapshot.data ?? Duration.zero;
-            final position = positionSnapshot.data ?? Duration.zero;
-            final maxMilliseconds = math.max(1, duration.inMilliseconds);
-            final value = (_dragPosition ?? position.inMilliseconds.toDouble())
-                .clamp(0, maxMilliseconds)
-                .toDouble();
-            return Column(
-              children: [
-                Slider(
-                  value: value,
-                  max: maxMilliseconds.toDouble(),
-                  onChanged: controller.canControl && !controller.isLive
-                      ? (next) => setState(() {
-                          _dragVersion ??=
-                              controller.room.playback.sourceVersion;
-                          _dragPosition = next;
-                        })
-                      : null,
-                  onChangeEnd: controller.canControl && !controller.isLive
-                      ? (next) {
-                          final version = _dragVersion;
-                          setState(() {
-                            _dragPosition = null;
-                            _dragVersion = null;
-                          });
-                          if (version ==
-                              controller.room.playback.sourceVersion) {
-                            controller.seek(
-                              Duration(milliseconds: next.round()),
-                            );
-                          }
-                        }
-                      : null,
-                ),
-                Row(
-                  children: [
-                    Text(
-                      _format(
-                        _dragPosition == null
-                            ? position
-                            : Duration(milliseconds: value.round()),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(_format(duration)),
-                  ],
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _format(Duration value) {
-    final hours = value.inHours;
-    final minutes = value.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
-  }
+  Widget build(BuildContext context) => RoomTimeline(
+    positionStream: controller.player.positionStream,
+    durationStream: controller.player.durationStream,
+    position: controller.player.position,
+    duration: controller.player.duration,
+    sourceVersion: controller.room.playback.sourceVersion,
+    canSeek: controller.canControl && !controller.isLive,
+    onSeek: controller.seek,
+  );
 }
 
 class _MembersPanel extends StatelessWidget {
