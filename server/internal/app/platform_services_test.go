@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -222,7 +224,7 @@ func TestRTMPKeyAuthorizationRotationAndProxy(t *testing.T) {
 	json.Unmarshal(f.call(t, "POST", "/api/v1/rooms/"+room.Room.Code+"/rtmp", nil, f.member.AccessToken, 200), &key)
 	u, _ := url.Parse("rtmp://host/sameframe/" + key.Key)
 	streamPath = strings.TrimPrefix(u.Path, "/")
-	authBody := map[string]string{"action": "publish", "protocol": "rtmp", "path": streamPath, "query": u.RawQuery}
+	authBody := map[string]string{"action": "publish", "protocol": "rtmp", "path": streamPath, "query": u.RawQuery, "ip": "127.0.0.1", "id": "fixture", "userAgent": "FFmpeg"}
 	rawAuth, _ := json.Marshal(authBody)
 	authReq, _ := http.NewRequest("POST", f.http.URL+"/internal/rtmp/auth?hook="+strings.Repeat("m", 32), strings.NewReader(string(rawAuth)))
 	authRes, e := http.DefaultClient.Do(authReq)
@@ -281,5 +283,22 @@ func TestSliceCacheTTL(t *testing.T) {
 	res.Body.Close()
 	if cache.Stats().Misses != 2 {
 		t.Fatal("expired cache hit")
+	}
+}
+
+func TestSliceCacheRemovesOwnedCrashRemnants(t *testing.T) {
+	dir := t.TempDir()
+	id := strings.Repeat("a", 64)
+	for _, name := range []string{id + ".bin", id + ".json", "slice-crashed", "keep.txt"} {
+		if e := os.WriteFile(filepath.Join(dir, name), []byte("orphan"), 0600); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if _, e := NewSliceCache(dir, "node"); e != nil {
+		t.Fatal(e)
+	}
+	files, e := os.ReadDir(dir)
+	if e != nil || len(files) != 1 || files[0].Name() != "keep.txt" {
+		t.Fatalf("unexpected remaining files %+v %v", files, e)
 	}
 }

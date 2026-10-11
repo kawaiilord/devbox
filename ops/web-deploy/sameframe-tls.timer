@@ -1,0 +1,8 @@
+[Unit]
+Description=Check SameFrame TLS certificate twice daily
+[Timer]
+OnCalendar=*-*-* 02,14:00:00
+RandomizedDelaySec=900
+Persistent=true
+[Install]
+WantedBy=timers.target

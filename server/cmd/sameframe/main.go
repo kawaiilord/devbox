@@ -171,6 +171,7 @@ func main() {
 		Logger:               logger,
 		Repository:           repository,
 		Auth:                 authService,
+		TrustedProxyCIDRs:    splitList(os.Getenv("SAMEFRAME_TRUSTED_PROXY_CIDRS")),
 		RTMP:                 rtmpService,
 		InitialRooms:         initialRooms,
 		AllowDemoAuth:        envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),

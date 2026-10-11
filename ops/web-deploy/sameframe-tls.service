@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew SameFrame web TLS certificate
+After=docker.service network-online.target
+[Service]
+Type=oneshot
+ExecStart=/opt/sameframe/renew-tls.sh

@@ -55,6 +55,7 @@ type SliceCache struct {
 	entries          map[string]cacheEntry
 	stats            CacheStats
 	epoch, nodeEpoch int64
+	limit            int64
 }
 
 var cacheFileID = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -101,6 +102,16 @@ func NewSliceCache(dir, node string) (*SliceCache, error) {
 		c.entries[id] = entry
 		c.stats.Bytes += entry.Size
 	}
+	for _, f := range files {
+		if !f.Type().IsRegular() {
+			continue
+		}
+		id := strings.TrimSuffix(strings.TrimSuffix(f.Name(), ".json"), ".bin")
+		_, valid := c.entries[id]
+		if (cacheFileID.MatchString(id) && !valid) || strings.HasPrefix(f.Name(), "slice-") {
+			_ = os.Remove(filepath.Join(dir, f.Name()))
+		}
+	}
 	return c, nil
 }
 func (c *SliceCache) removeLocked(id string) {
@@ -116,6 +127,7 @@ func (c *SliceCache) configure(cfg CacheConfig) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.stats.Enabled = cfg.Enabled
+	c.limit = cfg.MaxBytes
 	if c.epoch != cfg.PurgeEpoch || c.nodeEpoch != cfg.NodePurge[c.node] {
 		for id := range c.entries {
 			c.removeLocked(id)
@@ -223,13 +235,13 @@ func (c *SliceCache) Open(cfg CacheConfig, key string, fetch func() (*http.Respo
 	entry := cacheEntry{Size: length, Expires: time.Now().Add(time.Duration(cfg.TTL) * time.Second).UnixMilli(), Used: time.Now().UnixMilli(), Status: res.StatusCode, Header: headers}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.epoch != epoch || c.nodeEpoch != nodeEpoch || !c.stats.Enabled {
+	if c.epoch != epoch || c.nodeEpoch != nodeEpoch || !c.stats.Enabled || length > c.limit {
 		return res, nil
 	}
 	if _, ok := c.entries[id]; ok {
 		return res, nil
 	}
-	c.evictLocked(cfg.MaxBytes - length)
+	c.evictLocked(c.limit - length)
 	file, e := os.CreateTemp(c.dir, "slice-")
 	if e != nil {
 		return res, nil

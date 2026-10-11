@@ -79,6 +79,10 @@ func (m *RTMPService) validStream(ctx context.Context, p string) (RoomStream, er
 	if e != nil || !accountActive(owner.User) {
 		return stream, ErrForbidden
 	}
+	source, e := m.repo.GetMediaSource(ctx, stream.OwnerID, stream.SourceID)
+	if e != nil || source.Disabled {
+		return stream, ErrForbidden
+	}
 	return stream, nil
 }
 func (s *Server) rtmpAuth(w http.ResponseWriter, r *http.Request) {
@@ -88,13 +92,16 @@ func (s *Server) rtmpAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		User     string `json:"user"`
-		Password string `json:"password"`
-		Token    string `json:"token"`
-		Action   string `json:"action"`
-		Path     string `json:"path"`
-		Query    string `json:"query"`
-		Protocol string `json:"protocol"`
+		User      string `json:"user"`
+		Password  string `json:"password"`
+		Token     string `json:"token"`
+		Action    string `json:"action"`
+		Path      string `json:"path"`
+		Query     string `json:"query"`
+		Protocol  string `json:"protocol"`
+		IP        string `json:"ip"`
+		ID        string `json:"id"`
+		UserAgent string `json:"userAgent"`
 	}
 	if e := decodeJSON(r, &in); e != nil {
 		writeError(w, 400, e)

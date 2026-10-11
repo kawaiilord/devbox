@@ -21,6 +21,7 @@ import (
 )
 
 type Options struct {
+	TrustedProxyCIDRs    []string
 	RTMP                 *RTMPService
 	Address              string
 	AllowedOrigins       []string
@@ -284,7 +285,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /ws/v1/rooms/{code}", s.roomSocket)
 	s.http = &http.Server{
 		Addr:              options.Address,
-		Handler:           s.withCORS(s.metrics.Middleware(s.withRequestLog(s.withMaintenance(mux)))),
+		Handler:           s.withTrustedProxy(s.withCORS(s.metrics.Middleware(s.withRequestLog(s.withMaintenance(mux))))),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    64 * 1024,
