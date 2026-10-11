@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -231,5 +232,24 @@ func TestPlatformSingleFormatFallback(t *testing.T) {
 	formats := supportedPlatformFormats(platformInfo{URL: "https://cdn.example.test/movie.mp4", Ext: "mp4", Protocol: "https"})
 	if len(formats) != 1 || formats[0].ID != "default" {
 		t.Fatal("single-format platform result was discarded")
+	}
+}
+
+func TestProxyAssetURLsKeepPlayerCompatibleExtensions(t *testing.T) {
+	manager, _ := platformFixtureManager()
+	server := NewServer(Options{Sources: manager})
+	for _, item := range []struct{ target, extension string }{{"https://cdn.example.test/segment.ts?token=private", ".ts"}, {"https://cdn.example.test/init.mp4", ".mp4"}, {"https://cdn.example.test/video.m4s", ".m4s"}, {"https://cdn.example.test/opaque-segment", ".ts"}} {
+		raw, e := server.platformAssetURL("parent-ticket", item.target, false)
+		if e != nil {
+			t.Fatal(e)
+		}
+		u, e := url.Parse(raw)
+		if e != nil || !strings.HasSuffix(u.Path, item.extension) {
+			t.Fatalf("FFmpeg-incompatible segment path: %s", u.Path)
+		}
+		asset, e := server.decodePlatformAsset("parent-ticket", u.Query().Get("asset"))
+		if e != nil || asset.URL != item.target {
+			t.Fatal("asset URL lost original target")
+		}
 	}
 }

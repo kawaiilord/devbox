@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -57,7 +58,17 @@ func (s *Server) platformAssetURL(raw, target string, manifest bool, allowedBase
 	suffix := "/asset"
 	if manifest {
 		suffix += ".m3u8"
+	} else {
+		u, _ := url.Parse(target)
+		extension := strings.ToLower(path.Ext(u.Path))
+		switch extension {
+		case ".ts", ".mp4", ".m4s", ".m4a", ".aac", ".mp3", ".webm", ".vtt", ".key":
+			suffix += extension
+		default:
+			suffix += ".ts"
+		}
 	}
+
 	return s.mediaPlaybackURL(raw) + suffix + "?asset=" + url.QueryEscape(encrypted), nil
 }
 
