@@ -877,7 +877,9 @@ class _LoginCard extends StatelessWidget {
             if (registerMode) ...[
               TextField(
                 controller: name,
-                autofocus: true,
+                autofocus: MediaQuery.sizeOf(context).width >= 700,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.nickname],
                 decoration: const InputDecoration(
                   labelText: '你的昵称',
                   prefixIcon: Icon(Icons.person_outline_rounded, size: 19),
@@ -887,7 +889,10 @@ class _LoginCard extends StatelessWidget {
             ],
             TextField(
               controller: email,
-              autofocus: !registerMode,
+              autofocus:
+                  !registerMode && MediaQuery.sizeOf(context).width >= 700,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: '邮箱',
@@ -898,6 +903,7 @@ class _LoginCard extends StatelessWidget {
             TextField(
               controller: password,
               obscureText: true,
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
                 labelText: '密码',
                 prefixIcon: Icon(Icons.lock_outline_rounded, size: 19),
@@ -951,13 +957,16 @@ class _CreateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 700;
     return _Panel(
       title: '创建房间',
       subtitle: '从一个链接，开始你们的共同放映。',
+      compact: mobile,
       child: Column(
         children: [
           TextField(
             controller: roomName,
+            textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: '房间名称',
               prefixIcon: Icon(Icons.meeting_room_outlined, size: 19),
@@ -967,8 +976,11 @@ class _CreateCard extends StatelessWidget {
           TextField(
             controller: source,
             readOnly: hasMediaSource,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               labelText: hasMediaSource ? '已选影片' : '视频链接',
+              hintText: '粘贴视频直链，或从媒体库选片',
               suffixIcon: hasMediaSource
                   ? IconButton(
                       tooltip: '清除选片，改用视频链接',
@@ -977,22 +989,36 @@ class _CreateCard extends StatelessWidget {
                     )
                   : null,
             ),
-            minLines: 2,
-            maxLines: 3,
+            minLines: mobile ? 1 : 2,
+            maxLines: mobile ? 1 : 3,
           ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: busy ? null : onPickSource,
-              icon: const Icon(Icons.video_library_outlined),
-              label: const Text('从网盘或媒体库选片'),
+          if (mobile) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onPickSource,
+                icon: const Icon(Icons.video_library_outlined, size: 18),
+                label: const Text('网盘 / 平台选片'),
+              ),
             ),
-          ),
+          ] else
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: busy ? null : onPickSource,
+                icon: const Icon(Icons.video_library_outlined),
+                label: const Text('从网盘或媒体库选片'),
+              ),
+            ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: busy ? null : onSubmit,
+              style: mobile
+                  ? FilledButton.styleFrom(minimumSize: const Size(0, 50))
+                  : null,
               icon: const Icon(Icons.add_rounded),
               label: const Text('创建并播放'),
             ),
@@ -1021,26 +1047,28 @@ class _VerificationCard extends StatelessWidget {
     return _Panel(
       title: '验证邮箱',
       subtitle: '输入邮件中的验证码，即可完成验证。',
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 12,
-        children: [
-          SizedBox(
-            width: 270,
-            child: TextField(
-              controller: token,
-              decoration: const InputDecoration(labelText: '邮箱验证码'),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Wrap(
+          spacing: 10,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: constraints.maxWidth < 270 ? constraints.maxWidth : 270,
+              child: TextField(
+                controller: token,
+                decoration: const InputDecoration(labelText: '邮箱验证码'),
+              ),
             ),
-          ),
-          OutlinedButton(
-            onPressed: busy ? null : onRequest,
-            child: const Text('重新发送'),
-          ),
-          FilledButton(
-            onPressed: busy ? null : onVerify,
-            child: const Text('完成验证'),
-          ),
-        ],
+            OutlinedButton(
+              onPressed: busy ? null : onRequest,
+              child: const Text('重新发送'),
+            ),
+            FilledButton(
+              onPressed: busy ? null : onVerify,
+              child: const Text('完成验证'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1058,13 +1086,16 @@ class _JoinCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 700;
     return _Panel(
       title: '加入房间',
       subtitle: '赴一场朋友的邀约，输入房间码即可加入。',
+      compact: mobile,
       child: Column(
         children: [
           TextField(
             controller: roomCode,
+            textInputAction: TextInputAction.done,
             style: const TextStyle(
               letterSpacing: 6,
               fontSize: 24,
@@ -1081,36 +1112,47 @@ class _JoinCard extends StatelessWidget {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onSubmit,
-              icon: const Icon(Icons.login_rounded),
-              label: const Text('加入房间'),
-            ),
+            child: mobile
+                ? FilledButton.icon(
+                    onPressed: busy ? null : onSubmit,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                    ),
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('进入房间'),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: busy ? null : onSubmit,
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('加入房间'),
+                  ),
           ),
-          const SizedBox(height: 24),
-          const Divider(height: 1),
-          const SizedBox(height: 22),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.headphones_outlined,
-                color: FrameColors.of(context).muted,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '戴上耳机，准备好零食。\n剩下的时间，留给你们的好故事。',
-                  style: TextStyle(
-                    color: FrameColors.of(context).muted,
-                    fontSize: 12,
-                    height: 1.9,
+          if (!mobile) ...[
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 22),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.headphones_outlined,
+                  color: FrameColors.of(context).muted,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '戴上耳机，准备好零食。\n剩下的时间，留给你们的好故事。',
+                    style: TextStyle(
+                      color: FrameColors.of(context).muted,
+                      fontSize: 12,
+                      height: 1.9,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1122,14 +1164,17 @@ class _Panel extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.compact = false,
   });
   final String title;
   final String subtitle;
   final Widget child;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return FrameSection(
+      showHeading: !compact,
       title: title,
       subtitle: subtitle,
       icon: title == '创建房间'

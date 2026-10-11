@@ -85,6 +85,7 @@ class _RoomJoinDialogState extends State<RoomJoinDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
     child: AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       scrollable: true,
       title: Text(widget.session == null ? '以访客身份加入' : '加入房间'),
       content: SizedBox(

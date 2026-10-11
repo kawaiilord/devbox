@@ -49,6 +49,7 @@ class _PlaylistDialogState extends State<PlaylistDialog> {
     final result = await showDialog<PlaylistEntry>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         scrollable: true,
         title: Text(alternativeFor == null ? '添加视频直链' : '添加备用来源'),
         content: SizedBox(
@@ -186,10 +187,11 @@ class _PlaylistDialogState extends State<PlaylistDialog> {
       final features = c.room.features;
       final items = features?.playlist ?? <PlaylistEntry>[];
       return AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         title: const Text('房间片单'),
         content: SizedBox(
           width: 700,
-          height: 520,
+          height: (MediaQuery.sizeOf(context).height * .6).clamp(180.0, 520.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -466,6 +468,7 @@ class _SourcePlaylistPickerState extends State<_SourcePlaylistPicker> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
     title: const Text('选择媒体源'),
     content: SizedBox(
       width: 540,

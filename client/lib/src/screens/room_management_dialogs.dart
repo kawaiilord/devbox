@@ -84,6 +84,7 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
     child: AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       scrollable: true,
       title: const Text('房间设置'),
       content: SizedBox(
@@ -241,6 +242,7 @@ class _RoomMemberDialogState extends State<RoomMemberDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
     scrollable: true,
     title: Text('${widget.member.displayName} · 权限'),
     content: SizedBox(

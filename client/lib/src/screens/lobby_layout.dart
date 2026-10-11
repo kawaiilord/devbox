@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../design.dart';
 import '../appearance.dart';
+import 'mobile_home.dart';
 
 class LobbyDestination {
   const LobbyDestination(this.icon, this.label, this.onTap);
@@ -45,6 +46,7 @@ class LobbyLayout extends StatelessWidget {
         appBar: desktop
             ? null
             : AppBar(
+                toolbarHeight: constraints.maxWidth < 700 ? 60 : 68,
                 title: FrameBrand(compact: constraints.maxWidth < 420),
                 actions: [
                   const FrameThemeMenu(),
@@ -76,16 +78,40 @@ class LobbyLayout extends StatelessWidget {
                     if (desktop) _toolbar(context),
                     Expanded(
                       child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         padding: EdgeInsets.fromLTRB(
-                          desktop ? 40 : 20,
-                          desktop ? 36 : 24,
-                          desktop ? 40 : 20,
+                          desktop ? 40 : 16,
+                          desktop ? 36 : 16,
+                          desktop ? 40 : 16,
                           28,
                         ),
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1180),
-                            child: signedIn
+                            child: constraints.maxWidth < 700
+                                ? signedIn
+                                      ? MobileHome(
+                                          name: name,
+                                          create: create,
+                                          join: join,
+                                          verification: verification,
+                                          error: error,
+                                          onDiscover: onDiscover,
+                                          onSources: destinations[3].onTap,
+                                          shortcuts: destinations
+                                              .take(3)
+                                              .map(
+                                                (d) => (
+                                                  icon: d.icon,
+                                                  label: d.label,
+                                                  onTap: d.onTap,
+                                                ),
+                                              )
+                                              .toList(),
+                                        )
+                                      : _mobileWelcome(context)
+                                : signedIn
                                 ? _workspace(context)
                                 : _welcome(context),
                           ),
@@ -100,6 +126,52 @@ class LobbyLayout extends StatelessWidget {
         ),
       );
     },
+  );
+
+  Widget _mobileWelcome(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const SizedBox(height: 8),
+      const Text(
+        '此刻，我们同帧。',
+        style: TextStyle(
+          fontSize: 29,
+          height: 1.3,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -1,
+        ),
+      ),
+      const SizedBox(height: 10),
+      Text(
+        '一个放映室，和你想见的人。',
+        style: TextStyle(fontSize: 13, color: FrameColors.of(context).muted),
+      ),
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onDiscover,
+              icon: const Icon(Icons.explore_outlined, size: 17),
+              label: const Text('发现房间'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onGuestJoin,
+              icon: const Icon(Icons.meeting_room_outlined, size: 17),
+              label: const Text('访客加入'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 20),
+      login,
+      _error(context),
+      const SizedBox(height: 20),
+      const _Benefit(Icons.sync_rounded, '同一进度，同一瞬间'),
+    ],
   );
 
   Widget _toolbar(BuildContext context) => Container(

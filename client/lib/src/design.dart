@@ -467,35 +467,38 @@ class FrameSection extends StatelessWidget {
     required this.child,
     this.icon,
     this.trailing,
+    this.showHeading = true,
   });
   final String title;
   final String? subtitle;
   final Widget child;
   final IconData? icon;
   final Widget? trailing;
+  final bool showHeading;
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 700 ? 20 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: FrameColors.of(context).silver, size: 20),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge,
+          if (showHeading)
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: FrameColors.of(context).silver, size: 20),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
-              ),
-              ?trailing,
-            ],
-          ),
-          if (subtitle != null) ...[
+                ?trailing,
+              ],
+            ),
+          if (showHeading && subtitle != null) ...[
             const SizedBox(height: 8),
             Text(
               subtitle!,
@@ -506,7 +509,7 @@ class FrameSection extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 24),
+          if (showHeading) const SizedBox(height: 24),
           child,
         ],
       ),

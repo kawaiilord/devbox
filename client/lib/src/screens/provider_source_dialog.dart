@@ -131,6 +131,7 @@ class _ProviderSourceDialogState extends State<ProviderSourceDialog> {
     return PopScope(
       canPop: !_saving,
       child: AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         scrollable: true,
         title: Text(widget.source == null ? '连接平台或 NAS' : '更新媒体源连接'),
         content: SizedBox(
