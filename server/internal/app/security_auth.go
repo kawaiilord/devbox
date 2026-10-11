@@ -486,9 +486,13 @@ func (s *Server) adminLoginConfig(w http.ResponseWriter, r *http.Request) {
 			writeError(w, 400, errors.New("请设置正式 HTTPS 地址，或本机 HTTP 测试地址"))
 			return
 		}
-		// Keep a password recovery path for administrators until a verified external identity exists.
-		if !next.PasswordLogin {
-			writeError(w, 400, errors.New("管理员应保留密码登录作为恢复入口"))
+
+		alternative := next.EmailLogin || next.Passkeys
+		for _, p := range next.Providers {
+			alternative = alternative || p.Enabled
+		}
+		if !next.PasswordLogin && !alternative {
+			writeError(w, 400, errors.New("请至少保留一种登录方式"))
 			return
 		}
 		if len(next.Providers) > 12 || len(next.RPDisplayName) > 100 {

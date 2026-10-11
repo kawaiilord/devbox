@@ -205,7 +205,7 @@ func (s *Server) roomRTMP(w http.ResponseWriter, r *http.Request) {
 			_ = s.options.RTMP.kickPath(ctx, oldPath)
 		}
 		f := record.Features
-		entry := PlaylistEntry{ID: mustRandomString(10), Title: "直播 · " + room.Name, Sources: []PlaylistSource{{ID: mustRandomString(10), Label: "RTMP 直播", OwnerID: room.OwnerID, MediaSourceID: source.ID, MediaPath: "/live"}}}
+		entry := PlaylistEntry{ID: mustRandomString(10), Title: "直播 · " + room.Name, Sources: []PlaylistSource{{ID: mustRandomString(10), Label: "RTMP 直播", IsLive: true, OwnerID: room.OwnerID, MediaSourceID: source.ID, MediaPath: "/live"}}}
 		entry.SelectedSourceID = entry.Sources[0].ID
 		kept := []PlaylistEntry{}
 		for _, item := range f.Playlist {
@@ -260,9 +260,20 @@ func (m *RTMPService) request(ctx context.Context, method, p string) (*http.Resp
 	return m.client.Do(req)
 }
 func (m *RTMPService) connections(ctx context.Context) ([]RTMPConnection, error) {
+	result := []RTMPConnection{}
+	for _, protocol := range []string{"rtmp", "rtmps"} {
+		items, e := m.protocolConnections(ctx, protocol)
+		if e != nil {
+			return nil, e
+		}
+		result = append(result, items...)
+	}
+	return result, nil
+}
+func (m *RTMPService) protocolConnections(ctx context.Context, protocol string) ([]RTMPConnection, error) {
 	items := []RTMPConnection{}
 	for page := 0; page < 100; page++ {
-		res, e := m.request(ctx, "GET", fmtRTMPListPage(page))
+		res, e := m.request(ctx, "GET", "/v3/"+protocol+"/conns/list?itemsPerPage=100&page="+strconv.Itoa(page))
 		if e != nil {
 			return nil, e
 		}
@@ -286,20 +297,22 @@ func (m *RTMPService) connections(ctx context.Context) ([]RTMPConnection, error)
 	}
 	return nil, errors.New("RTMP 连接数量超出管理上限")
 }
-func fmtRTMPListPage(page int) string {
-	return "/v3/rtmp/conns/list?itemsPerPage=100&page=" + strconv.Itoa(page)
-}
 func (m *RTMPService) kick(ctx context.Context, id string) error {
 	if !regexp.MustCompile(`^[a-fA-F0-9-]{36}$`).MatchString(id) {
 		return ErrForbidden
 	}
-	res, e := m.request(ctx, "POST", "/v3/rtmp/conns/kick/"+id)
-	if e != nil {
-		return e
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 && res.StatusCode != 404 {
-		return errors.New("无法断开推流连接")
+	for _, protocol := range []string{"rtmp", "rtmps"} {
+		res, e := m.request(ctx, "POST", "/v3/"+protocol+"/conns/kick/"+id)
+		if e != nil {
+			return e
+		}
+		res.Body.Close()
+		if res.StatusCode == 200 {
+			return nil
+		}
+		if res.StatusCode != 404 {
+			return errors.New("无法断开推流连接")
+		}
 	}
 	return nil
 }
