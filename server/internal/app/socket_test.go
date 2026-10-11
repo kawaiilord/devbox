@@ -22,7 +22,10 @@ func TestOwnerControlBroadcastsAuthoritativeSnapshot(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	owner := User{ID: "owner", DisplayName: "Owner"}
+	owner := User{ID: "owner", DisplayName: "Owner", Email: "owner@socket.test", SessionVersion: 1}
+	if err := server.repo.CreateUser(ctx, AccountRecord{User: owner, PasswordHash: "!test-fixture", CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
 	room, _ := server.store.CreateRoom(owner, "Socket room", "https://example.com/movie.mp4", 4)
 	if err := server.repo.SaveRoom(ctx, room); err != nil {
 		t.Fatal(err)

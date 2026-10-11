@@ -93,6 +93,24 @@ func NewServer(options Options) *Server {
 		s.limiter = options.Redis.RateLimiter()
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/admin/session", s.adminSession)
+	mux.HandleFunc("GET /api/v1/admin/managed-users", s.adminManagedUsers)
+	mux.HandleFunc("POST /api/v1/admin/managed-users", s.adminCreateManagedUser)
+	mux.HandleFunc("POST /api/v1/admin/managed-users/batch", s.adminBatchUsers)
+	mux.HandleFunc("PUT /api/v1/admin/managed-users/{id}", s.adminChangeUser)
+	mux.HandleFunc("GET /api/v1/admin/rooms", s.adminRooms)
+	mux.HandleFunc("GET /api/v1/admin/rooms/{code}", s.adminRoom)
+	mux.HandleFunc("PUT /api/v1/admin/rooms/{code}", s.adminChangeRoom)
+	mux.HandleFunc("POST /api/v1/admin/rooms/batch", s.adminBatchRooms)
+	mux.HandleFunc("POST /api/v1/admin/rooms/{code}/playback", s.adminRoomPlayback)
+	mux.HandleFunc("GET /api/v1/admin/media-sources", s.adminSources)
+	mux.HandleFunc("PUT /api/v1/admin/media-sources/{id}", s.adminChangeSource)
+	mux.HandleFunc("POST /api/v1/admin/media-sources/{id}/probe", s.adminProbeSource)
+	mux.HandleFunc("GET /api/v1/admin/site-policy", s.adminPolicy)
+	mux.HandleFunc("PUT /api/v1/admin/site-policy", s.adminPolicy)
+	mux.HandleFunc("GET /api/v1/admin/taxonomy", s.adminTaxonomy)
+	mux.HandleFunc("PUT /api/v1/admin/taxonomy", s.adminTaxonomy)
+	mux.HandleFunc("GET /api/v1/room-taxonomy", s.publicTaxonomy)
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /readyz", s.ready)
 	mux.Handle("GET /metrics", s.metrics.Handler(options.MetricsToken))
@@ -229,7 +247,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("HEAD /media/{ticket}", s.proxyMedia)
 	mux.HandleFunc("GET /media/{ticket}/{resource...}", s.proxyMedia)
 	mux.HandleFunc("HEAD /media/{ticket}/{resource...}", s.proxyMedia)
-	mux.HandleFunc("POST /api/v1/rooms", s.createRoom)
+	mux.HandleFunc("POST /api/v1/rooms", s.withRoomCreationPolicy(s.createRoom))
 	mux.HandleFunc("POST /api/v1/rooms/{code}/join", s.joinRoom)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/socket-ticket", s.socketTicket)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/media-ticket", s.issueRoomMediaTicket)
@@ -340,6 +358,12 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 			features[key] = enabled
 		}
 	}
+	if policy, _, policyErr := s.sitePolicy(r.Context()); policyErr == nil {
+		features["registration"] = policy.RegistrationEnabled
+		features["room_creation"] = policy.RoomCreationEnabled
+		features["guests"] = policy.GuestsEnabled
+		features["chat"] = features["chat"] && policy.ChatEnabled
+	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
 		"maintenance_mode":     runtimeConfig.Maintenance.Enabled,
 		"maintenance_message":  runtimeConfig.Maintenance.Message,
@@ -379,6 +403,15 @@ func (s *Server) demoSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {
+	policy, _, policyErr := s.sitePolicy(r.Context())
+	if policyErr != nil {
+		writeError(w, 503, errors.New("注册服务暂不可用"))
+		return
+	}
+	if !policy.RegistrationEnabled {
+		writeError(w, 403, errors.New("站点当前暂停注册，请联系管理员"))
+		return
+	}
 	var request struct {
 		Email       string `json:"email"`
 		DisplayName string `json:"display_name"`
@@ -772,6 +805,8 @@ func (s *Server) issueMediaTicket(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	ticket.ViewerID = user.ID
+	ticket.ViewerSessionVersion = user.SessionVersion
 	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), ticket, 5*time.Minute)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, errors.New("could not issue media ticket"))
@@ -834,6 +869,12 @@ func (s *Server) roomMessages(w http.ResponseWriter, r *http.Request) {
 	if limit < 1 || limit > 100 {
 		limit = 50
 	}
+	policy, _, policyErr := s.sitePolicy(r.Context())
+	if policyErr != nil {
+		writeError(w, 503, errors.New("聊天策略暂不可用"))
+		return
+	}
+	limit = min(limit, policy.ChatHistoryLimit)
 	privacy, err := s.repo.GetPrivacy(r.Context(), user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, errors.New("could not load privacy settings"))
@@ -925,6 +966,7 @@ func (s *Server) issueRoomSubtitleTicket(w http.ResponseWriter, r *http.Request)
 	}
 	ticket.RoomCode = room.Code
 	ticket.ViewerID = user.ID
+	ticket.ViewerSessionVersion = user.SessionVersion
 	ticket.SourceVersion = room.Playback.SourceVersion
 	raw, expiresAt, err := s.redis.IssueMediaTicket(r.Context(), ticket, 15*time.Minute)
 	if err != nil {
@@ -966,7 +1008,12 @@ func (s *Server) issueTicketForRoom(
 		return Room{}, time.Time{}, err
 	}
 	ticket.RoomCode = room.Code
+	viewerAccount, viewerErr := s.repo.UserByID(ctx, viewer)
+	if viewerErr != nil || !accountActive(viewerAccount.User) {
+		return Room{}, time.Time{}, ErrUnauthorized
+	}
 	ticket.ViewerID = viewer
+	ticket.ViewerSessionVersion = viewerAccount.SessionVersion
 	ticket.SourceVersion = room.Playback.SourceVersion
 	raw, expiresAt, err := s.redis.IssueMediaTicket(ctx, ticket, 5*time.Minute)
 	if err != nil {
@@ -1003,8 +1050,23 @@ func (s *Server) proxyMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, ErrUnauthorized)
 		return
 	}
+	viewerID := ticket.ViewerID
+	if viewerID == "" {
+		viewerID = ticket.UserID
+	}
+	if err := s.validateLiveUser(r.Context(), User{ID: viewerID, SessionVersion: ticket.ViewerSessionVersion}); err != nil {
+		writeError(w, 401, ErrUnauthorized)
+		return
+	}
+	if ticket.ViewerSessionVersion == 0 {
+		a, err := s.repo.UserByID(r.Context(), viewerID)
+		if err != nil || a.SessionVersion > 1 {
+			writeError(w, 401, ErrUnauthorized)
+			return
+		}
+	}
 	if ticket.RoomCode != "" {
-		room, f, err := s.authorizedRoom(r.Context(), ticket.RoomCode, User{ID: ticket.ViewerID})
+		room, f, err := s.authorizedRoom(r.Context(), ticket.RoomCode, User{ID: ticket.ViewerID, SessionVersion: ticket.ViewerSessionVersion})
 		if err != nil || f.blocked(ticket.ViewerID) || room.Playback.SourceVersion != ticket.SourceVersion {
 			writeError(w, http.StatusUnauthorized, ErrUnauthorized)
 			return
@@ -1093,6 +1155,18 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	policy, _, policyErr := s.sitePolicy(r.Context())
+	if policyErr != nil {
+		writeError(w, 503, errors.New("房间策略暂不可用"))
+		return
+	}
+	if request.MaxMembers == 0 {
+		request.MaxMembers = policy.DefaultMaxMembers
+	}
+	if request.MaxMembers > policy.MaxRoomMembers {
+		writeError(w, 400, errors.New("人数上限超过站点限制"))
 		return
 	}
 	if !validWatchSeconds(request.StartPosition) {
@@ -1272,8 +1346,8 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 	} else {
 		user, err = s.store.ConsumeSocketTicket(r.URL.Query().Get("ticket"), code)
 	}
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, err)
+	if err != nil || user.SessionVersion < 1 {
+		writeError(w, http.StatusUnauthorized, ErrUnauthorized)
 		return
 	}
 	if err := s.refreshRedisRoom(r.Context(), code); err != nil && !errors.Is(err, ErrNotFound) {
@@ -1346,6 +1420,9 @@ func (s *Server) roomSocket(w http.ResponseWriter, r *http.Request) {
 		if readErr != nil {
 			return
 		}
+		if s.validateLiveUser(ctx, user) != nil {
+			return
+		}
 		var envelope Envelope
 		if json.Unmarshal(message, &envelope) != nil {
 			continue
@@ -1382,6 +1459,11 @@ func (s *Server) handleChatMessage(
 	user User,
 	payload json.RawMessage,
 ) {
+	policy, _, policyErr := s.sitePolicy(ctx)
+	if policyErr != nil || !policy.ChatEnabled {
+		s.sendSocketError(client, roomCode, errors.New("站点当前暂停房间聊天"))
+		return
+	}
 	room, features, roomErr := s.authorizedRoom(ctx, roomCode, user)
 	if roomErr != nil || !features.grants(room, user.ID).Chat {
 		s.sendSocketError(client, roomCode, ErrForbidden)
@@ -1434,10 +1516,19 @@ func (s *Server) chatRateAllowed(ctx context.Context, roomCode, userID string) b
 }
 
 func (s *Server) writeSocket(ctx context.Context, conn *websocket.Conn, client *socketClient) {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-ticker.C:
+			if err := s.validateLiveUser(ctx, client.user); err != nil {
+				if client.cancel != nil {
+					client.cancel()
+				}
+				return
+			}
 		case message := <-client.send:
 			writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			err := conn.Write(writeCtx, websocket.MessageText, message)
@@ -1506,6 +1597,21 @@ func (s *Server) emitEnvelope(ctx context.Context, envelope Envelope) {
 }
 
 func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
+	if envelope.Type == "admin.user.invalidated" {
+		var payload struct {
+			UserID string `json:"user_id"`
+		}
+		if json.Unmarshal(envelope.Payload, &payload) == nil {
+			s.hub.DisconnectUser(payload.UserID)
+		}
+		return
+	}
+	if envelope.Type == "admin.policy.changed" {
+		if policy, _, err := s.sitePolicy(ctx); err == nil && !policy.GuestsEnabled {
+			s.hub.DisconnectGuests()
+		}
+		return
+	}
 	if envelope.Type == "room.member_removed" {
 		var payload struct {
 			UserID string `json:"user_id"`
@@ -1519,6 +1625,9 @@ func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
 		var room Room
 		if json.Unmarshal(envelope.Payload, &room) != nil {
 			return
+		}
+		if room.Closed {
+			defer s.hub.DisconnectRoom(room.Code)
 		}
 		f, err := s.repo.GetRoomFeatures(ctx, room.Code)
 		if err != nil {

@@ -65,6 +65,9 @@ var roomFeaturesMigration string
 //go:embed migrations/017_provider_sources.sql
 var providerSourcesMigration string
 
+//go:embed migrations/018_admin_management.sql
+var adminManagementMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -103,6 +106,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		quarkSourcesMigration,
 		roomFeaturesMigration,
 		providerSourcesMigration,
+		adminManagementMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -135,7 +139,7 @@ func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (Acc
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
 		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
-		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0)
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0), account_status, status_reason, admin_version
 		 FROM users WHERE email = lower($1)`,
 		email,
 	))
@@ -146,7 +150,7 @@ func (r *PostgresRepository) UserByID(ctx context.Context, id string) (AccountRe
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
 		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
-		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0)
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0), account_status, status_reason, admin_version
 		 FROM users WHERE id = $1`,
 		id,
 	))
@@ -166,6 +170,7 @@ func scanAccount(row pgx.Row) (AccountRecord, error) {
 		&account.Signature,
 		&account.AdminRole,
 		&account.VIPExpiresAt,
+		&account.AccountStatus, &account.StatusReason, &account.AdminVersion,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AccountRecord{}, ErrInvalidCredentials
@@ -177,8 +182,18 @@ func (r *PostgresRepository) StoreRefreshToken(
 	ctx context.Context,
 	userID, deviceHash, hash string,
 	expiresAt time.Time,
+	version int64,
 ) error {
-	_, err := r.pool.Exec(
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var current int64
+	if err = tx.QueryRow(ctx, `SELECT session_version FROM users WHERE id=$1 AND account_status='active' FOR SHARE`, userID).Scan(&current); err != nil || current != version {
+		return ErrInvalidCredentials
+	}
+	_, err = tx.Exec(
 		ctx,
 		`INSERT INTO refresh_tokens (token_hash, user_id, device_hash, expires_at) VALUES ($1, $2, $3, $4)`,
 		hash,
@@ -186,7 +201,10 @@ func (r *PostgresRepository) StoreRefreshToken(
 		deviceHash,
 		expiresAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) RotateRefreshToken(
@@ -235,7 +253,7 @@ func (r *PostgresRepository) RotateRefreshToken(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
 		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
-		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0) FROM users WHERE id = $1`,
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0), account_status, status_reason, admin_version FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -460,7 +478,7 @@ func (r *PostgresRepository) ConsumeActionToken(
 		ctx,
 		`SELECT id, email, display_name, password_hash, created_at,
 		 email_verified_at IS NOT NULL, session_version, is_admin, signature, admin_role,
-		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0) FROM users WHERE id = $1`,
+		 COALESCE((extract(epoch FROM vip_expires_at) * 1000)::bigint, 0), account_status, status_reason, admin_version FROM users WHERE id = $1`,
 		userID,
 	))
 	if err != nil {
@@ -514,7 +532,7 @@ func (r *PostgresRepository) ListMediaSources(ctx context.Context, userID string
 		ctx,
 		`SELECT id, user_id, source_type, name, base_url, credentials_ciphertext,
 		 (extract(epoch FROM created_at) * 1000)::bigint,
-		 (extract(epoch FROM updated_at) * 1000)::bigint
+		 (extract(epoch FROM updated_at) * 1000)::bigint, disabled, admin_version
 		 FROM media_sources WHERE user_id = $1 ORDER BY created_at`,
 		userID,
 	)
@@ -534,6 +552,7 @@ func (r *PostgresRepository) ListMediaSources(ctx context.Context, userID string
 			&source.CredentialsCiphertext,
 			&source.CreatedAt,
 			&source.UpdatedAt,
+			&source.Disabled, &source.AdminVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -563,7 +582,7 @@ func (r *PostgresRepository) GetMediaSource(
 		ctx,
 		`SELECT id, user_id, source_type, name, base_url, credentials_ciphertext,
 		 (extract(epoch FROM created_at) * 1000)::bigint,
-		 (extract(epoch FROM updated_at) * 1000)::bigint
+		 (extract(epoch FROM updated_at) * 1000)::bigint, disabled, admin_version
 		 FROM media_sources WHERE id = $1 AND user_id = $2`,
 		sourceID,
 		userID,
@@ -576,6 +595,7 @@ func (r *PostgresRepository) GetMediaSource(
 		&source.CredentialsCiphertext,
 		&source.CreatedAt,
 		&source.UpdatedAt,
+		&source.Disabled, &source.AdminVersion,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MediaSource{}, ErrNotFound
@@ -1415,7 +1435,7 @@ func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 		 COALESCE(media_source_id, ''), COALESCE(media_path, ''),
 		 max_members, created_at, expires_at,
 		 position, playing, speed, episode, position_ts, source_version,
-		 closed_at IS NOT NULL FROM rooms`,
+		 closed_at IS NOT NULL, admin_epoch FROM rooms`,
 	)
 	if err != nil {
 		return nil, err
@@ -1442,6 +1462,7 @@ func (r *PostgresRepository) LoadRooms(ctx context.Context) ([]Room, error) {
 			&room.Playback.PositionTS,
 			&room.Playback.SourceVersion,
 			&room.Closed,
+			&room.AdminEpoch,
 		); err != nil {
 			return nil, err
 		}

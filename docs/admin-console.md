@@ -10,8 +10,8 @@ The appearance control offers light (default), dark, and system modes; the
 preference is saved locally and applied before the stylesheet loads. Session
 tokens remain in sessionStorage. Theme changes do not reload a form.
 
-Desktop navigation groups all 13 pages in a sidebar. At widths up to 820px,
-the bottom bar offers Overview, Users, Orders, and All; All opens the complete
+Desktop navigation groups all 17 pages in a sidebar. At widths up to 820px,
+the bottom bar offers Overview, Rooms, Users, Orders, and All; All opens the complete
 navigation drawer, with keyboard focus containment and Escape to close.
 Dashboard figures and pending-review counts come from the administrative API;
 no synthetic trends or example figures are displayed. Revenue is shown in CNY
@@ -36,6 +36,10 @@ state; stale JWT role claims cannot grant access.
   ban/unban, order reconciliation, VIP adjustments, dashboard, and audit.
 - `operator`: dashboard, user lookup, announcements, and broadcasts.
 - `seller`: order visibility and one-time activation-code generation.
+
+The users, rooms, media sources, taxonomy, and site-policy workflows are described in
+[Admin management alignment](admin-alignment.md). Management navigation is filtered
+using permissions returned by `/api/v1/admin/session`; the server remains authoritative.
 
 Only a super administrator can assign roles. Self-demotion through the role API
 is rejected to reduce accidental lockout. Bootstrap super administrators with

@@ -181,6 +181,7 @@ func (r *MemoryRepository) SetAdminRole(_ context.Context, userID, role, actor s
 		return ErrNotFound
 	}
 	account.AdminRole, account.IsAdmin = role, role != ""
+	account.AdminVersion = managedUser(account).Version + 1
 	r.usersByID[userID] = account
 	r.appendAuditLocked(AuditEvent{ActorID: actor, Action: "user.role.update", TargetType: "user", TargetID: userID, Metadata: map[string]any{"role": role}})
 	return nil

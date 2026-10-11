@@ -11,6 +11,33 @@ type socketClient struct {
 	cancel func()
 }
 
+func (h *Hub) DisconnectUser(userID string) {
+	h.disconnectMatching(func(_ string, user User) bool { return user.ID == userID })
+}
+func (h *Hub) DisconnectRoom(code string) {
+	h.disconnectMatching(func(room string, _ User) bool { return room == code })
+}
+func (h *Hub) DisconnectGuests() {
+	h.disconnectMatching(func(_ string, user User) bool { return user.GuestRoomCode != "" })
+}
+func (h *Hub) disconnectMatching(match func(string, User) bool) {
+	h.mu.RLock()
+	clients := []*socketClient{}
+	for room, members := range h.clients {
+		for client := range members {
+			if match(room, client.user) {
+				clients = append(clients, client)
+			}
+		}
+	}
+	h.mu.RUnlock()
+	for _, client := range clients {
+		if client.cancel != nil {
+			client.cancel()
+		}
+	}
+}
+
 func (h *Hub) BroadcastFor(roomCode string, transform func(User) *Envelope) {
 	h.mu.RLock()
 	clients := make([]*socketClient, 0, len(h.clients[roomCode]))

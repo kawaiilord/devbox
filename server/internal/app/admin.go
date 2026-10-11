@@ -13,8 +13,8 @@ import (
 
 var rolePermissions = map[string]map[string]bool{
 	"super_admin": {"*": true},
-	"admin":       {"report.review": true, "compliance.review": true, "broadcast.send": true, "bot.manage": true, "announcement.manage": true, "order.view": true, "order.reconcile": true, "observability.view": true, "user.view": true, "user.vip.manage": true, "device.ban": true, "device.unban": true, "audit.view": true},
-	"operator":    {"broadcast.send": true, "announcement.manage": true, "observability.view": true, "user.view": true},
+	"admin":       {"user.manage": true, "room.view": true, "room.manage": true, "taxonomy.manage": true, "source.manage": true, "report.review": true, "compliance.review": true, "broadcast.send": true, "bot.manage": true, "announcement.manage": true, "order.view": true, "order.reconcile": true, "observability.view": true, "user.view": true, "user.vip.manage": true, "device.ban": true, "device.unban": true, "audit.view": true},
+	"operator":    {"room.view": true, "broadcast.send": true, "announcement.manage": true, "observability.view": true, "user.view": true},
 	"seller":      {"order.view": true, "activation_code.manage": true},
 }
 
@@ -269,8 +269,13 @@ func (s *Server) adminSetRole(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, errors.New("invalid role update"))
 		return
 	}
-	if err := s.repo.SetAdminRole(r.Context(), r.PathValue("id"), request.Role, admin.ID); err != nil {
-		writeStoreError(w, err)
+	target, err := s.repo.UserByID(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeAdminError(w, ErrNotFound)
+		return
+	}
+	if _, err := s.repo.AdminMutateUser(r.Context(), target.ID, admin.ID, AdminUserChange{Action: "role", Role: request.Role, Version: managedUser(target).Version}); err != nil {
+		writeAdminError(w, err)
 		return
 	}
 	writeJSON(w, 200, apiResponse{Code: 0, Msg: "updated"})

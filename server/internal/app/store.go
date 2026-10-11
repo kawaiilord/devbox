@@ -70,10 +70,13 @@ func (s *Store) UpsertAuthoritativeRoom(room Room, serverSeq int64) {
 	defer s.mu.Unlock()
 	existing := s.rooms[room.Code]
 	if existing != nil {
-		if existing.room.Closed && !room.Closed {
+		if room.AdminEpoch < existing.room.AdminEpoch {
 			return
 		}
-		if serverSeq < existing.serverSeq && !room.Closed {
+		if existing.room.Closed && !room.Closed && room.AdminEpoch <= existing.room.AdminEpoch {
+			return
+		}
+		if serverSeq < existing.serverSeq && !room.Closed && room.AdminEpoch <= existing.room.AdminEpoch {
 			return
 		}
 	}

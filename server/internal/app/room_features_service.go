@@ -15,12 +15,16 @@ func (s *Server) withRoomMutation(ctx context.Context, code string, work func(co
 	if len(code) != 6 {
 		return ErrNotFound
 	}
+	return s.withNamedMutation(ctx, strings.ToUpper(code), work)
+}
+
+func (s *Server) withNamedMutation(ctx context.Context, name string, work func(context.Context) error) error {
 	if s.redis == nil {
 		s.roomMutationMu.Lock()
 		defer s.roomMutationMu.Unlock()
 		return work(ctx)
 	}
-	key := s.redis.prefix + ":mutation:" + strings.ToUpper(code)
+	key := s.redis.prefix + ":mutation:" + name
 	token := mustRandomString(18)
 	deadline := time.NewTimer(2 * time.Second)
 	defer deadline.Stop()
@@ -71,6 +75,9 @@ func (s *Server) withRoomMutation(ctx context.Context, code string, work func(co
 }
 
 func (s *Server) authorizedRoom(ctx context.Context, code string, user User) (Room, RoomFeatures, error) {
+	if err := s.validateLiveUser(ctx, user); err != nil {
+		return Room{}, RoomFeatures{}, err
+	}
 	code = strings.ToUpper(code)
 	if err := s.refreshRedisRoom(ctx, code); err != nil && !errors.Is(err, ErrNotFound) {
 		return Room{}, RoomFeatures{}, err
@@ -82,6 +89,15 @@ func (s *Server) authorizedRoom(ctx context.Context, code string, user User) (Ro
 	f, err := s.repo.GetRoomFeatures(ctx, code)
 	if err != nil {
 		return Room{}, RoomFeatures{}, err
+	}
+	if f.AdminState == "banned" || f.AdminState == "deleted" {
+		return Room{}, RoomFeatures{}, ErrRoomClosed
+	}
+	if f.role(room, user.ID) == "guest" {
+		policy, _, err := s.sitePolicy(ctx)
+		if err != nil || !policy.GuestsEnabled {
+			return Room{}, RoomFeatures{}, ErrForbidden
+		}
 	}
 	if f.blocked(user.ID) || (f.role(room, user.ID) == "guest" && !f.AllowGuests) {
 		return Room{}, RoomFeatures{}, ErrForbidden

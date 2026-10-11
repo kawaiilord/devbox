@@ -231,6 +231,10 @@ func (s *Server) socialSocket(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
+	if err = s.validateLiveUser(r.Context(), user); err != nil || user.SessionVersion < 1 {
+		writeError(w, 401, ErrUnauthorized)
+		return
+	}
 	options := &websocket.AcceptOptions{OriginPatterns: s.options.AllowedOrigins}
 	for _, origin := range s.options.AllowedOrigins {
 		if strings.TrimSpace(origin) == "*" {
@@ -244,7 +248,7 @@ func (s *Server) socialSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	client := &socketClient{user: user, send: make(chan []byte, 32)}
+	client := &socketClient{user: user, send: make(chan []byte, 32), cancel: cancel}
 	unsubscribe := s.hub.Subscribe(socialChannel(user.ID), client)
 	defer func() { unsubscribe(); cancel(); _ = conn.Close(websocket.StatusNormalClosure, "goodbye") }()
 	count, _ := s.repo.UnreadDirectCount(ctx, user.ID)

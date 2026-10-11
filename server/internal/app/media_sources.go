@@ -374,6 +374,9 @@ func (m *MediaSourceManager) loadSourceSecret(
 	if err != nil {
 		return MediaSource{}, nil, err
 	}
+	if source.Disabled {
+		return MediaSource{}, nil, errors.New("此媒体来源已被管理员停用")
+	}
 	plaintext, err := m.vault.Decrypt(
 		source.CredentialsCiphertext, sourceAAD(userID, sourceID),
 	)

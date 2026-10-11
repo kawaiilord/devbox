@@ -37,11 +37,12 @@ type ActionTokenRecord struct {
 }
 
 type Repository interface {
+	AdminManagementRepository
 	Ping(context.Context) error
 	CreateUser(context.Context, AccountRecord) error
 	UserByEmail(context.Context, string) (AccountRecord, error)
 	UserByID(context.Context, string) (AccountRecord, error)
-	StoreRefreshToken(context.Context, string, string, string, time.Time) error
+	StoreRefreshToken(context.Context, string, string, string, time.Time, int64) error
 	RotateRefreshToken(context.Context, string, string, string, time.Time) (RefreshIdentity, error)
 	RevokeRefreshToken(context.Context, string) error
 	RevokeUserRefreshTokens(context.Context, string) error
@@ -184,6 +185,7 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
+	adminDocuments         map[string]AdminDocument
 	mu                     sync.RWMutex
 	usersByID              map[string]AccountRecord
 	usersByMail            map[string]string
@@ -325,6 +327,12 @@ func (r *MemoryRepository) CreateUser(_ context.Context, account AccountRecord) 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	email := strings.ToLower(account.Email)
+	if account.AccountStatus == "" {
+		account.AccountStatus = "active"
+	}
+	if account.AdminVersion == 0 {
+		account.AdminVersion = 1
+	}
 	if _, exists := r.usersByMail[email]; exists {
 		return ErrEmailExists
 	}
@@ -353,10 +361,14 @@ func (r *MemoryRepository) UserByID(_ context.Context, id string) (AccountRecord
 	return account, nil
 }
 
-func (r *MemoryRepository) StoreRefreshToken(_ context.Context, userID, deviceHash, hash string, expiresAt time.Time) error {
+func (r *MemoryRepository) StoreRefreshToken(_ context.Context, userID, deviceHash, hash string, expiresAt time.Time, version int64) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
+	account, ok := r.usersByID[userID]
+	if !ok || !accountActive(account.User) || account.SessionVersion != version {
+		return ErrInvalidCredentials
+	}
 	r.refresh[hash] = memoryRefreshToken{userID: userID, deviceHash: deviceHash, expiresAt: expiresAt}
-	r.mu.Unlock()
 	return nil
 }
 

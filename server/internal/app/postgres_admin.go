@@ -186,7 +186,7 @@ func (r *PostgresRepository) SetAdminRole(ctx context.Context, userID, role, act
 		return err
 	}
 	defer tx.Rollback(ctx)
-	command, err := tx.Exec(ctx, `UPDATE users SET admin_role=$2,is_admin=($2<>'') WHERE id=$1`, userID, role)
+	command, err := tx.Exec(ctx, `UPDATE users SET admin_role=$2,is_admin=($2<>''),admin_version=admin_version+1 WHERE id=$1`, userID, role)
 	if err != nil {
 		return err
 	}

@@ -41,7 +41,9 @@ function icon(name) {
 }
 const tabs = [
   ['dashboard', '数据概览', 'OVERVIEW', '用户、房间与运营待办，一目了然。', '工作空间'],
+  ['rooms', '房间管理', 'ROOMS', '管理全站房间、成员权限与同步播放。', '工作空间'],
   ['users', '用户管理', 'PEOPLE', '查看用户信息，管理角色与会员权益。', '工作空间'],
+  ['taxonomy', '分类与标签', 'TAXONOMY', '统一管理房间分类、标签与展示顺序。', '工作空间'],
   ['announcements', '公告管理', 'ANNOUNCEMENTS', '把重要的消息，传递给每一位用户。', '工作空间'],
   ['reports', '举报审核', 'MODERATION', '集中处理用户举报，维护良好的观影环境。', '内容与安全'],
   ['deletions', '注销申请', 'ACCOUNT REQUESTS', '核验账号注销申请与处理结果。', '内容与安全'],
@@ -51,15 +53,26 @@ const tabs = [
   ['plans', '会员套餐', 'MEMBERSHIP', '管理套餐价格、有效期与上架状态。', '商业化'],
   ['codes', '激活卡密', 'ACTIVATION CODES', '按批次生成会员激活码。', '商业化'],
   ['config', '运行配置', 'CONFIGURATION', '管理维护模式、全局公告与功能开关。', '系统'],
+  ['policy', '站点策略', 'SITE POLICIES', '配置注册、建房、访客和聊天策略，即时生效。', '系统'],
+  ['sources', '媒体服务', 'MEDIA SERVICES', '管理全站已绑定的媒体来源与连接状态。', '系统'],
   ['bot', '房间 Bot', 'ROOM ASSISTANT', '配置房间助手的身份、策略与服务连接。', '系统'],
   ['audit', '操作审计', 'AUDIT LOG', '追踪管理操作，查看审计链的完整性。', '系统']
 ];
+icons.rooms = icons.room;
+icons.taxonomy = icons.layers;
+icons.sources = icons.layers;
+icons.policy = icons.config;
+const tabPermissions = {dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
 const state = {
+  permissions: [],
+  filters: {},
+  roomCode: '',
   token: sessionStorage.getItem('sf_admin_token') || '',
   device: localStorage.getItem('sf_admin_device') || crypto.randomUUID(),
   tab: sessionStorage.getItem('sf_admin_tab') || 'dashboard',
   request: 0
 };
+const can = permission => state.permissions.includes('*') || state.permissions.includes(permission);
 if (!tabs.some(([id]) => id === state.tab)) state.tab = 'dashboard';
 localStorage.setItem('sf_admin_device', state.device);
 const mobile = matchMedia('(max-width: 820px)');
@@ -105,6 +118,13 @@ function logout() {
   location.reload();
 }
 async function start() {
+  const session = await api('/api/v1/admin/session');
+  state.permissions = session.permissions;
+  state.user = session.user;
+  if (!can(tabPermissions[state.tab])) state.tab = tabs.find(([id]) => can(tabPermissions[id]))?.[0] || 'dashboard';
+  document.querySelector('.account-copy strong').textContent = session.user.display_name;
+  document.querySelector('.account-copy span').textContent = roles[session.role] || session.role;
+  document.querySelectorAll('#mobileDock [data-tab]').forEach(button => { button.hidden = !can(tabPermissions[button.dataset.tab]); });
   $('login').hidden = true;
   $('console').hidden = false;
   renderTabs();
@@ -112,8 +132,9 @@ async function start() {
   await loadTab();
 }
 function renderTabs() {
-  const groups = [...new Set(tabs.map(tab => tab[4]))];
-  $('tabs').innerHTML = groups.map(group => `<div class="nav-group"><p class="nav-label">${group}</p>${tabs.filter(tab => tab[4] === group).map(([id, label]) => `<button type="button" class="nav-button" data-tab="${id}">${icon(id)}<span>${label}</span></button>`).join('')}</div>`).join('');
+  const visibleTabs = tabs.filter(([id]) => can(tabPermissions[id]));
+  const groups = [...new Set(visibleTabs.map(tab => tab[4]))];
+  $('tabs').innerHTML = groups.map(group => `<div class="nav-group"><p class="nav-label">${group}</p>${visibleTabs.filter(tab => tab[4] === group).map(([id, label]) => `<button type="button" class="nav-button" data-tab="${id}">${icon(id)}<span>${label}</span></button>`).join('')}</div>`).join('');
   bindNavigation($('tabs'));
 }
 function bindNavigation(root) {
@@ -126,10 +147,11 @@ function updateNavigation() {
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  $('openMenu').classList.toggle('active', !['dashboard', 'users', 'orders'].includes(state.tab));
+  $('openMenu').classList.toggle('active', !['dashboard', 'rooms', 'users', 'orders'].includes(state.tab));
 }
 function navigate(tab) {
   if (!tabs.some(([id]) => id === tab)) return;
+  if (!can(tabPermissions[tab])) { notify('当前账号没有此项权限', true); return; }
   state.tab = tab;
   sessionStorage.setItem('sf_admin_tab', tab);
   setMenu(false, false);
@@ -230,4 +252,9 @@ document.addEventListener('keydown', event => {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 });
-if (state.token) start();
+if (state.token) start().catch(error => {
+  sessionStorage.removeItem('sf_admin_token');
+  state.token = '';
+  $('loginError').textContent = error.message;
+  $('loginError').hidden = false;
+});

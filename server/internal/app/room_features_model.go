@@ -44,6 +44,8 @@ type MediaVariant struct {
 
 // This is the private persistence record, never a response payload.
 type RoomFeatures struct {
+	AdminState    string                     `json:"admin_state,omitempty"`
+	AdminReason   string                     `json:"admin_reason,omitempty"`
 	GuestExpiries map[string]int64           `json:"guest_expiries,omitempty"`
 	Version       int64                      `json:"version"`
 	Visibility    string                     `json:"visibility"`

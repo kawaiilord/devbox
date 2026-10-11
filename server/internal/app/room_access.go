@@ -400,6 +400,11 @@ func (s *AuthService) createGuest(ctx context.Context, code, name string, expire
 }
 
 func (s *Server) joinRoomAsGuest(w http.ResponseWriter, r *http.Request) {
+	policy, _, policyErr := s.sitePolicy(r.Context())
+	if policyErr != nil || !policy.GuestsEnabled {
+		writeError(w, 403, errors.New("站点当前未开放访客访问"))
+		return
+	}
 	if !s.enforceRateLimit(w, r, "guest-create", requestPeerIP(r), 10, time.Hour) {
 		return
 	}

@@ -24,8 +24,9 @@ type PresenceSnapshot struct {
 }
 
 type redisTicket struct {
-	Room string `json:"room"`
-	User User   `json:"user"`
+	SessionVersion int64  `json:"session_version"`
+	Room           string `json:"room"`
+	User           User   `json:"user"`
 }
 
 type RedisCoordinator struct {
@@ -223,7 +224,7 @@ func (r *RedisCoordinator) Subscribe(ctx context.Context) (*redis.PubSub, error)
 
 func (r *RedisCoordinator) IssueTicket(ctx context.Context, code string, user User) (string, error) {
 	ticket := mustRandomString(24)
-	encoded, err := json.Marshal(redisTicket{Room: strings.ToUpper(code), User: user})
+	encoded, err := json.Marshal(redisTicket{Room: strings.ToUpper(code), User: user, SessionVersion: user.SessionVersion})
 	if err != nil {
 		return "", err
 	}
@@ -245,6 +246,7 @@ func (r *RedisCoordinator) ConsumeTicket(ctx context.Context, ticket, code strin
 	if json.Unmarshal(encoded, &payload) != nil || payload.Room != strings.ToUpper(code) {
 		return User{}, ErrUnauthorized
 	}
+	payload.User.SessionVersion = payload.SessionVersion
 	return payload.User, nil
 }
 

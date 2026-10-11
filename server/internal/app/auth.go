@@ -198,7 +198,7 @@ func (s *AuthService) Login(
 		verifyPassword(password, s.dummyPasswordHash)
 		return Session{}, ErrInvalidCredentials
 	}
-	if !verifyPassword(password, account.PasswordHash) {
+	if !verifyPassword(password, account.PasswordHash) || !accountActive(account.User) {
 		return Session{}, ErrInvalidCredentials
 	}
 	if err := s.repository.BindDevice(ctx, account.ID, deviceHash, device); err != nil {
@@ -228,6 +228,9 @@ func (s *AuthService) Refresh(
 		s.now().Add(refreshLifetime),
 	)
 	if err != nil {
+		return Session{}, ErrInvalidRefresh
+	}
+	if !accountActive(identity.Account.User) {
 		return Session{}, ErrInvalidRefresh
 	}
 	if err := s.repository.ValidateDevice(ctx, identity.Account.ID, identity.DeviceHash); err != nil {
@@ -289,7 +292,7 @@ func (s *AuthService) AuthenticateAccess(ctx context.Context, raw, rawDeviceID s
 	if err := s.repository.ValidateDevice(ctx, account.ID, identity.DeviceHash); err != nil {
 		return User{}, ErrUnauthorized
 	}
-	if account.SessionVersion != identity.User.SessionVersion {
+	if !accountActive(account.User) || account.SessionVersion != identity.User.SessionVersion {
 		return User{}, ErrUnauthorized
 	}
 	account.User.GuestRoomCode = identity.User.GuestRoomCode
@@ -307,7 +310,7 @@ func (s *AuthService) issueSession(ctx context.Context, user User, deviceHash st
 	}
 	refresh := mustRandomString(32)
 	if err := s.repository.StoreRefreshToken(
-		ctx, user.ID, deviceHash, hashRefreshToken(refresh), s.now().Add(refreshLifetime),
+		ctx, user.ID, deviceHash, hashRefreshToken(refresh), s.now().Add(refreshLifetime), user.SessionVersion,
 	); err != nil {
 		return Session{}, err
 	}

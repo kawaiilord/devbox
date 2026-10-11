@@ -6,6 +6,9 @@ import (
 )
 
 type User struct {
+	AccountStatus  string `json:"account_status,omitempty"`
+	StatusReason   string `json:"-"`
+	AdminVersion   int64  `json:"-"`
 	GuestRoomCode  string `json:"guest_room_code,omitempty"`
 	GuestExpiresAt int64  `json:"guest_expires_at,omitempty"`
 	ID             string `json:"id"`
@@ -35,6 +38,8 @@ type UserDevice struct {
 }
 
 type MediaSource struct {
+	Disabled              bool   `json:"disabled"`
+	AdminVersion          int64  `json:"admin_version"`
 	ID                    string `json:"id"`
 	UserID                string `json:"-"`
 	Type                  string `json:"type"`
@@ -55,30 +60,31 @@ type MediaFile struct {
 }
 
 type MediaTicket struct {
-	IsLive         bool              `json:"is_live,omitempty"`
-	StreamURL      string            `json:"stream_url,omitempty"`
-	AudioURL       string            `json:"audio_url,omitempty"`
-	StreamHeaders  map[string]string `json:"stream_headers,omitempty"`
-	Duration       float64           `json:"duration,omitempty"`
-	VideoCodec     string            `json:"video_codec,omitempty"`
-	AudioCodec     string            `json:"audio_codec,omitempty"`
-	Width          int               `json:"width,omitempty"`
-	Height         int               `json:"height,omitempty"`
-	Bandwidth      int64             `json:"bandwidth,omitempty"`
-	VariantID      string            `json:"variant_id,omitempty"`
-	RoomCode       string            `json:"room_code,omitempty"`
-	ViewerID       string            `json:"viewer_id,omitempty"`
-	SourceVersion  int64             `json:"source_version,omitempty"`
-	UserID         string            `json:"user_id"`
-	SourceID       string            `json:"source_id"`
-	Path           string            `json:"path"`
-	Kind           string            `json:"kind,omitempty"`
-	ItemID         string            `json:"item_id,omitempty"`
-	MediaSourceID  string            `json:"media_source_id,omitempty"`
-	Container      string            `json:"container,omitempty"`
-	PlaySessionID  string            `json:"play_session_id,omitempty"`
-	SubtitleIndex  int               `json:"subtitle_index,omitempty"`
-	SubtitleFormat string            `json:"subtitle_format,omitempty"`
+	ViewerSessionVersion int64             `json:"viewer_session_version,omitempty"`
+	IsLive               bool              `json:"is_live,omitempty"`
+	StreamURL            string            `json:"stream_url,omitempty"`
+	AudioURL             string            `json:"audio_url,omitempty"`
+	StreamHeaders        map[string]string `json:"stream_headers,omitempty"`
+	Duration             float64           `json:"duration,omitempty"`
+	VideoCodec           string            `json:"video_codec,omitempty"`
+	AudioCodec           string            `json:"audio_codec,omitempty"`
+	Width                int               `json:"width,omitempty"`
+	Height               int               `json:"height,omitempty"`
+	Bandwidth            int64             `json:"bandwidth,omitempty"`
+	VariantID            string            `json:"variant_id,omitempty"`
+	RoomCode             string            `json:"room_code,omitempty"`
+	ViewerID             string            `json:"viewer_id,omitempty"`
+	SourceVersion        int64             `json:"source_version,omitempty"`
+	UserID               string            `json:"user_id"`
+	SourceID             string            `json:"source_id"`
+	Path                 string            `json:"path"`
+	Kind                 string            `json:"kind,omitempty"`
+	ItemID               string            `json:"item_id,omitempty"`
+	MediaSourceID        string            `json:"media_source_id,omitempty"`
+	Container            string            `json:"container,omitempty"`
+	PlaySessionID        string            `json:"play_session_id,omitempty"`
+	SubtitleIndex        int               `json:"subtitle_index,omitempty"`
+	SubtitleFormat       string            `json:"subtitle_format,omitempty"`
 }
 
 type Favorite struct {
@@ -496,6 +502,7 @@ type Playback struct {
 }
 
 type Room struct {
+	AdminEpoch    int64             `json:"admin_epoch,omitempty"`
 	MediaError    string            `json:"media_error,omitempty"`
 	Features      *RoomFeaturesView `json:"features,omitempty"`
 	Code          string            `json:"code"`
