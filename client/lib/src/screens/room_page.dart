@@ -2,6 +2,9 @@ import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../appearance.dart';
+
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../api/api_client.dart';
@@ -92,7 +95,8 @@ class _RoomPageState extends State<RoomPage> {
                                       ? Theme.of(context)
                                             .colorScheme
                                             .primaryContainer
-                                      : Colors.white.withValues(alpha: 0.06),
+                                      : FrameColors.of(context).text
+                                            .withValues(alpha: 0.06),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Column(
@@ -605,12 +609,13 @@ class _RoomPageState extends State<RoomPage> {
                 Text(
                   '房间 ${controller.room.code}',
                   style: Theme.of(context).textTheme.labelMedium
-                      ?.copyWith(color: Colors.white54),
+                      ?.copyWith(color: FrameColors.of(context).muted),
                 ),
               ],
             ),
             actions: MediaQuery.sizeOf(context).width < 700
                 ? [
+                    const FrameThemeMenu(),
                     _ConnectionBadge(connected: controller.connected),
                     PopupMenuButton<String>(
                       tooltip: '房间功能',
@@ -688,6 +693,7 @@ class _RoomPageState extends State<RoomPage> {
                     ),
                   ]
                 : [
+                    const FrameThemeMenu(),
                     IconButton(
                       tooltip: '片单 / 画质 / 来源',
                       onPressed: controller.loading ? null : _showPlaylist,
@@ -1083,8 +1089,8 @@ class _MembersPanel extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
-                  backgroundColor: FrameColors.elevated,
-                  foregroundColor: FrameColors.text,
+                  backgroundColor: FrameColors.of(context).elevated,
+                  foregroundColor: FrameColors.of(context).text,
                   child: Text(
                     member.displayName.characters.first.toUpperCase(),
                   ),
@@ -1098,9 +1104,9 @@ class _MembersPanel extends StatelessWidget {
                             : '离线'),
                 ),
                 trailing: member.userId == controller.room.ownerId
-                    ? const Icon(
+                    ? Icon(
                         Icons.verified_outlined,
-                        color: FrameColors.silver,
+                        color: FrameColors.of(context).silver,
                         size: 20,
                       )
                     : null,
@@ -1122,10 +1128,10 @@ class _MembersPanel extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             const Divider(),
-            const Text(
+            Text(
               '分享上方房间码，\n邀请朋友加入这场放映。',
               style: TextStyle(
-                color: FrameColors.muted,
+                color: FrameColors.of(context).muted,
                 fontSize: 13,
                 height: 1.8,
               ),
@@ -1150,7 +1156,10 @@ class _InfoRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: FrameColors.muted, fontSize: 12),
+            style: TextStyle(
+              color: FrameColors.of(context).muted,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1172,13 +1181,15 @@ class _ConnectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = connected ? FrameColors.accent : FrameColors.muted;
+    final color = connected
+        ? FrameColors.of(context).accent
+        : FrameColors.of(context).muted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: FrameColors.surface,
+        color: FrameColors.of(context).surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: FrameColors.border),
+        border: Border.all(color: FrameColors.of(context).border),
       ),
       child: Row(
         children: [

@@ -122,9 +122,9 @@ class _CouplePageState extends State<CouplePage> {
         ] else ...[
           Card(
             child: ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.favorite_rounded,
-                color: FrameColors.silver,
+                color: FrameColors.of(context).silver,
               ),
               title: Text(_couple!.partner.displayName),
               subtitle: Text(

@@ -130,16 +130,20 @@ class _MembershipPageState extends State<MembershipPage> {
   };
 
   Widget _planCard(VipPlan plan) {
-    final accent = plan.popular ? FrameColors.silver : FrameColors.accent;
+    final accent = plan.popular
+        ? FrameColors.of(context).silver
+        : FrameColors.of(context).accent;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: plan.popular ? FrameColors.elevated : FrameColors.surface,
+        color: plan.popular
+            ? FrameColors.of(context).elevated
+            : FrameColors.of(context).surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: plan.popular
-              ? FrameColors.silver.withValues(alpha: .6)
-              : FrameColors.border,
+              ? FrameColors.of(context).silver.withValues(alpha: .6)
+              : FrameColors.of(context).border,
         ),
       ),
       child: Column(
@@ -158,7 +162,7 @@ class _MembershipPageState extends State<MembershipPage> {
                 ),
                 const Spacer(),
                 if (plan.popular)
-                  const FramePill('推荐之选', color: FrameColors.silver),
+                  FramePill('推荐之选', color: FrameColors.of(context).silver),
               ],
             ),
           ),
@@ -170,7 +174,10 @@ class _MembershipPageState extends State<MembershipPage> {
           const SizedBox(height: 6),
           Text(
             plan.lifetime ? '一次开通，长久相伴' : '${plan.durationDays} 天相聚时光',
-            style: const TextStyle(color: FrameColors.muted, fontSize: 13),
+            style: TextStyle(
+              color: FrameColors.of(context).muted,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 22),
           Text(
@@ -187,31 +194,42 @@ class _MembershipPageState extends State<MembershipPage> {
             child: plan.originalPriceMinor > plan.priceMinor
                 ? Text(
                     '原价 ${_money(plan.originalPriceMinor)}',
-                    style: const TextStyle(
-                      color: FrameColors.muted,
+                    style: TextStyle(
+                      color: FrameColors.of(context).muted,
                       fontSize: 12,
                       decoration: TextDecoration.lineThrough,
                     ),
                   )
-                : const Text(
+                : Text(
                     '按当前套餐价格开通',
-                    style: TextStyle(color: FrameColors.muted, fontSize: 12),
+                    style: TextStyle(
+                      color: FrameColors.of(context).muted,
+                      fontSize: 12,
+                    ),
                   ),
           ),
           const Divider(height: 32),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.check_rounded, size: 16, color: FrameColors.accent),
-              SizedBox(width: 8),
-              Text('延长房间有效期', style: TextStyle(fontSize: 13)),
+              Icon(
+                Icons.check_rounded,
+                size: 16,
+                color: FrameColors.of(context).accent,
+              ),
+              const SizedBox(width: 8),
+              const Text('延长房间有效期', style: TextStyle(fontSize: 13)),
             ],
           ),
           const SizedBox(height: 12),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.check_rounded, size: 16, color: FrameColors.accent),
-              SizedBox(width: 8),
-              Text('解锁情侣绑定', style: TextStyle(fontSize: 13)),
+              Icon(
+                Icons.check_rounded,
+                size: 16,
+                color: FrameColors.of(context).accent,
+              ),
+              const SizedBox(width: 8),
+              const Text('解锁情侣绑定', style: TextStyle(fontSize: 13)),
             ],
           ),
           const SizedBox(height: 24),
@@ -278,16 +296,19 @@ class _MembershipPageState extends State<MembershipPage> {
           children: [
             Text(
               '${status.availablePoints}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.w700,
-                color: FrameColors.accent,
+                color: FrameColors.of(context).accent,
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
+            Text(
               '可用积分',
-              style: TextStyle(color: FrameColors.muted, fontSize: 12),
+              style: TextStyle(
+                color: FrameColors.of(context).muted,
+                fontSize: 12,
+              ),
             ),
             const Spacer(),
             FramePill(
@@ -371,18 +392,22 @@ class _MembershipPageState extends State<MembershipPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: FrameColors.silver.withValues(alpha: .22),
+                        color: FrameColors.of(context).silver
+                            .withValues(alpha: .22),
                       ),
-                      gradient: const LinearGradient(
-                        colors: [FrameColors.elevated, FrameColors.surface],
+                      gradient: LinearGradient(
+                        colors: [
+                          FrameColors.of(context).elevated,
+                          FrameColors.of(context).surface,
+                        ],
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const FramePill(
+                        FramePill(
                           'SAMEFRAME PLUS',
-                          color: FrameColors.silver,
+                          color: FrameColors.of(context).silver,
                           icon: Icons.workspace_premium_outlined,
                         ),
                         const SizedBox(height: 18),
@@ -403,22 +428,22 @@ class _MembershipPageState extends State<MembershipPage> {
                                   ? '会员有效'
                                   : '当前为免费账号',
                               color: membership?.active == true
-                                  ? FrameColors.silver
-                                  : FrameColors.muted,
+                                  ? FrameColors.of(context).silver
+                                  : FrameColors.of(context).muted,
                             ),
                             if (membership != null && membership.active)
                               Text(
                                 '有效期至 ${DateTime.fromMillisecondsSinceEpoch(membership.vipExpiresAt).toLocal().toString().split(' ').first}',
-                                style: const TextStyle(
-                                  color: FrameColors.muted,
+                                style: TextStyle(
+                                  color: FrameColors.of(context).muted,
                                   fontSize: 12,
                                 ),
                               ),
                             if (info != null && info.announcement.isNotEmpty)
                               Text(
                                 info.announcement,
-                                style: const TextStyle(
-                                  color: FrameColors.silver,
+                                style: TextStyle(
+                                  color: FrameColors.of(context).silver,
                                   fontSize: 13,
                                 ),
                               ),
@@ -448,9 +473,12 @@ class _MembershipPageState extends State<MembershipPage> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     '套餐与价格以当前服务为准，开通后权益同步至你的账号。',
-                    style: TextStyle(color: FrameColors.muted, fontSize: 13),
+                    style: TextStyle(
+                      color: FrameColors.of(context).muted,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   if (info != null)
@@ -556,8 +584,8 @@ class _MembershipPageState extends State<MembershipPage> {
                                     item.change > 0
                                         ? '+${item.change}'
                                         : '${item.change}',
-                                    style: const TextStyle(
-                                      color: FrameColors.accent,
+                                    style: TextStyle(
+                                      color: FrameColors.of(context).accent,
                                     ),
                                   ),
                                 ),

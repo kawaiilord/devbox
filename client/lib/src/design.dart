@@ -2,55 +2,149 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-abstract final class FrameColors {
-  static const background = Color(0xFF0C0C0D);
-  static const sidebar = Color(0xFF111112);
-  static const surface = Color(0xFF171719);
-  static const elevated = Color(0xFF232326);
-  static const input = Color(0xFF121214);
-  static const border = Color(0xFF303033);
-  static const muted = Color(0xFF9A9A9F);
-  static const text = Color(0xFFF4F4F5);
-  static const accent = Color(0xFFF4F4F5);
-  static const silver = Color(0xFFC5C5CA);
+@immutable
+class FrameColors extends ThemeExtension<FrameColors> {
+  const FrameColors({
+    required this.background,
+    required this.sidebar,
+    required this.surface,
+    required this.elevated,
+    required this.input,
+    required this.border,
+    required this.muted,
+    required this.text,
+    required this.accent,
+    required this.silver,
+  });
+
+  final Color background;
+  final Color sidebar;
+  final Color surface;
+  final Color elevated;
+  final Color input;
+  final Color border;
+  final Color muted;
+  final Color text;
+  final Color accent;
+  final Color silver;
+
+  static const light = FrameColors(
+    background: Color(0xFFFAFAFA),
+    sidebar: Color(0xFFF3F3F4),
+    surface: Color(0xFFFFFFFF),
+    elevated: Color(0xFFEEEEF0),
+    input: Color(0xFFFAFAFB),
+    border: Color(0xFFD9D9DE),
+    muted: Color(0xFF67676E),
+    text: Color(0xFF18181B),
+    accent: Color(0xFF18181B),
+    silver: Color(0xFF4F4F57),
+  );
+
+  static const dark = FrameColors(
+    background: Color(0xFF0C0C0D),
+    sidebar: Color(0xFF111112),
+    surface: Color(0xFF171719),
+    elevated: Color(0xFF232326),
+    input: Color(0xFF121214),
+    border: Color(0xFF303033),
+    muted: Color(0xFF9A9A9F),
+    text: Color(0xFFF4F4F5),
+    accent: Color(0xFFF4F4F5),
+    silver: Color(0xFFC5C5CA),
+  );
+
+  static FrameColors of(BuildContext context) =>
+      Theme.of(context).extension<FrameColors>() ??
+      (Theme.of(context).brightness == Brightness.dark ? dark : light);
+
+  @override
+  FrameColors copyWith({
+    Color? background,
+    Color? sidebar,
+    Color? surface,
+    Color? elevated,
+    Color? input,
+    Color? border,
+    Color? muted,
+    Color? text,
+    Color? accent,
+    Color? silver,
+  }) => FrameColors(
+    background: background ?? this.background,
+    sidebar: sidebar ?? this.sidebar,
+    surface: surface ?? this.surface,
+    elevated: elevated ?? this.elevated,
+    input: input ?? this.input,
+    border: border ?? this.border,
+    muted: muted ?? this.muted,
+    text: text ?? this.text,
+    accent: accent ?? this.accent,
+    silver: silver ?? this.silver,
+  );
+
+  @override
+  FrameColors lerp(covariant FrameColors? other, double t) {
+    if (other == null) return this;
+    return FrameColors(
+      background: Color.lerp(background, other.background, t)!,
+      sidebar: Color.lerp(sidebar, other.sidebar, t)!,
+      surface: Color.lerp(surface, other.surface, t)!,
+      elevated: Color.lerp(elevated, other.elevated, t)!,
+      input: Color.lerp(input, other.input, t)!,
+      border: Color.lerp(border, other.border, t)!,
+      muted: Color.lerp(muted, other.muted, t)!,
+      text: Color.lerp(text, other.text, t)!,
+      accent: Color.lerp(accent, other.accent, t)!,
+      silver: Color.lerp(silver, other.silver, t)!,
+    );
+  }
 }
 
-ThemeData frameTheme() {
-  final scheme = const ColorScheme.dark().copyWith(
-    primary: FrameColors.accent,
-    onPrimary: FrameColors.background,
-    primaryContainer: FrameColors.elevated,
-    onPrimaryContainer: FrameColors.text,
-    secondary: FrameColors.silver,
-    onSecondary: FrameColors.background,
-    secondaryContainer: FrameColors.elevated,
-    onSecondaryContainer: FrameColors.text,
-    tertiary: FrameColors.silver,
-    onTertiary: FrameColors.background,
-    tertiaryContainer: FrameColors.elevated,
-    onTertiaryContainer: FrameColors.text,
-    surface: FrameColors.surface,
-    onSurface: FrameColors.text,
-    onSurfaceVariant: FrameColors.muted,
-    surfaceContainerLowest: FrameColors.background,
-    surfaceContainerLow: FrameColors.sidebar,
-    surfaceContainer: FrameColors.surface,
-    surfaceContainerHigh: FrameColors.elevated,
-    surfaceContainerHighest: FrameColors.border,
-    surfaceTint: Colors.transparent,
-    outline: FrameColors.border,
-    outlineVariant: FrameColors.border,
-    inverseSurface: FrameColors.text,
-    onInverseSurface: FrameColors.background,
-    inversePrimary: FrameColors.background,
-    error: const Color(0xFFF0A5A5),
-    onError: const Color(0xFF301818),
-    errorContainer: const Color(0xFF301C1C),
-    onErrorContainer: const Color(0xFFF0A5A5),
-  );
+ThemeData frameTheme({Brightness brightness = Brightness.dark}) {
+  final isDark = brightness == Brightness.dark;
+  final colors = isDark ? FrameColors.dark : FrameColors.light;
+  final scheme = (isDark ? const ColorScheme.dark() : const ColorScheme.light())
+      .copyWith(
+        primary: colors.accent,
+        onPrimary: colors.background,
+        primaryContainer: colors.elevated,
+        onPrimaryContainer: colors.text,
+        secondary: colors.silver,
+        onSecondary: colors.background,
+        secondaryContainer: colors.elevated,
+        onSecondaryContainer: colors.text,
+        tertiary: colors.silver,
+        onTertiary: colors.background,
+        tertiaryContainer: colors.elevated,
+        onTertiaryContainer: colors.text,
+        surface: colors.surface,
+        onSurface: colors.text,
+        onSurfaceVariant: colors.muted,
+        surfaceContainerLowest: colors.background,
+        surfaceContainerLow: colors.sidebar,
+        surfaceContainer: colors.surface,
+        surfaceContainerHigh: colors.elevated,
+        surfaceContainerHighest: colors.border,
+        surfaceTint: Colors.transparent,
+        outline: colors.border,
+        outlineVariant: colors.border,
+        inverseSurface: colors.text,
+        onInverseSurface: colors.background,
+        inversePrimary: colors.background,
+        error: isDark ? const Color(0xFFF0A5A5) : const Color(0xFFB42332),
+        onError: isDark ? const Color(0xFF301818) : Colors.white,
+        errorContainer: isDark
+            ? const Color(0xFF301C1C)
+            : const Color(0xFFFFEDEE),
+        onErrorContainer: isDark
+            ? const Color(0xFFF0A5A5)
+            : const Color(0xFF871923),
+      );
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    extensions: [colors],
     fontFamilyFallback: const [
       'Noto Sans SC',
       'PingFang SC',
@@ -59,72 +153,64 @@ ThemeData frameTheme() {
   );
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
   return base.copyWith(
-    scaffoldBackgroundColor: FrameColors.background,
-    canvasColor: FrameColors.surface,
-    hoverColor: Colors.white.withValues(alpha: .05),
-    focusColor: Colors.white.withValues(alpha: .10),
+    scaffoldBackgroundColor: colors.background,
+    canvasColor: colors.surface,
+    hoverColor: colors.text.withValues(alpha: .05),
+    focusColor: colors.text.withValues(alpha: .10),
     textTheme: base.textTheme.copyWith(
-      headlineLarge: const TextStyle(
-        color: FrameColors.text,
+      headlineLarge: TextStyle(
+        color: colors.text,
         fontSize: 34,
         fontWeight: FontWeight.w600,
         height: 1.3,
         letterSpacing: -1,
       ),
-      headlineSmall: const TextStyle(
-        color: FrameColors.text,
+      headlineSmall: TextStyle(
+        color: colors.text,
         fontSize: 26,
         fontWeight: FontWeight.w500,
         height: 1.4,
       ),
-      titleLarge: const TextStyle(
-        color: FrameColors.text,
+      titleLarge: TextStyle(
+        color: colors.text,
         fontSize: 18,
         fontWeight: FontWeight.w600,
         height: 1.4,
       ),
-      titleMedium: const TextStyle(
-        color: FrameColors.text,
+      titleMedium: TextStyle(
+        color: colors.text,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         height: 1.4,
       ),
-      bodyMedium: const TextStyle(
-        fontSize: 14,
-        height: 1.6,
-        color: FrameColors.text,
-      ),
-      bodySmall: const TextStyle(
-        fontSize: 12,
-        height: 1.5,
-        color: FrameColors.muted,
-      ),
+      bodyMedium: TextStyle(fontSize: 14, height: 1.6, color: colors.text),
+      bodySmall: TextStyle(fontSize: 12, height: 1.5, color: colors.muted),
     ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: FrameColors.background,
+    appBarTheme: AppBarTheme(
+      backgroundColor: colors.background,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       toolbarHeight: 68,
-      shape: Border(bottom: BorderSide(color: FrameColors.border)),
+      shape: Border(bottom: BorderSide(color: colors.border)),
       titleTextStyle: TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
-        color: FrameColors.text,
+        color: colors.text,
       ),
     ),
     cardTheme: CardThemeData(
-      color: FrameColors.surface,
+      color: colors.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: FrameColors.border),
+        side: BorderSide(color: colors.border),
       ),
     ),
-    dividerTheme: const DividerThemeData(
-      color: FrameColors.border,
+    dividerTheme: DividerThemeData(
+      color: colors.border,
       thickness: 1,
       space: 32,
     ),
@@ -138,8 +224,8 @@ ThemeData frameTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: FrameColors.text,
-        side: const BorderSide(color: FrameColors.border),
+        foregroundColor: colors.text,
+        side: BorderSide(color: colors.border),
         minimumSize: const Size(0, 48),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         shape: shape,
@@ -153,96 +239,96 @@ ThemeData frameTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: FrameColors.input,
+      fillColor: colors.input,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-      labelStyle: const TextStyle(color: FrameColors.muted, fontSize: 14),
-      hintStyle: const TextStyle(color: FrameColors.muted, fontSize: 14),
+      labelStyle: TextStyle(color: colors.muted, fontSize: 14),
+      hintStyle: TextStyle(color: colors.muted, fontSize: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FrameColors.border),
+        borderSide: BorderSide(color: colors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FrameColors.border),
+        borderSide: BorderSide(color: colors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: FrameColors.accent, width: 1.2),
+        borderSide: BorderSide(color: colors.accent, width: 1.2),
       ),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: FrameColors.surface,
+      backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: FrameColors.border),
+        side: BorderSide(color: colors.border),
       ),
     ),
     chipTheme: base.chipTheme.copyWith(
-      backgroundColor: FrameColors.surface,
-      selectedColor: FrameColors.elevated,
-      labelStyle: const TextStyle(color: FrameColors.silver, fontSize: 12),
+      backgroundColor: colors.surface,
+      selectedColor: colors.elevated,
+      labelStyle: TextStyle(color: colors.silver, fontSize: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      side: const BorderSide(color: FrameColors.border),
+      side: BorderSide(color: colors.border),
     ),
     sliderTheme: base.sliderTheme.copyWith(
       trackHeight: 3,
-      activeTrackColor: FrameColors.accent,
-      inactiveTrackColor: FrameColors.border,
-      thumbColor: FrameColors.accent,
+      activeTrackColor: colors.accent,
+      inactiveTrackColor: colors.border,
+      thumbColor: colors.accent,
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.disabled)) return FrameColors.muted;
+        if (states.contains(WidgetState.disabled)) return colors.muted;
         return states.contains(WidgetState.selected)
-            ? FrameColors.background
-            : FrameColors.silver;
+            ? colors.background
+            : colors.silver;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.disabled)) return FrameColors.elevated;
+        if (states.contains(WidgetState.disabled)) return colors.elevated;
         return states.contains(WidgetState.selected)
-            ? FrameColors.accent
-            : FrameColors.elevated;
+            ? colors.accent
+            : colors.elevated;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)
             ? Colors.transparent
-            : FrameColors.border,
+            : colors.border,
       ),
     ),
     popupMenuTheme: PopupMenuThemeData(
-      color: FrameColors.elevated,
+      color: colors.elevated,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: FrameColors.border),
+        side: BorderSide(color: colors.border),
       ),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: FrameColors.surface,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       showDragHandle: true,
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: FrameColors.elevated,
-      contentTextStyle: const TextStyle(color: FrameColors.text),
-      actionTextColor: FrameColors.accent,
+      backgroundColor: colors.elevated,
+      contentTextStyle: TextStyle(color: colors.text),
+      actionTextColor: colors.accent,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: FrameColors.border),
+        side: BorderSide(color: colors.border),
       ),
     ),
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: FrameColors.elevated,
+        color: colors.elevated,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: FrameColors.border),
+        border: Border.all(color: colors.border),
       ),
-      textStyle: const TextStyle(color: FrameColors.text, fontSize: 12),
+      textStyle: TextStyle(color: colors.text, fontSize: 12),
     ),
   );
 }
@@ -268,9 +354,12 @@ class FrameBrand extends StatelessWidget {
             ),
           ),
           if (compact)
-            const Text(
+            Text(
               '同帧 / 共享此刻',
-              style: TextStyle(fontSize: 10, color: FrameColors.muted),
+              style: TextStyle(
+                fontSize: 10,
+                color: FrameColors.of(context).muted,
+              ),
             ),
         ],
       ),
@@ -287,17 +376,21 @@ class FrameMark extends StatelessWidget {
   Widget build(BuildContext context) => ExcludeSemantics(
     child: SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _FrameMarkPainter()),
+      child: CustomPaint(
+        painter: _FrameMarkPainter(FrameColors.of(context).accent),
+      ),
     ),
   );
 }
 
 class _FrameMarkPainter extends CustomPainter {
+  _FrameMarkPainter(this.color);
+  final Color color;
   @override
   void paint(Canvas canvas, Size size) {
     canvas.scale(size.width / 36, size.height / 36);
     final paint = Paint()
-      ..color = FrameColors.accent
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8;
     canvas.drawRRect(
@@ -320,51 +413,50 @@ class _FrameMarkPainter extends CustomPainter {
         ..lineTo(23, 20)
         ..lineTo(16, 24)
         ..close(),
-      Paint()..color = FrameColors.accent,
+      Paint()..color = color,
     );
   }
 
   @override
-  bool shouldRepaint(_FrameMarkPainter oldDelegate) => false;
+  bool shouldRepaint(_FrameMarkPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class FramePill extends StatelessWidget {
-  const FramePill(
-    this.text, {
-    super.key,
-    this.icon,
-    this.color = FrameColors.accent,
-  });
+  const FramePill(this.text, {super.key, this.icon, this.color});
   final String text;
   final IconData? icon;
-  final Color color;
+  final Color? color;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .04),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: color.withValues(alpha: .14)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 6),
-        ],
-        Text(
-          text,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: .4,
+  Widget build(BuildContext context) {
+    final color = this.color ?? FrameColors.of(context).accent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: .4,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class FrameSection extends StatelessWidget {
@@ -391,7 +483,7 @@ class FrameSection extends StatelessWidget {
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, color: FrameColors.silver, size: 20),
+                Icon(icon, color: FrameColors.of(context).silver, size: 20),
                 const SizedBox(width: 10),
               ],
               Expanded(
@@ -407,8 +499,8 @@ class FrameSection extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               subtitle!,
-              style: const TextStyle(
-                color: FrameColors.muted,
+              style: TextStyle(
+                color: FrameColors.of(context).muted,
                 fontSize: 13,
                 height: 1.6,
               ),
@@ -438,7 +530,11 @@ class FrameEmpty extends StatelessWidget {
     child: Center(
       child: Column(
         children: [
-          Icon(icon, size: 30, color: FrameColors.muted.withValues(alpha: .6)),
+          Icon(
+            icon,
+            size: 30,
+            color: FrameColors.of(context).muted.withValues(alpha: .6),
+          ),
           const SizedBox(height: 12),
           Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
@@ -457,17 +553,20 @@ class FrameEmpty extends StatelessWidget {
 class CinemaArtwork extends StatelessWidget {
   const CinemaArtwork({super.key});
   @override
-  Widget build(BuildContext context) =>
-      ExcludeSemantics(child: CustomPaint(painter: _AperturePainter()));
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: CustomPaint(painter: _AperturePainter(FrameColors.of(context))),
+  );
 }
 
 class _AperturePainter extends CustomPainter {
+  _AperturePainter(this.colors);
+  final FrameColors colors;
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.clipRect(Offset.zero & size);
     final grid = Paint()
-      ..color = Colors.white.withValues(alpha: .035)
+      ..color = colors.text.withValues(alpha: .035)
       ..strokeWidth = .7;
     for (double x = 0; x < size.width; x += 40) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
@@ -492,13 +591,13 @@ class _AperturePainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = .85
-          ..color = Colors.white.withValues(alpha: .10 + .30 * (1 - t)),
+          ..color = colors.text.withValues(alpha: .10 + .30 * (1 - t)),
       );
       canvas.restore();
     }
     canvas.restore();
     final marker = Paint()
-      ..color = FrameColors.silver.withValues(alpha: .4)
+      ..color = colors.silver.withValues(alpha: .4)
       ..strokeWidth = 1;
     for (final p in [
       Offset(20, 20),
@@ -510,5 +609,6 @@ class _AperturePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_AperturePainter oldDelegate) => false;
+  bool shouldRepaint(_AperturePainter oldDelegate) =>
+      oldDelegate.colors != colors;
 }

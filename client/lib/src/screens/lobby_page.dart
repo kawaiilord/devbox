@@ -640,9 +640,9 @@ class _LobbyPageState extends State<LobbyPage> {
                 decoration: const InputDecoration(labelText: 'Emby 密码'),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 '密码仅用于本次登录；服务端只加密保存 Emby 会话令牌。',
-                style: TextStyle(color: Colors.white60),
+                style: TextStyle(color: FrameColors.of(context).muted),
               ),
             ],
           ),
@@ -1090,20 +1090,20 @@ class _JoinCard extends StatelessWidget {
           const SizedBox(height: 24),
           const Divider(height: 1),
           const SizedBox(height: 22),
-          const Row(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.headphones_outlined,
-                color: FrameColors.muted,
+                color: FrameColors.of(context).muted,
                 size: 24,
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   '戴上耳机，准备好零食。\n剩下的时间，留给你们的好故事。',
                   style: TextStyle(
-                    color: FrameColors.muted,
+                    color: FrameColors.of(context).muted,
                     fontSize: 12,
                     height: 1.9,
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
+import '../appearance.dart';
 import 'room_join_dialog.dart';
 
 class PublicRoomsPage extends StatefulWidget {
@@ -101,6 +102,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
     appBar: AppBar(
       title: const Text('发现一起看的房间'),
       actions: [
+        const FrameThemeMenu(),
         IconButton(
           tooltip: '刷新',
           onPressed: _loading ? null : () => _load(),
@@ -129,10 +131,10 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       '发现正在相聚的人，找到属于你的下一场放映。',
                       style: TextStyle(
-                        color: FrameColors.muted,
+                        color: FrameColors.of(context).muted,
                         fontSize: 13,
                         height: 1.7,
                       ),
@@ -202,9 +204,9 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
                         const Spacer(),
                         Text(
                           '${_rooms.length}${_hasMore ? '+' : ''} 个房间',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: FrameColors.muted,
+                            color: FrameColors.of(context).muted,
                           ),
                         ),
                       ],
@@ -270,16 +272,16 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: FrameColors.elevated,
+                  color: FrameColors.of(context).elevated,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: FrameColors.border),
+                  border: Border.all(color: FrameColors.of(context).border),
                 ),
                 child: Icon(
                   room.passwordProtected
                       ? Icons.lock_outline_rounded
                       : Icons.movie_outlined,
                   size: 20,
-                  color: FrameColors.silver,
+                  color: FrameColors.of(context).silver,
                 ),
               ),
               const SizedBox(width: 14),
@@ -297,7 +299,10 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
             const SizedBox(height: 14),
             Text(
               room.description,
-              style: const TextStyle(color: FrameColors.muted, fontSize: 13),
+              style: TextStyle(
+                color: FrameColors.of(context).muted,
+                fontSize: 13,
+              ),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -308,14 +313,14 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
             runSpacing: 8,
             children: [
               if (room.category.isNotEmpty)
-                FramePill(room.category, color: FrameColors.silver),
+                FramePill(room.category, color: FrameColors.of(context).silver),
               for (final tag in room.tags)
-                FramePill(tag, color: FrameColors.muted),
+                FramePill(tag, color: FrameColors.of(context).muted),
               if (room.allowGuests)
-                const FramePill(
+                FramePill(
                   '可访客加入',
                   icon: Icons.person_outline_rounded,
-                  color: FrameColors.silver,
+                  color: FrameColors.of(context).silver,
                 ),
             ],
           ),

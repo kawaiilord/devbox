@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../design.dart';
+import '../appearance.dart';
 
 class LobbyDestination {
   const LobbyDestination(this.icon, this.label, this.onTap);
@@ -46,6 +47,7 @@ class LobbyLayout extends StatelessWidget {
             : AppBar(
                 title: FrameBrand(compact: constraints.maxWidth < 420),
                 actions: [
+                  const FrameThemeMenu(),
                   IconButton(
                     onPressed: signedIn ? onSearch : onUpdates,
                     tooltip: signedIn ? '影视搜索' : '检查更新',
@@ -60,7 +62,7 @@ class LobbyLayout extends StatelessWidget {
         drawer: desktop
             ? null
             : Drawer(
-                backgroundColor: FrameColors.sidebar,
+                backgroundColor: FrameColors.of(context).sidebar,
                 child: SafeArea(child: _navigation(context, closeDrawer: true)),
               ),
         body: SafeArea(
@@ -71,7 +73,7 @@ class LobbyLayout extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    if (desktop) _toolbar(),
+                    if (desktop) _toolbar(context),
                     Expanded(
                       child: SingleChildScrollView(
                         padding: EdgeInsets.fromLTRB(
@@ -100,27 +102,30 @@ class LobbyLayout extends StatelessWidget {
     },
   );
 
-  Widget _toolbar() => Container(
+  Widget _toolbar(BuildContext context) => Container(
     height: 68,
     padding: const EdgeInsets.symmetric(horizontal: 32),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: FrameColors.border)),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: FrameColors.of(context).border)),
     ),
     child: Row(
       children: [
-        const Icon(
+        Icon(
           Icons.space_dashboard_outlined,
           size: 17,
-          color: FrameColors.muted,
+          color: FrameColors.of(context).muted,
         ),
         const SizedBox(width: 12),
-        const Text(
+        Text(
           '我的空间',
-          style: TextStyle(fontSize: 13, color: FrameColors.muted),
+          style: TextStyle(fontSize: 13, color: FrameColors.of(context).muted),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('/', style: TextStyle(color: FrameColors.border)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            '/',
+            style: TextStyle(color: FrameColors.of(context).border),
+          ),
         ),
         Text(signedIn ? '观影大厅' : '欢迎', style: const TextStyle(fontSize: 13)),
         const Spacer(),
@@ -130,6 +135,7 @@ class LobbyLayout extends StatelessWidget {
           label: const Text('发现公开房间'),
         ),
         const SizedBox(width: 8),
+        const FrameThemeMenu(),
         IconButton(
           onPressed: onUpdates,
           tooltip: '检查更新',
@@ -160,10 +166,10 @@ class LobbyLayout extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 '把距离留在屏幕之外。\n一个放映室，一部好电影，和你想见的人。',
                 style: TextStyle(
-                  color: FrameColors.muted,
+                  color: FrameColors.of(context).muted,
                   fontSize: 14,
                   height: 1.9,
                 ),
@@ -308,15 +314,18 @@ class LobbyLayout extends StatelessWidget {
         Card(
           child: ExpansionTile(
             shape: const Border(),
-            leading: const Icon(
+            leading: Icon(
               Icons.mark_email_unread_outlined,
-              color: FrameColors.muted,
+              color: FrameColors.of(context).muted,
               size: 20,
             ),
             title: const Text('验证邮箱，保护你的账号', style: TextStyle(fontSize: 13)),
-            subtitle: const Text(
+            subtitle: Text(
               '展开完成邮箱验证',
-              style: TextStyle(fontSize: 12, color: FrameColors.muted),
+              style: TextStyle(
+                fontSize: 12,
+                color: FrameColors.of(context).muted,
+              ),
             ),
             children: [verification!],
           ),
@@ -346,9 +355,9 @@ class LobbyLayout extends StatelessWidget {
     BuildContext context, {
     bool closeDrawer = false,
   }) => Container(
-    decoration: const BoxDecoration(
-      color: FrameColors.sidebar,
-      border: Border(right: BorderSide(color: FrameColors.border)),
+    decoration: BoxDecoration(
+      color: FrameColors.of(context).sidebar,
+      border: Border(right: BorderSide(color: FrameColors.of(context).border)),
     ),
     child: Column(
       children: [
@@ -410,12 +419,12 @@ class LobbyLayout extends StatelessWidget {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () => _navigate(context, onMembership, closeDrawer),
-                    child: const Padding(
-                      padding: EdgeInsets.all(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          const Row(
                             children: [
                               Text(
                                 'SameFrame',
@@ -427,12 +436,12 @@ class LobbyLayout extends StatelessWidget {
                               Icon(Icons.arrow_outward_rounded, size: 15),
                             ],
                           ),
-                          SizedBox(height: 10),
+                          const SizedBox(height: 10),
                           Text(
                             '探索更多相聚的可能',
                             style: TextStyle(
                               fontSize: 12,
-                              color: FrameColors.muted,
+                              color: FrameColors.of(context).muted,
                             ),
                           ),
                         ],
@@ -441,12 +450,12 @@ class LobbyLayout extends StatelessWidget {
                   ),
                 )
               else
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     '登录后开启\n你的专属观影空间。',
                     style: TextStyle(
-                      color: FrameColors.muted,
+                      color: FrameColors.of(context).muted,
                       fontSize: 12,
                       height: 1.8,
                     ),
@@ -458,15 +467,17 @@ class LobbyLayout extends StatelessWidget {
         Container(
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.only(top: 16),
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: FrameColors.border)),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: FrameColors.of(context).border),
+            ),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 17,
-                backgroundColor: FrameColors.elevated,
-                foregroundColor: FrameColors.text,
+                backgroundColor: FrameColors.of(context).elevated,
+                foregroundColor: FrameColors.of(context).text,
                 child: signedIn
                     ? Text(
                         name.isEmpty ? 'S' : name.characters.first,
@@ -488,9 +499,9 @@ class LobbyLayout extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       signedIn ? '个人空间' : '共享每一个好故事',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
-                        color: FrameColors.muted,
+                        color: FrameColors.of(context).muted,
                       ),
                     ),
                   ],
@@ -500,10 +511,10 @@ class LobbyLayout extends StatelessWidget {
                 IconButton(
                   onPressed: () => _navigate(context, onLogout, closeDrawer),
                   tooltip: '退出登录',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.logout_rounded,
                     size: 17,
-                    color: FrameColors.muted,
+                    color: FrameColors.of(context).muted,
                   ),
                 ),
             ],
@@ -529,7 +540,7 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 2),
     child: Material(
-      color: selected ? FrameColors.elevated : Colors.transparent,
+      color: selected ? FrameColors.of(context).elevated : Colors.transparent,
       borderRadius: BorderRadius.circular(9),
       child: ListTile(
         enabled: onTap != null || selected,
@@ -541,23 +552,25 @@ class _NavItem extends StatelessWidget {
         leading: Icon(
           icon,
           size: 19,
-          color: selected ? FrameColors.text : FrameColors.muted,
+          color: selected
+              ? FrameColors.of(context).text
+              : FrameColors.of(context).muted,
         ),
         title: Text(
           label,
           style: TextStyle(
             fontSize: 13,
             color: selected || onTap != null
-                ? FrameColors.text
-                : FrameColors.muted,
+                ? FrameColors.of(context).text
+                : FrameColors.of(context).muted,
           ),
         ),
         trailing: selected
             ? Container(
                 width: 4,
                 height: 4,
-                decoration: const BoxDecoration(
-                  color: FrameColors.accent,
+                decoration: BoxDecoration(
+                  color: FrameColors.of(context).accent,
                   shape: BoxShape.circle,
                 ),
               )
@@ -574,10 +587,10 @@ class _Eyebrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 10,
       letterSpacing: 1.5,
-      color: FrameColors.muted,
+      color: FrameColors.of(context).muted,
       fontWeight: FontWeight.w500,
     ),
   );
@@ -590,9 +603,9 @@ class _ApertureCard extends StatelessWidget {
     height: 160,
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
-      color: FrameColors.sidebar,
+      color: FrameColors.of(context).sidebar,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: FrameColors.border),
+      border: Border.all(color: FrameColors.of(context).border),
     ),
     child: const Stack(
       fit: StackFit.expand,
@@ -618,9 +631,9 @@ class _CinemaHero extends StatelessWidget {
         height: compact ? 214 : 226,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: FrameColors.surface,
+          color: FrameColors.of(context).surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: FrameColors.border),
+          border: Border.all(color: FrameColors.of(context).border),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -640,14 +653,14 @@ class _CinemaHero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.blur_on_rounded,
                         size: 18,
-                        color: FrameColors.silver,
+                        color: FrameColors.of(context).silver,
                       ),
-                      SizedBox(width: 9),
+                      const SizedBox(width: 9),
                       _Eyebrow('SHARED MOMENTS. ONE FRAME.'),
                     ],
                   ),
@@ -662,11 +675,11 @@ class _CinemaHero extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     '同步播放  /  实时交流  /  共享此刻',
                     style: TextStyle(
                       fontSize: 12,
-                      color: FrameColors.muted,
+                      color: FrameColors.of(context).muted,
                       letterSpacing: .5,
                     ),
                   ),
@@ -695,11 +708,11 @@ class _Benefit extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 16, color: FrameColors.silver),
+      Icon(icon, size: 16, color: FrameColors.of(context).silver),
       const SizedBox(width: 9),
       Text(
         text,
-        style: const TextStyle(fontSize: 12, color: FrameColors.muted),
+        style: TextStyle(fontSize: 12, color: FrameColors.of(context).muted),
       ),
     ],
   );
@@ -718,7 +731,11 @@ class _Entry extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            Icon(destination.icon, color: FrameColors.silver, size: 21),
+            Icon(
+              destination.icon,
+              color: FrameColors.of(context).silver,
+              size: 21,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -734,18 +751,18 @@ class _Entry extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     detail,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: FrameColors.muted,
+                      color: FrameColors.of(context).muted,
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(
+            Icon(
               Icons.north_east_rounded,
-              color: FrameColors.muted,
+              color: FrameColors.of(context).muted,
               size: 15,
             ),
           ],
@@ -758,16 +775,20 @@ class _Entry extends StatelessWidget {
 class _Footer extends StatelessWidget {
   const _Footer();
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => Row(
     children: [
-      Icon(Icons.join_inner_rounded, size: 15, color: FrameColors.muted),
-      SizedBox(width: 8),
+      Icon(
+        Icons.join_inner_rounded,
+        size: 15,
+        color: FrameColors.of(context).muted,
+      ),
+      const SizedBox(width: 8),
       Expanded(
         child: Text(
           'SAMEFRAME  /  让每一幕，都有共鸣。',
           style: TextStyle(
             fontSize: 10,
-            color: FrameColors.muted,
+            color: FrameColors.of(context).muted,
             letterSpacing: 1,
           ),
         ),
