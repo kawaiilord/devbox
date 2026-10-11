@@ -126,6 +126,7 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _createRoom() async {
     final session = _session;
     if (session == null) return;
+    FocusScope.of(context).unfocus();
     await _run(() async {
       final room = await widget.api.createRoom(
         session: session,
@@ -141,6 +142,7 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _joinRoom() async {
     final session = _session;
     if (session == null) return;
+    FocusScope.of(context).unfocus();
     final joined = await showDialog<JoinedRoom>(
       context: context,
       barrierDismissible: false,

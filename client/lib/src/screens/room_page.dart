@@ -59,13 +59,15 @@ class _RoomPageState extends State<RoomPage> {
   Future<void> _copyRoomCode() async {
     try {
       await Clipboard.setData(ClipboardData(text: controller.room.code));
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('房间码已复制')));
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('复制失败，请手动分享上方房间码。')));
+      }
     }
   }
 
@@ -977,9 +979,10 @@ class _PlayerPanelState extends State<_PlayerPanel> {
     try {
       await _videoKey.currentState?.enterFullscreen();
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('当前设备暂时无法进入全屏。')));
+      }
     }
   }
 
