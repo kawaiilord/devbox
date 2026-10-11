@@ -33,7 +33,7 @@ class _RemoteSourceDialogState extends State<RemoteSourceDialog> {
   Future<void> _load() async {
     try {
       final data = await widget.api.remoteProviders(widget.session);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _providers = (data['providers'] as List<dynamic>)
               .cast<Map<String, dynamic>>();
@@ -43,6 +43,7 @@ class _RemoteSourceDialogState extends State<RemoteSourceDialog> {
                 (_providers.first['types'] as List<dynamic>).first as String;
           }
         });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     } finally {

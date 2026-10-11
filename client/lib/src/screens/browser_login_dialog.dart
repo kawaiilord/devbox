@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
-import '../models.dart';
 
 class BrowserLoginDialog extends StatefulWidget {
   const BrowserLoginDialog({super.key, required this.api});

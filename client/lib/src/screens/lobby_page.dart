@@ -174,8 +174,9 @@ class _LobbyPageState extends State<LobbyPage> {
       if (!await launchUrl(
         Uri.parse(widget.api.baseUrl).resolve('/admin/account.html'),
         mode: LaunchMode.externalApplication,
-      ))
+      )) {
         throw const ApiException('无法打开账号安全中心');
+      }
     });
   }
 
@@ -588,8 +589,9 @@ class _LobbyPageState extends State<LobbyPage> {
               ),
               OutlinedButton.icon(
                 onPressed: () async {
-                  if (await _promptAddRemote() && dialogContext.mounted)
+                  if (await _promptAddRemote() && dialogContext.mounted) {
                     await reload();
+                  }
                 },
                 icon: const Icon(Icons.dns_outlined),
                 label: const Text('远程 Provider'),

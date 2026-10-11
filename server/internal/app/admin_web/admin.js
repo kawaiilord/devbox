@@ -277,5 +277,5 @@ if (state.token) start().catch(error => {
 });
 
 function requestMFACode(){
- return new Promise(resolve=>{const dialog=document.createElement('dialog');dialog.className='form-dialog';dialog.innerHTML='<form method="dialog"><h2>二次验证</h2><label>动态验证码或恢复码<input name="code" autocomplete="one-time-code" required autofocus></label><div class="item-actions"><button value="ok">验证</button><button value="cancel" class="secondary" formnovalidate>取消</button></div></form>';document.body.append(dialog);dialog.addEventListener('close',()=>{resolve(dialog.returnValue==='ok'?dialog.querySelector('input').value.trim():null);dialog.remove();},{once:true});dialog.showModal();});
+ return new Promise(resolve=>{const dialog=document.createElement('dialog');dialog.className='admin-dialog';dialog.innerHTML='<form method="dialog"><h2>二次验证</h2><label>动态验证码或恢复码<input name="code" autocomplete="one-time-code" required autofocus></label><div class="item-actions"><button value="ok">验证</button><button value="cancel" class="secondary" formnovalidate>取消</button></div></form>';document.body.append(dialog);dialog.addEventListener('close',()=>{resolve(dialog.returnValue==='ok'?dialog.querySelector('input').value.trim():null);dialog.remove();},{once:true});dialog.showModal();});
 }
