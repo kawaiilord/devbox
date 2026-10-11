@@ -5,7 +5,7 @@ const number = value => value == null ? '—' : Number(value).toLocaleString('zh
 const money = value => value == null ? '—' : `¥${(Number(value) / 100).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 const dateTime = value => value ? new Date(value).toLocaleString('zh-CN', {hour12: false}) : '—';
 const roles = {'': '普通用户', super_admin: '超级管理员', admin: '管理员', operator: '运营人员', seller: '销售人员'};
-const statuses = {pending: '待处理', paid: '已支付', activated: '已激活', expired: '已过期', cancelled: '已取消', actioned: '已处理', rejected: '已驳回', approved: '已批准'};
+const statuses = {pending: '待处理', submitted: '待审核', triaged: '核验中', paid: '已支付', activated: '已激活', expired: '已过期', cancelled: '已取消', actioned: '已处理', dismissed: '已驳回', rejected: '已驳回', approved: '已批准'};
 const kinds = {list: '列表公告', startup: '启动弹窗', room: '房间实时'};
 function options(values, selected) {
   return Object.entries(values).map(([value, label]) => `<option value="${esc(value)}" ${value === selected ? 'selected' : ''}>${esc(label)}</option>`).join('');

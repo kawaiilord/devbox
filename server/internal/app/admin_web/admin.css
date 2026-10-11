@@ -108,7 +108,7 @@ svg.icon { width: 19px; height: 19px; flex: 0 0 auto; vertical-align: middle; }
 #content:focus { outline: none; }
 /* Cards, data and forms */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; min-width: 0; }
-.panel + .panel, .stack > * + * { margin-top: 20px; }
+[data-page] > .panel + .panel, .stack > * + * { margin-top: 20px; }
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 23px; }
 .panel-header p { font-size: 12px; color: var(--muted); margin: 5px 0 0; }
 .panel-header > .icon { color: var(--muted); }
