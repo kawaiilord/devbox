@@ -41,3 +41,14 @@ Back up PostgreSQL with `pg_dump` and back up `.env` and certificate account dat
 separately. Test recovery in an isolated database. Never run the destructive
 integration tests against the application database; they require a separate
 `sameframe_test` database and Redis DB 15.
+
+For rate limiting behind nginx, set `TRUSTED_PROXY_CIDRS` to this deployment's
+Docker network subnet. The server accepts `X-Real-IP` only from that subnet;
+nginx overwrites the header. Keep the application maintenance port bound to
+loopback. The nginx media proxy must include `/media/`, alongside `/api/`, `/ws/`
+and `/admin/`, or encrypted media URLs will incorrectly reach the Flutter SPA.
+
+Install `sameframe-tls.service` and `sameframe-tls.timer` under systemd and put
+`renew-tls.sh` in `/opt/sameframe`. Enable the timer after the first certificate is
+issued. Successful certificate replacement reloads nginx and restarts MediaMTX;
+active publishers may briefly disconnect during certificate renewal.

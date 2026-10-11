@@ -481,5 +481,13 @@ func (m *MediaSourceManager) openRTMP(ctx context.Context, source MediaSource, s
 	if rng != "" {
 		req.Header.Set("Range", rng)
 	}
-	return m.rtmp.client.Do(req)
+	client := *m.rtmp.client
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if len(via) >= 3 || next.URL.User != nil || strings.Contains(next.URL.Path, "..") || !strings.HasPrefix(next.URL.String(), root) {
+			return ErrForbidden
+		}
+		next.SetBasicAuth("sameframe", m.rtmp.secret)
+		return nil
+	}
+	return client.Do(req)
 }

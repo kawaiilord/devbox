@@ -205,6 +205,10 @@ func TestRTMPKeyAuthorizationRotationAndProxy(t *testing.T) {
 			w.WriteHeader(404)
 			return
 		}
+		if r.URL.Query().Get("cookieCheck") != "1" {
+			http.Redirect(w, r, r.URL.Path+"?cookieCheck=1", 302)
+			return
+		}
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		io.WriteString(w, "#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\nsegment.ts\n")
 	}))
