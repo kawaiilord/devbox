@@ -68,6 +68,9 @@ var providerSourcesMigration string
 //go:embed migrations/018_admin_management.sql
 var adminManagementMigration string
 
+//go:embed migrations/019_platform_services.sql
+var platformServicesMigration string
+
 type PostgresRepository struct {
 	pool *pgxpool.Pool
 }
@@ -107,6 +110,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		roomFeaturesMigration,
 		providerSourcesMigration,
 		adminManagementMigration,
+		platformServicesMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err

@@ -2,7 +2,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_reason TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_version BIGINT NOT NULL DEFAULT 1;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_account_status_check;
-ALTER TABLE users ADD CONSTRAINT users_account_status_check CHECK (account_status IN ('active','banned','deleted'));
+ALTER TABLE users ADD CONSTRAINT users_account_status_check CHECK (account_status IN ('active','banned','deleted','pending','rejected'));
 CREATE INDEX IF NOT EXISTS users_admin_list_idx ON users(account_status,created_at DESC,id);
 
 ALTER TABLE media_sources ADD COLUMN IF NOT EXISTS disabled BOOLEAN NOT NULL DEFAULT false;

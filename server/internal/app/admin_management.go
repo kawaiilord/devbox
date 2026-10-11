@@ -227,7 +227,10 @@ func (s *Server) invalidateLiveUser(ctx context.Context, id string) {
 	s.emitEnvelope(ctx, Envelope{Type: "admin.user.invalidated", From: "server", Payload: payload})
 }
 func (s *Server) sitePolicy(ctx context.Context) (SitePolicy, AdminDocument, error) {
-	d, err := s.repo.GetAdminDocument(ctx, "site_policy")
+	return loadSitePolicy(ctx, s.repo)
+}
+func loadSitePolicy(ctx context.Context, repo Repository) (SitePolicy, AdminDocument, error) {
+	d, err := repo.GetAdminDocument(ctx, "site_policy")
 	p := defaultSitePolicy()
 	if err == nil && len(d.Data) > 0 {
 		err = json.Unmarshal(d.Data, &p)

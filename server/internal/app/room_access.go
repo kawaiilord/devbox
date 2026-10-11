@@ -14,6 +14,7 @@ import (
 )
 
 type roomSettingsInput struct {
+	RequireApproval *bool    `json:"require_approval"`
 	ExpectedVersion int64    `json:"expected_version"`
 	Visibility      string   `json:"visibility"`
 	Description     string   `json:"description"`
@@ -73,6 +74,9 @@ func applyRoomSettings(f *RoomFeatures, in roomSettingsInput) error {
 	f.Category = strings.TrimSpace(in.Category)
 	f.Tags = tags
 	f.AllowGuests = in.AllowGuests
+	if in.RequireApproval != nil {
+		f.RequireApproval = *in.RequireApproval
+	}
 	if in.AutoNext != nil {
 		f.AutoNext = *in.AutoNext
 	}
@@ -139,7 +143,7 @@ func (s *Server) updateRoomSettings(w http.ResponseWriter, r *http.Request) {
 		if err = s.repo.SaveRoomFeatures(ctx, code, expected, f, nil); err != nil {
 			return err
 		}
-		if !f.AllowGuests {
+		if !f.AllowGuests || f.RequireApproval {
 			members := []Member{}
 			for _, m := range room.Members {
 				if f.role(room, m.UserID) == "guest" {
@@ -333,6 +337,13 @@ func (s *Server) joinRoomMember(ctx context.Context, code string, user User, pas
 		if !member && f.PasswordHash != "" && !verifyPassword(password, f.PasswordHash) {
 			return errors.New("房间密码不正确")
 		}
+		if !member && f.RequireApproval && !permissionGranted(user, "room.manage") {
+			request, err := s.repo.RequestRoomApproval(ctx, code, user.ID)
+			if err != nil {
+				return err
+			}
+			return &ApprovalPendingError{RequestID: request.ID, Kind: "room_join", RoomCode: code}
+		}
 		room, err = s.store.JoinRoom(code, user)
 		if err != nil {
 			return err
@@ -436,7 +447,7 @@ func (s *Server) joinRoomAsGuest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f, err := s.repo.GetRoomFeatures(r.Context(), code)
-	if err != nil || !f.AllowGuests || room.Closed || room.ExpiresAt <= time.Now().UnixMilli() {
+	if err != nil || !f.AllowGuests || f.RequireApproval || room.Closed || room.ExpiresAt <= time.Now().UnixMilli() {
 		writeError(w, 403, errors.New("此房间未开放访客访问"))
 		return
 	}

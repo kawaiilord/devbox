@@ -1,0 +1,87 @@
+name: sameframe
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sameframe
+      POSTGRES_USER: sameframe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    ports: ["127.0.0.1:55433:5432"]
+    volumes: ["postgres:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sameframe -d sameframe"]
+      interval: 5s
+      retries: 20
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?required}"]
+    ports: ["127.0.0.1:56380:6379"]
+    volumes: ["redis:/data"]
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.release
+    restart: unless-stopped
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+    environment:
+      DATABASE_URL: postgres://sameframe:${POSTGRES_PASSWORD}@postgres:5432/sameframe?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      SAMEFRAME_JWT_SECRET: ${JWT_SECRET:?required}
+      SAMEFRAME_VAULT_KEY: ${VAULT_KEY:?required}
+      SAMEFRAME_ADMIN_EMAILS: ${ADMIN_EMAIL:?required}
+      SAMEFRAME_ALLOWED_ORIGINS: ${PUBLIC_URL:?required}
+      SAMEFRAME_PUBLIC_BASE_URL: ${PUBLIC_URL}
+      SAMEFRAME_NODE_ID: primary
+      SAMEFRAME_CACHE_DIR: /data/cache
+      SAMEFRAME_REQUIRE_VERIFIED_EMAIL: "false"
+      SAMEFRAME_ALLOW_PRIVATE_SOURCES: "false"
+      SAMEFRAME_RTMP_API_URL: http://mediamtx:9997
+      SAMEFRAME_RTMP_HLS_URL: http://mediamtx:8888
+      SAMEFRAME_RTMP_PUBLISH_URL: ${PUBLISH_URL:?required}
+      SAMEFRAME_RTMP_INTERNAL_SECRET: ${RTMP_INTERNAL_SECRET:?required}
+    volumes: ["cache:/data/cache"]
+    ports: ["127.0.0.1:18082:8080"]
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.2
+    restart: unless-stopped
+    environment:
+      MTX_AUTHMETHOD: http
+      MTX_AUTHHTTPADDRESS: http://app:8080/internal/rtmp/auth?hook=${RTMP_INTERNAL_SECRET}
+      MTX_AUTHHTTPEXCLUDE: "[]"
+      MTX_API: "yes"
+      MTX_APIADDRESS: :9997
+      MTX_RTSP: "no"
+      MTX_RTMP: "yes"
+      MTX_RTMPENCRYPTION: optional
+      MTX_RTMPSERVERCERT: /etc/letsencrypt/live/${CERT_NAME}/fullchain.pem
+      MTX_RTMPSERVERKEY: /etc/letsencrypt/live/${CERT_NAME}/privkey.pem
+      MTX_WEBRTC: "no"
+      MTX_SRT: "no"
+      MTX_HLS: "yes"
+      MTX_HLSVARIANT: mpegts
+      MTX_HLSSEGMENTCOUNT: "7"
+      MTX_HLSSEGMENTDURATION: 2s
+      MTX_HLSSEGMENTMAXSIZE: 8M
+      MTX_HLSALWAYSREMUX: "no"
+      MTX_HLSALLOWORIGINS: "[]"
+      MTX_PATHDEFAULTS_OVERRIDEPUBLISHER: "no"
+    volumes: ["./letsencrypt:/etc/letsencrypt:ro"]
+    ports: ["1935:1935", "1936:1936"]
+  web:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    depends_on: [app]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web:/usr/share/nginx/html:ro
+      - ./acme:/var/www/acme:ro
+      - ./letsencrypt:/etc/letsencrypt:ro
+volumes:
+  postgres:
+  redis:
+  cache:

@@ -45,6 +45,7 @@ const tabs = [
   ['users', '用户管理', 'PEOPLE', '查看用户信息，管理角色与会员权益。', '工作空间'],
   ['taxonomy', '分类与标签', 'TAXONOMY', '统一管理房间分类、标签与展示顺序。', '工作空间'],
   ['announcements', '公告管理', 'ANNOUNCEMENTS', '把重要的消息，传递给每一位用户。', '工作空间'],
+  ['approvals', '申请审批', 'APPROVALS', '处理注册、建房和加入房间申请。', '内容与安全'],
   ['reports', '举报审核', 'MODERATION', '集中处理用户举报，维护良好的观影环境。', '内容与安全'],
   ['deletions', '注销申请', 'ACCOUNT REQUESTS', '核验账号注销申请与处理结果。', '内容与安全'],
   ['complaints', '版权投诉', 'COPYRIGHT', '审查权利证明、投诉证据与处理时限。', '内容与安全'],
@@ -55,14 +56,23 @@ const tabs = [
   ['config', '运行配置', 'CONFIGURATION', '管理维护模式、全局公告与功能开关。', '系统'],
   ['policy', '站点策略', 'SITE POLICIES', '配置注册、建房、访客和聊天策略，即时生效。', '系统'],
   ['sources', '媒体服务', 'MEDIA SERVICES', '管理全站已绑定的媒体来源与连接状态。', '系统'],
+  ['remote_providers', '远程 Provider', 'REMOTE PROVIDERS', '配置服务端点、TLS 和共享密钥，检测连接状态。', '系统'],
+  ['slice_cache', '分片缓存', 'SLICE CACHE', '管理各节点容量、命中情况与清理任务。', '系统'],
+  ['rtmp', '直播推流', 'LIVE STREAMS', '管理推流策略、活动连接和房间密钥。', '系统'],
+  ['smtp', '邮件服务', 'MAIL', '配置 SMTP 投递、邮件模板与发送测试。', '系统'],
+  ['login_security', '登录与安全', 'AUTHENTICATION', '管理第三方登录、Passkey 和动态验证码。', '系统'],
   ['bot', '房间 Bot', 'ROOM ASSISTANT', '配置房间助手的身份、策略与服务连接。', '系统'],
   ['audit', '操作审计', 'AUDIT LOG', '追踪管理操作，查看审计链的完整性。', '系统']
 ];
+icons.remote_providers=icons.layers;
+icons.smtp = icons.announcements;
+icons.login_security = icons.shield;
+icons.approvals = icons.check;
 icons.rooms = icons.room;
 icons.taxonomy = icons.layers;
 icons.sources = icons.layers;
 icons.policy = icons.config;
-const tabPermissions = {dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
+const tabPermissions = {slice_cache:'config.write',rtmp:'config.write',remote_providers:'config.write',smtp:'config.write',login_security:'config.write',approvals:'review.manage',dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
 const state = {
   permissions: [],
   filters: {},
@@ -86,6 +96,7 @@ async function api(path, options = {}) {
   if (!response.ok || body.code !== 0) {
     const error = new Error(body.msg || `HTTP ${response.status}`);
     error.status = response.status;
+    error.data = body.data || {};
     throw error;
   }
   return body.data || {};
@@ -102,7 +113,13 @@ async function login(event) {
   $('loginButton').disabled = true;
   $('loginError').hidden = true;
   try {
-    const data = await api('/api/v1/auth/login', {method: 'POST', body: JSON.stringify({email: $('email').value, password: $('password').value})});
+    let data;
+    try { data = await api('/api/v1/auth/login', {method: 'POST', body: JSON.stringify({email: $('email').value, password: $('password').value})}); } catch (error) {
+      if (!error.data?.mfa_required) throw error;
+      const code = await requestMFACode();
+      if (!code) throw new Error('登录已取消');
+      data = await api('/api/v1/auth/mfa',{method:'POST',body:JSON.stringify({challenge:error.data.challenge,code})});
+    }
     state.token = data.access_token;
     sessionStorage.setItem('sf_admin_token', state.token);
     $('password').value = '';
@@ -258,3 +275,7 @@ if (state.token) start().catch(error => {
   $('loginError').textContent = error.message;
   $('loginError').hidden = false;
 });
+
+function requestMFACode(){
+ return new Promise(resolve=>{const dialog=document.createElement('dialog');dialog.className='form-dialog';dialog.innerHTML='<form method="dialog"><h2>二次验证</h2><label>动态验证码或恢复码<input name="code" autocomplete="one-time-code" required autofocus></label><div class="item-actions"><button value="ok">验证</button><button value="cancel" class="secondary" formnovalidate>取消</button></div></form>';document.body.append(dialog);dialog.addEventListener('close',()=>{resolve(dialog.returnValue==='ok'?dialog.querySelector('input').value.trim():null);dialog.remove();},{once:true});dialog.showModal();});
+}

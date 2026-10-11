@@ -37,6 +37,9 @@ type ActionTokenRecord struct {
 }
 
 type Repository interface {
+	PlatformRepository
+	SecurityRepository
+	StreamRepository
 	AdminManagementRepository
 	Ping(context.Context) error
 	CreateUser(context.Context, AccountRecord) error
@@ -185,6 +188,11 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
+	roomStreams            map[string]RoomStream
+	security               map[string]AccountSecurity
+	authChallenges         map[string]AuthChallenge
+	externalIdentities     map[string]string
+	approvals              map[string]ApprovalRequest
 	adminDocuments         map[string]AdminDocument
 	mu                     sync.RWMutex
 	usersByID              map[string]AccountRecord

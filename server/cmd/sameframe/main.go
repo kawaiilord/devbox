@@ -77,9 +77,6 @@ func main() {
 			os.Exit(1)
 		}
 		mailer = webhookMailer
-	} else if requireVerifiedEmail {
-		logger.Error("mail webhook is required when verified email is enforced")
-		os.Exit(1)
 	}
 	var sourceManager *app.MediaSourceManager
 	var credentialVault *app.CredentialVault
@@ -97,9 +94,29 @@ func main() {
 		credentialVault = vault
 		logger.Info("media source vault enabled")
 	}
+	if sourceManager != nil {
+		cache, cacheErr := app.NewSliceCache(os.Getenv("SAMEFRAME_CACHE_DIR"), envOr("SAMEFRAME_NODE_ID", "default"))
+		if cacheErr != nil {
+			logger.Error("configure cache", "error", cacheErr)
+			os.Exit(1)
+		}
+		sourceManager.SetSliceCache(cache)
+	}
+	rtmpService, rtmpErr := app.NewRTMPService(repository, os.Getenv("SAMEFRAME_RTMP_API_URL"), os.Getenv("SAMEFRAME_RTMP_HLS_URL"), os.Getenv("SAMEFRAME_RTMP_PUBLISH_URL"), os.Getenv("SAMEFRAME_RTMP_INTERNAL_SECRET"))
+	if rtmpErr != nil {
+		logger.Error("configure RTMP", "error", rtmpErr)
+		os.Exit(1)
+	}
 	addr := envOr("SAMEFRAME_ADDR", ":8080")
 	origins := strings.Split(envOr("SAMEFRAME_ALLOWED_ORIGINS", "http://localhost:*"), ",")
 	adminEmails := splitList(os.Getenv("SAMEFRAME_ADMIN_EMAILS"))
+	if requireVerifiedEmail && os.Getenv("SAMEFRAME_MAIL_WEBHOOK_URL") == "" {
+		ready, mailErr := app.SMTPConfigured(ctx, repository, credentialVault)
+		if mailErr != nil || !ready {
+			logger.Error("SMTP or a mail webhook is required when verified email is enforced")
+			os.Exit(1)
+		}
+	}
 	authService := app.NewAuthService(repository, tokens, mailer)
 	authService.SetAdminEmails(adminEmails)
 	for _, email := range adminEmails {
@@ -154,6 +171,7 @@ func main() {
 		Logger:               logger,
 		Repository:           repository,
 		Auth:                 authService,
+		RTMP:                 rtmpService,
 		InitialRooms:         initialRooms,
 		AllowDemoAuth:        envBool("SAMEFRAME_ALLOW_DEMO_AUTH", false),
 		Redis:                redisCoordinator,

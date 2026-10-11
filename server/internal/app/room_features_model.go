@@ -44,25 +44,27 @@ type MediaVariant struct {
 
 // This is the private persistence record, never a response payload.
 type RoomFeatures struct {
-	AdminState    string                     `json:"admin_state,omitempty"`
-	AdminReason   string                     `json:"admin_reason,omitempty"`
-	GuestExpiries map[string]int64           `json:"guest_expiries,omitempty"`
-	Version       int64                      `json:"version"`
-	Visibility    string                     `json:"visibility"`
-	Description   string                     `json:"description"`
-	Category      string                     `json:"category"`
-	Tags          []string                   `json:"tags"`
-	AllowGuests   bool                       `json:"allow_guests"`
-	PasswordHash  string                     `json:"password_hash,omitempty"`
-	Roles         map[string]string          `json:"roles"`
-	Permissions   map[string]RoomPermissions `json:"permissions"`
-	BannedIDs     []string                   `json:"banned_ids"`
-	Playlist      []PlaylistEntry            `json:"playlist"`
-	ActiveItemID  string                     `json:"active_item_id"`
-	AutoNext      bool                       `json:"auto_next"`
+	RequireApproval bool                       `json:"require_approval"`
+	AdminState      string                     `json:"admin_state,omitempty"`
+	AdminReason     string                     `json:"admin_reason,omitempty"`
+	GuestExpiries   map[string]int64           `json:"guest_expiries,omitempty"`
+	Version         int64                      `json:"version"`
+	Visibility      string                     `json:"visibility"`
+	Description     string                     `json:"description"`
+	Category        string                     `json:"category"`
+	Tags            []string                   `json:"tags"`
+	AllowGuests     bool                       `json:"allow_guests"`
+	PasswordHash    string                     `json:"password_hash,omitempty"`
+	Roles           map[string]string          `json:"roles"`
+	Permissions     map[string]RoomPermissions `json:"permissions"`
+	BannedIDs       []string                   `json:"banned_ids"`
+	Playlist        []PlaylistEntry            `json:"playlist"`
+	ActiveItemID    string                     `json:"active_item_id"`
+	AutoNext        bool                       `json:"auto_next"`
 }
 
 type RoomFeaturesView struct {
+	RequireApproval   bool                       `json:"require_approval"`
 	Version           int64                      `json:"version"`
 	Visibility        string                     `json:"visibility"`
 	Description       string                     `json:"description"`
@@ -158,7 +160,8 @@ func (f RoomFeatures) grants(room Room, userID string) RoomPermissions {
 
 func (f RoomFeatures) view(room Room, viewer string) RoomFeaturesView {
 	v := RoomFeaturesView{Version: f.Version, Visibility: f.Visibility, Description: f.Description, Category: f.Category, Tags: f.Tags,
-		AllowGuests: f.AllowGuests, PasswordProtected: f.PasswordHash != "", Permissions: f.grants(room, viewer), Playlist: f.Playlist, ActiveItemID: f.ActiveItemID, AutoNext: f.AutoNext}
+		AllowGuests: f.AllowGuests && !f.RequireApproval, PasswordProtected: f.PasswordHash != "", Permissions: f.grants(room, viewer), Playlist: f.Playlist, ActiveItemID: f.ActiveItemID, AutoNext: f.AutoNext}
+	v.RequireApproval = f.RequireApproval
 	if viewer == room.OwnerID {
 		v.BannedIDs = f.BannedIDs
 		v.MemberPermissions = map[string]RoomPermissions{}
@@ -185,7 +188,7 @@ func (f RoomFeatures) activeSource() (PlaylistSource, int, bool) {
 
 func publicRoom(room Room, f RoomFeatures) PublicRoom {
 	return PublicRoom{Code: room.Code, Name: room.Name, Description: f.Description, Category: f.Category, Tags: f.Tags,
-		AllowGuests: f.AllowGuests, PasswordProtected: f.PasswordHash != "", Members: len(room.Members), MaxMembers: room.MaxMembers, ExpiresAt: room.ExpiresAt}
+		AllowGuests: f.AllowGuests && !f.RequireApproval, PasswordProtected: f.PasswordHash != "", Members: len(room.Members), MaxMembers: room.MaxMembers, ExpiresAt: room.ExpiresAt}
 }
 
 func roomDiscoveryMatches(room Room, f RoomFeatures, q RoomDiscoveryQuery) bool {

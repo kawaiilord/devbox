@@ -31,7 +31,9 @@ class _MediaSourceBrowserState extends State<MediaSourceBrowser> {
   int _offset = 0;
   bool _loading = true, _hasMore = false;
   String? _error;
-  bool get _platform => platformSourceTypes.contains(widget.source.type);
+  bool get _platform =>
+      platformSourceTypes.contains(widget.source.type) ||
+      widget.source.type == 'remote-bilibili';
   @override
   void initState() {
     super.initState();

@@ -21,6 +21,7 @@ import (
 )
 
 type Options struct {
+	RTMP                 *RTMPService
 	Address              string
 	AllowedOrigins       []string
 	Logger               *slog.Logger
@@ -88,11 +89,34 @@ func NewServer(options Options) *Server {
 		auth: options.Auth, redis: options.Redis,
 		sources: options.Sources,
 	}
+	s.auth.mailer = NewRuntimeMailer(s.repo, options.Vault, s.auth.mailer)
+	if s.sources != nil {
+		s.sources.rtmp = options.RTMP
+	}
 	s.metrics = NewMetrics(s)
 	if options.Redis != nil {
 		s.limiter = options.Redis.RateLimiter()
 	}
 	mux := http.NewServeMux()
+	s.registerSecurityRoutes(mux)
+	mux.HandleFunc("POST /internal/rtmp/auth", s.rtmpAuth)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/rtmp", s.roomRTMP)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/rtmp", s.roomRTMP)
+	mux.HandleFunc("DELETE /api/v1/rooms/{code}/rtmp", s.roomRTMP)
+	mux.HandleFunc("GET /api/v1/admin/rtmp", s.adminRTMP)
+	mux.HandleFunc("PUT /api/v1/admin/rtmp", s.adminRTMP)
+	mux.HandleFunc("POST /api/v1/admin/rtmp/{id}/kick", s.adminRTMPKick)
+	mux.HandleFunc("GET /api/v1/admin/slice-cache", s.adminCache)
+	mux.HandleFunc("PUT /api/v1/admin/slice-cache", s.adminCache)
+	mux.HandleFunc("GET /api/v1/admin/remote-providers", s.adminRemoteProviders)
+	mux.HandleFunc("PUT /api/v1/admin/remote-providers", s.adminRemoteProviders)
+	mux.HandleFunc("POST /api/v1/admin/remote-providers/{id}/probe", s.remoteProviderProbe)
+	mux.HandleFunc("GET /api/v1/remote-providers", s.remoteProviderCatalog)
+	mux.HandleFunc("POST /api/v1/sources/remote", s.saveRemoteSource)
+	mux.HandleFunc("GET /api/v1/admin/approvals", s.approvalList)
+	mux.HandleFunc("GET /api/v1/account/approvals", s.approvalList)
+	mux.HandleFunc("GET /api/v1/rooms/{code}/join-requests", s.approvalList)
+	mux.HandleFunc("POST /api/v1/approvals/{id}/resolve", s.approvalResolve)
 	mux.HandleFunc("GET /api/v1/admin/session", s.adminSession)
 	mux.HandleFunc("GET /api/v1/admin/managed-users", s.adminManagedUsers)
 	mux.HandleFunc("POST /api/v1/admin/managed-users", s.adminCreateManagedUser)
@@ -279,6 +303,8 @@ func (s *Server) ListenAndServe() error {
 func (s *Server) StartBackground(ctx context.Context) {
 	s.start.Do(func() {
 		go s.snapshotLoop(ctx)
+		go s.cacheHeartbeat(ctx)
+		go s.rtmpWatchdog(ctx)
 		if s.redis != nil {
 			ready := make(chan struct{})
 			go s.consumeRedisEvents(ctx, ready)
@@ -433,6 +459,9 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	session, err := s.auth.Register(
 		r.Context(), request.Email, request.DisplayName, request.Password, device,
 	)
+	if writeLoginChallenge(w, err) || writeApprovalPending(w, err) {
+		return
+	}
 	if errors.Is(err, ErrEmailExists) {
 		writeError(w, http.StatusConflict, err)
 		return
@@ -464,6 +493,9 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session, err := s.auth.Login(r.Context(), request.Email, request.Password, device)
+	if writeLoginChallenge(w, err) || writeApprovalPending(w, err) {
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, ErrInvalidCredentials)
 		return
@@ -1217,23 +1249,32 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.repo.SaveRoom(r.Context(), room); err != nil {
-		s.options.Logger.Error("persist room", "error", err, "room", room.Code)
-		writeError(w, http.StatusInternalServerError, errors.New("could not persist room"))
-		return
-	}
 	features, _ := initialRoomFeatures(room, roomSettingsInput{})
 	features.Visibility = settingsCheck.Visibility
 	features.Description = settingsCheck.Description
 	features.Category = settingsCheck.Category
 	features.Tags = settingsCheck.Tags
+	features.RequireApproval = settingsCheck.RequireApproval
 	features.AllowGuests = settingsCheck.AllowGuests
 	features.PasswordHash = settingsCheck.PasswordHash
 	features.AutoNext = settingsCheck.AutoNext
 	features.Version = 1
 	features.Playlist[0].Sources[0].IsLive = initialMediaTicket.IsLive
-	if err := s.repo.SaveRoomFeatures(r.Context(), room.Code, 0, features, nil); err != nil {
-		writeRoomFeatureError(w, err)
+	review := policy.RoomCreationRequiresReview && !permissionGranted(user, "room.manage")
+	if review {
+		room.Closed = true
+		room.AdminEpoch = features.Version
+		features.AdminState = "pending"
+	}
+	requestApproval, saveErr := s.repo.CreateRoomWithApproval(r.Context(), room, features, review)
+	if saveErr != nil {
+		_, _, _ = s.store.CloseRoom(room.Code)
+		writeStoreError(w, saveErr)
+		return
+	}
+	s.store.UpsertAuthoritativeRoom(room, 0)
+	if review {
+		writeApprovalPending(w, &ApprovalPendingError{RequestID: requestApproval.ID, Kind: "room_creation", RoomCode: room.Code})
 		return
 	}
 	if s.redis != nil {

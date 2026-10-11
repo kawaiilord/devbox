@@ -129,6 +129,7 @@ class RoomFeatures {
     required this.category,
     required this.tags,
     required this.allowGuests,
+    this.requireApproval = false,
     required this.passwordProtected,
     required this.permissions,
     required this.memberPermissions,
@@ -140,7 +141,7 @@ class RoomFeatures {
   final int version;
   final String visibility, description, category, activeItemId;
   final List<String> tags, bannedIds;
-  final bool allowGuests, passwordProtected, autoNext;
+  final bool allowGuests, passwordProtected, autoNext, requireApproval;
   final RoomPermissions permissions;
   final Map<String, RoomPermissions> memberPermissions;
   final List<PlaylistEntry> playlist;
@@ -153,6 +154,7 @@ class RoomFeatures {
     category: j['category']?.toString() ?? '',
     tags: (j['tags'] as List<dynamic>? ?? []).map((v) => v.toString()).toList(),
     allowGuests: j['allow_guests'] == true,
+    requireApproval: j['require_approval'] == true,
     passwordProtected: j['password_protected'] == true,
     permissions: RoomPermissions.fromJson(
       j['permissions'] as Map<String, dynamic>? ?? {},

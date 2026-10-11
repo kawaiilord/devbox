@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'approvals_page.dart';
+import 'browser_login_dialog.dart';
+import 'remote_source_dialog.dart';
+
+import 'package:url_launcher/url_launcher.dart';
+
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
@@ -86,6 +92,60 @@ class _LobbyPageState extends State<LobbyPage> {
     super.dispose();
   }
 
+  Future<Session> _passwordLogin() async {
+    try {
+      return await widget.api.login(
+        email: _email.text,
+        password: _password.text,
+      );
+    } on ApiException catch (e) {
+      if (e.data['mfa_required'] != true || !mounted) rethrow;
+      final code = TextEditingController();
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('身份验证'),
+          content: TextField(
+            controller: code,
+            autofocus: true,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            decoration: const InputDecoration(labelText: '动态验证码或恢复码'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('验证'),
+            ),
+          ],
+        ),
+      );
+      final value = code.text.trim();
+      code.dispose();
+      if (accepted != true) throw const ApiException('登录已取消');
+      return widget.api.finishMFA(e.data['challenge'] as String, value);
+    }
+  }
+
+  Future<void> _acceptSession(Session session) async {
+    if (!mounted) return;
+    setState(() {
+      _session = session;
+      if (_returnTabAfterLogin != null) {
+        _mobileTab = _returnTabAfterLogin!;
+        _visitedTabs.add(_mobileTab);
+        _returnTabAfterLogin = null;
+      }
+      _verifiedOverride = session.user.emailVerified;
+    });
+    _password.clear();
+    await widget.sessionStore.write(session);
+    await _showStartupAnnouncement();
+  }
+
   Future<void> _signIn() async {
     await _run(() async {
       final session = _registerMode
@@ -94,23 +154,28 @@ class _LobbyPageState extends State<LobbyPage> {
               displayName: _name.text,
               password: _password.text,
             )
-          : await widget.api.login(
-              email: _email.text,
-              password: _password.text,
-            );
-      if (mounted) {
-        setState(() {
-          _session = session;
-          if (_returnTabAfterLogin != null) {
-            _mobileTab = _returnTabAfterLogin!;
-            _visitedTabs.add(_mobileTab);
-            _returnTabAfterLogin = null;
-          }
-          _verifiedOverride = session.user.emailVerified;
-        });
-        await widget.sessionStore.write(session);
-        await _showStartupAnnouncement();
-      }
+          : await _passwordLogin();
+      await _acceptSession(session);
+    });
+  }
+
+  Future<void> _browserSignIn() async {
+    await _run(() async {
+      final session = await showDialog<Session>(
+        context: context,
+        builder: (_) => BrowserLoginDialog(api: widget.api),
+      );
+      if (session != null) await _acceptSession(session);
+    });
+  }
+
+  Future<void> _showAccountSecurity() async {
+    await _run(() async {
+      if (!await launchUrl(
+        Uri.parse(widget.api.baseUrl).resolve('/admin/account.html'),
+        mode: LaunchMode.externalApplication,
+      ))
+        throw const ApiException('无法打开账号安全中心');
     });
   }
 
@@ -195,6 +260,16 @@ class _LobbyPageState extends State<LobbyPage> {
     }
   }
 
+  Future<bool> _promptAddRemote() async {
+    final session = _session;
+    if (session == null) return false;
+    final source = await showDialog<MediaSource>(
+      context: context,
+      builder: (_) => RemoteSourceDialog(api: widget.api, session: session),
+    );
+    return source != null;
+  }
+
   Future<bool> _promptAddProvider({MediaSource? source}) async {
     final session = _session;
     if (session == null) {
@@ -244,6 +319,16 @@ class _LobbyPageState extends State<LobbyPage> {
       await widget.api.verifyEmail(_verificationToken.text);
       if (mounted) setState(() => _verifiedOverride = true);
     });
+  }
+
+  Future<void> _showApprovals() async {
+    final session = _session;
+    if (session == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ApprovalsPage(api: widget.api, session: session),
+      ),
+    );
   }
 
   Future<void> _showDevices() async {
@@ -500,6 +585,14 @@ class _LobbyPageState extends State<LobbyPage> {
                 },
                 icon: const Icon(Icons.live_tv_rounded),
                 label: const Text('添加平台 / NAS'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  if (await _promptAddRemote() && dialogContext.mounted)
+                    await reload();
+                },
+                icon: const Icon(Icons.dns_outlined),
+                label: const Text('远程 Provider'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
@@ -902,6 +995,16 @@ class _LobbyPageState extends State<LobbyPage> {
                     onTap: session == null ? null : _showCouple,
                   ),
                   (
+                    icon: Icons.security_outlined,
+                    label: '账号安全',
+                    onTap: session == null ? null : _showAccountSecurity,
+                  ),
+                  (
+                    icon: Icons.fact_check_outlined,
+                    label: '我的申请',
+                    onTap: session == null ? null : _showApprovals,
+                  ),
+                  (
                     icon: Icons.devices_rounded,
                     label: '设备管理',
                     onTap: session == null ? null : _showDevices,
@@ -1010,6 +1113,8 @@ class _LobbyPageState extends State<LobbyPage> {
       LobbyDestination(Icons.people_outline_rounded, '好友与私聊', _showSocial),
       LobbyDestination(Icons.favorite_border_rounded, '情侣空间', _showCouple),
       LobbyDestination(Icons.folder_open_rounded, '我的媒体源', _showMediaSources),
+      LobbyDestination(Icons.security_outlined, '账号安全', _showAccountSecurity),
+      LobbyDestination(Icons.fact_check_outlined, '我的申请', _showApprovals),
       LobbyDestination(Icons.devices_rounded, '设备管理', _showDevices),
       LobbyDestination(Icons.shield_outlined, '隐私与屏蔽', _showPrivacy),
     ],
@@ -1020,6 +1125,7 @@ class _LobbyPageState extends State<LobbyPage> {
       registerMode: _registerMode,
       busy: _busy,
       onSubmit: _signIn,
+      onBrowserLogin: _browserSignIn,
       onForgotPassword: _showPasswordReset,
       onToggleMode: () => setState(() {
         _registerMode = !_registerMode;
@@ -1059,6 +1165,7 @@ class _LoginCard extends StatelessWidget {
     required this.registerMode,
     required this.busy,
     required this.onSubmit,
+    required this.onBrowserLogin,
     required this.onToggleMode,
     required this.onForgotPassword,
   });
@@ -1068,6 +1175,7 @@ class _LoginCard extends StatelessWidget {
   final bool registerMode;
   final bool busy;
   final VoidCallback onSubmit;
+  final VoidCallback onBrowserLogin;
   final VoidCallback onToggleMode;
   final VoidCallback onForgotPassword;
 
@@ -1130,6 +1238,11 @@ class _LoginCard extends StatelessWidget {
             TextButton(
               onPressed: busy ? null : onToggleMode,
               child: Text(registerMode ? '已有账号？直接登录' : '没有账号？立即注册'),
+            ),
+            OutlinedButton.icon(
+              onPressed: busy ? null : onBrowserLogin,
+              icon: const Icon(Icons.fingerprint),
+              label: const Text('邮箱验证码 / 第三方 / Passkey'),
             ),
             if (!registerMode)
               TextButton(

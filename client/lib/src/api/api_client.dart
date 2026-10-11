@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 import '../device_identity.dart';
 import '../models.dart';
@@ -11,13 +12,13 @@ class ApiClient {
     String? baseUrl,
     this.device = DeviceIdentity.test,
   }) : _client = client ?? http.Client(),
-       baseUrl =
-           (baseUrl ??
-                   const String.fromEnvironment(
-                     'API_BASE_URL',
-                     defaultValue: 'http://localhost:8080',
-                   ))
-               .replaceFirst(RegExp(r'/$'), '');
+       baseUrl = (baseUrl ?? _defaultBaseURL()).replaceFirst(RegExp(r'/$'), '');
+  static String _defaultBaseURL() {
+    const configured = String.fromEnvironment('API_BASE_URL');
+    return configured.isNotEmpty
+        ? configured
+        : (kIsWeb ? Uri.base.origin : 'http://localhost:8080');
+  }
 
   final http.Client _client;
   final String baseUrl;
@@ -58,6 +59,67 @@ class ApiClient {
     );
     return Session.fromJson(data);
   }
+
+  Future<Map<String, dynamic>> listApprovals(
+    Session session, {
+    String? roomCode,
+    int offset = 0,
+  }) => _request(
+    'GET',
+    '${roomCode == null ? '/api/v1/account/approvals' : '/api/v1/rooms/$roomCode/join-requests'}?offset=$offset&limit=25',
+    session: session,
+  );
+  Future<void> resolveApproval(
+    Session session,
+    Map<String, dynamic> item,
+    bool approve,
+    String reason,
+  ) async {
+    await _request(
+      'POST',
+      '/api/v1/approvals/${item['id']}/resolve',
+      session: session,
+      body: {'version': item['version'], 'approve': approve, 'reason': reason},
+    );
+  }
+
+  Future<Session> finishMFA(String challenge, String code) async =>
+      Session.fromJson(
+        await _request(
+          'POST',
+          '/api/v1/auth/mfa',
+          body: {'challenge': challenge, 'code': code},
+        ),
+      );
+  Future<Map<String, dynamic>> startBrowserLogin() =>
+      _request('POST', '/api/v1/auth/browser/start');
+  Future<Session?> exchangeBrowserLogin(String token) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/auth/browser/exchange',
+      body: {'token': token},
+    );
+    return data['pending'] == true ? null : Session.fromJson(data);
+  }
+
+  Future<Map<String, dynamic>> remoteProviders(Session session) =>
+      _request('GET', '/api/v1/remote-providers', session: session);
+  Future<MediaSource> createRemoteSource(
+    Session session,
+    Map<String, dynamic> input,
+  ) async => MediaSource.fromJson(
+    await _request(
+      'POST',
+      '/api/v1/sources/remote',
+      session: session,
+      body: input,
+    ),
+  );
+  Future<Map<String, dynamic>> roomRTMP(
+    Session session,
+    String code,
+    String method,
+  ) => _request(method, '/api/v1/rooms/$code/rtmp', session: session);
 
   Future<void> logout(Session session) async {
     await _request(
@@ -1167,7 +1229,10 @@ class ApiClient {
       );
     }
     if (response.statusCode >= 300 || decoded['code'] != 0) {
-      throw ApiException(decoded['msg']?.toString() ?? 'Request failed');
+      throw ApiException(
+        decoded['msg']?.toString() ?? 'Request failed',
+        data: decoded['data'] as Map<String, dynamic>? ?? {},
+      );
     }
     return decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
   }
@@ -1200,8 +1265,9 @@ class ApiClient {
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException(this.message, {this.data = const {}});
   final String message;
+  final Map<String, dynamic> data;
 
   @override
   String toString() => message;

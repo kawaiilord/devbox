@@ -25,6 +25,7 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
   final _password = TextEditingController();
   late bool _public = _baseline.features?.visibility == 'public';
   late bool _guests = _baseline.features?.allowGuests ?? false;
+  late bool _approval = _baseline.features?.requireApproval ?? false;
   late bool _autoNext = _baseline.features?.autoNext ?? true;
   bool _clearPassword = false, _busy = false;
   String? _error;
@@ -60,7 +61,8 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
               .map((v) => v.trim())
               .where((v) => v.isNotEmpty)
               .toList(),
-          'allow_guests': _guests,
+          'allow_guests': _guests && !_approval,
+          'require_approval': _approval,
           'auto_next': _autoNext,
           if (_clearPassword || _password.text.isNotEmpty)
             'password': _clearPassword ? '' : _password.text,
@@ -101,10 +103,24 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
+              title: const Text('加入需要审核'),
+              subtitle: const Text('房主通过申请后才能加入；开启时关闭访客访问'),
+              value: _approval,
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() {
+                      _approval = v;
+                      if (v) _guests = false;
+                    }),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
               title: const Text('允许访客加入'),
               subtitle: const Text('访客默认仅观看；房主可单独授予互动权限'),
               value: _guests,
-              onChanged: _busy ? null : (v) => setState(() => _guests = v),
+              onChanged: _busy || _approval
+                  ? null
+                  : (v) => setState(() => _guests = v),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

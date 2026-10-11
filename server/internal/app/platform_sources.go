@@ -347,6 +347,9 @@ func (m *MediaSourceManager) ResolvePlatform(ctx context.Context, userID, source
 	if err != nil {
 		return nil, err
 	}
+	if source.Type == "remote-bilibili" {
+		return m.resolveRemoteBili(ctx, source, secret, raw)
+	}
 	if _, ok := platformDefinitions[source.Type]; !ok {
 		return nil, errors.New("请选择视频平台媒体源")
 	}

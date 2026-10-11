@@ -175,7 +175,12 @@ func (s *AuthService) Register(
 	if account.IsAdmin {
 		account.AdminRole = "super_admin"
 	}
-	if err := s.repository.CreateUser(ctx, account); err != nil {
+	policy, _, err := loadSitePolicy(ctx, s.repository)
+	if err != nil {
+		return Session{}, err
+	}
+	request, err := s.repository.RegisterAccount(ctx, account, policy.RegistrationRequiresReview && !account.IsAdmin)
+	if err != nil {
 		return Session{}, err
 	}
 	if err := s.repository.BindDevice(ctx, account.ID, deviceHash, device); err != nil {
@@ -183,6 +188,9 @@ func (s *AuthService) Register(
 	}
 	if err := s.issueActionToken(ctx, account.User, "verify_email", verificationLifetime); err != nil {
 		return Session{}, err
+	}
+	if request.ID != "" {
+		return Session{}, &ApprovalPendingError{RequestID: request.ID, Kind: "registration"}
 	}
 	return s.issueSession(ctx, account.User, deviceHash)
 }
@@ -192,6 +200,13 @@ func (s *AuthService) Login(
 	email, password string,
 	devices ...DeviceInfo,
 ) (Session, error) {
+	config, _, err := readLoginConfig(ctx, s.repository)
+	if err != nil {
+		return Session{}, err
+	}
+	if !config.PasswordLogin {
+		return Session{}, ErrForbidden
+	}
 	device, deviceHash, err := normalizeDevice(firstDevice(devices))
 	if err != nil {
 		return Session{}, err
@@ -201,13 +216,22 @@ func (s *AuthService) Login(
 		verifyPassword(password, s.dummyPasswordHash)
 		return Session{}, ErrInvalidCredentials
 	}
-	if !verifyPassword(password, account.PasswordHash) || !accountActive(account.User) {
+	if !verifyPassword(password, account.PasswordHash) {
+		return Session{}, ErrInvalidCredentials
+	}
+	if account.AccountStatus == "pending" {
+		return Session{}, &ApprovalPendingError{Kind: "registration"}
+	}
+	if account.AccountStatus == "rejected" {
+		return Session{}, ErrReviewRejected
+	}
+	if !accountActive(account.User) {
 		return Session{}, ErrInvalidCredentials
 	}
 	if err := s.repository.BindDevice(ctx, account.ID, deviceHash, device); err != nil {
 		return Session{}, err
 	}
-	return s.issueSession(ctx, account.User, deviceHash)
+	return s.beginAuthenticatedLogin(ctx, account.User, deviceHash)
 }
 
 func (s *AuthService) Refresh(

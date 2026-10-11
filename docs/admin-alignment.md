@@ -1,5 +1,8 @@
 # Admin management alignment
 
+See [platform services](platform-services.md) for the subsequent approvals, auth,
+remote Provider, RTMP and cache round. The notes below describe the earlier round.
+
 This extends the existing SameFrame server and monochrome `/admin/` console.
 The reference is SyncTV App `1493e664b991a0f439614396d26bc2c18d692df6` and
 SyncTV server `ca91048b9da595e50642a61618b0eabfbc05e09b`. It does not implement

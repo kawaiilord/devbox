@@ -37,7 +37,11 @@ func (s *Server) withRoomCreationPolicy(next http.HandlerFunc) http.HandlerFunc 
 				if err != nil {
 					return err
 				}
-				if total >= p.MaxRoomsPerUser {
+				_, pending, err := s.repo.FindApprovals(ctx, user.ID, "mine", "", AdminQuery{Kind: "room_creation", Status: "pending", Limit: 1})
+				if err != nil {
+					return err
+				}
+				if total+pending >= p.MaxRoomsPerUser {
 					return errors.New("已达到本站允许的个人房间数量上限")
 				}
 			}

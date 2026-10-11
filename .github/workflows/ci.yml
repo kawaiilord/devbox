@@ -48,7 +48,7 @@ jobs:
       - run: go test -race ./...
       - run: sh -n ../ops/backup/postgres-backup.sh
       - run: python3 -m json.tool ../ops/monitoring/grafana-dashboard.json >/dev/null
-      - run: go build -trimpath -o ../bin/sameframe ./cmd/sameframe
+      - run: CGO_ENABLED=0 go build -trimpath -o ../bin/sameframe ./cmd/sameframe
       - run: go build -trimpath -o ../bin/sign-update ./cmd/sign-update
       - uses: actions/upload-artifact@v7
         with:

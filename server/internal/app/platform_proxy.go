@@ -38,9 +38,16 @@ func (s *Server) mediaTicketURL(raw string, ticket MediaTicket) string {
 	return base
 }
 
-func (s *Server) platformAssetURL(raw, target string, manifest bool) (string, error) {
+func (s *Server) platformAssetURL(raw, target string, manifest bool, allowedBase ...string) (string, error) {
 	if _, err := mediaRemoteURL(target); err != nil {
-		return "", err
+		u, e := assetRemoteURL(target)
+		if e != nil || len(allowedBase) == 0 {
+			return "", err
+		}
+		base, e := url.Parse(allowedBase[0])
+		if e != nil || u.Scheme != base.Scheme || u.Host != base.Host {
+			return "", err
+		}
 	}
 	data, _ := json.Marshal(platformAsset{URL: target, Manifest: manifest})
 	encrypted, err := s.sources.vault.Encrypt(data, "media-asset:"+raw)
@@ -66,13 +73,13 @@ func (s *Server) decodePlatformAsset(raw, encrypted string) (platformAsset, erro
 	if json.Unmarshal(data, &asset) != nil {
 		return asset, ErrUnauthorized
 	}
-	if _, err = mediaRemoteURL(asset.URL); err != nil {
+	if _, err = assetRemoteURL(asset.URL); err != nil {
 		return asset, ErrUnauthorized
 	}
 	return asset, nil
 }
 
-func (s *Server) rewriteHLS(raw, baseURL string, data []byte) ([]byte, error) {
+func (s *Server) rewriteHLS(raw, baseURL string, data []byte, allowedBase ...string) ([]byte, error) {
 	if len(data) > 2<<20 || !utf8.Valid(data) || !strings.HasPrefix(strings.TrimSpace(string(data)), "#EXTM3U") {
 		return nil, errors.New("平台播放清单无效")
 	}
@@ -85,7 +92,7 @@ func (s *Server) rewriteHLS(raw, baseURL string, data []byte) ([]byte, error) {
 		if err != nil {
 			return "", errors.New("播放清单地址无效")
 		}
-		return s.platformAssetURL(raw, target.String(), manifest || strings.Contains(strings.ToLower(target.Path), ".m3u8"))
+		return s.platformAssetURL(raw, target.String(), manifest || strings.Contains(strings.ToLower(target.Path), ".m3u8"), allowedBase...)
 	}
 	lines := strings.Split(string(data), "\n")
 	nextManifest := false
@@ -244,7 +251,11 @@ func (s *Server) proxyPlatformManifest(w http.ResponseWriter, r *http.Request, r
 	if response.Request != nil && response.Request.URL != nil {
 		base = response.Request.URL.String()
 	}
-	data, err = s.rewriteHLS(raw, base, data)
+	var allowedBase []string
+	if source, _, e := s.sources.loadSourceSecret(r.Context(), ticket.UserID, ticket.SourceID); e == nil && (source.Type == "rtmp" || strings.HasPrefix(source.Type, "remote-")) {
+		allowedBase = []string{ticket.StreamURL}
+	}
+	data, err = s.rewriteHLS(raw, base, data, allowedBase...)
 	if err != nil {
 		writeError(w, 502, err)
 		return true
@@ -255,4 +266,12 @@ func (s *Server) proxyPlatformManifest(w http.ResponseWriter, r *http.Request, r
 		_, _ = w.Write(data)
 	}
 	return true
+}
+
+func assetRemoteURL(raw string) (*url.URL, error) {
+	u, e := url.Parse(raw)
+	if e != nil || len(raw) > 16384 || u.Hostname() == "" || u.User != nil || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, ErrForbidden
+	}
+	return u, nil
 }

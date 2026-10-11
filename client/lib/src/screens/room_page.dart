@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'approvals_page.dart';
+import 'rtmp_dialog.dart';
+
 import 'package:flutter/services.dart';
 
 import '../appearance.dart';
@@ -551,6 +555,19 @@ class _RoomPageState extends State<RoomPage> {
     barrierDismissible: false,
     builder: (_) => RoomSettingsDialog(controller: controller),
   );
+  Future<void> _showApprovals() => Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => ApprovalsPage(
+        api: controller.api,
+        session: controller.session,
+        roomCode: controller.room.code,
+      ),
+    ),
+  );
+  Future<void> _showRTMP() => showDialog<void>(
+    context: context,
+    builder: (_) => RTMPDialog(controller: controller),
+  );
   Future<void> _showMembers() async {
     await showDialog<void>(
       context: context,
@@ -685,6 +702,12 @@ class _RoomPageState extends State<RoomPage> {
                           case 'settings':
                             _showSettings();
                             break;
+                          case 'rtmp':
+                            _showRTMP();
+                            break;
+                          case 'approvals':
+                            _showApprovals();
+                            break;
                           case 'members':
                             _showMembers();
                             break;
@@ -722,6 +745,16 @@ class _RoomPageState extends State<RoomPage> {
                             enabled: !controller.loading,
                             value: 'members',
                             child: Text('成员权限'),
+                          ),
+                        if (controller.isOwner)
+                          const PopupMenuItem(
+                            value: 'rtmp',
+                            child: Text('房间直播 / RTMP'),
+                          ),
+                        if (controller.isOwner)
+                          const PopupMenuItem(
+                            value: 'approvals',
+                            child: Text('加房审批'),
                           ),
                         PopupMenuItem(
                           value: 'chat',
@@ -762,6 +795,18 @@ class _RoomPageState extends State<RoomPage> {
                         tooltip: '房间设置',
                         onPressed: controller.loading ? null : _showSettings,
                         icon: const Icon(Icons.settings_outlined),
+                      ),
+                    if (controller.isOwner)
+                      IconButton(
+                        tooltip: '房间直播 / RTMP',
+                        onPressed: controller.loading ? null : _showRTMP,
+                        icon: const Icon(Icons.sensors),
+                      ),
+                    if (controller.isOwner)
+                      IconButton(
+                        tooltip: '加房审批',
+                        onPressed: controller.loading ? null : _showApprovals,
+                        icon: const Icon(Icons.fact_check_outlined),
                       ),
                     if (controller.isOwner)
                       IconButton(

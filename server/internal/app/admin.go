@@ -13,7 +13,7 @@ import (
 
 var rolePermissions = map[string]map[string]bool{
 	"super_admin": {"*": true},
-	"admin":       {"user.manage": true, "room.view": true, "room.manage": true, "taxonomy.manage": true, "source.manage": true, "report.review": true, "compliance.review": true, "broadcast.send": true, "bot.manage": true, "announcement.manage": true, "order.view": true, "order.reconcile": true, "observability.view": true, "user.view": true, "user.vip.manage": true, "device.ban": true, "device.unban": true, "audit.view": true},
+	"admin":       {"review.manage": true, "user.manage": true, "room.view": true, "room.manage": true, "taxonomy.manage": true, "source.manage": true, "report.review": true, "compliance.review": true, "broadcast.send": true, "bot.manage": true, "announcement.manage": true, "order.view": true, "order.reconcile": true, "observability.view": true, "user.view": true, "user.vip.manage": true, "device.ban": true, "device.unban": true, "audit.view": true},
 	"operator":    {"room.view": true, "broadcast.send": true, "announcement.manage": true, "observability.view": true, "user.view": true},
 	"seller":      {"order.view": true, "activation_code.manage": true},
 }

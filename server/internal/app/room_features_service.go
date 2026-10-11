@@ -236,6 +236,9 @@ func (s *Server) saveSelectedMedia(ctx context.Context, room Room, f RoomFeature
 }
 
 func writeRoomFeatureError(w http.ResponseWriter, err error) {
+	if writeApprovalPending(w, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, ErrRoomConflict):
 		writeError(w, http.StatusConflict, err)

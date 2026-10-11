@@ -73,14 +73,16 @@ type AdminDocument struct {
 }
 
 type SitePolicy struct {
-	RegistrationEnabled bool `json:"registration_enabled"`
-	RoomCreationEnabled bool `json:"room_creation_enabled"`
-	GuestsEnabled       bool `json:"guests_enabled"`
-	ChatEnabled         bool `json:"chat_enabled"`
-	MaxRoomsPerUser     int  `json:"max_rooms_per_user"`
-	DefaultMaxMembers   int  `json:"default_max_members"`
-	MaxRoomMembers      int  `json:"max_room_members"`
-	ChatHistoryLimit    int  `json:"chat_history_limit"`
+	RegistrationRequiresReview bool `json:"registration_requires_review"`
+	RoomCreationRequiresReview bool `json:"room_creation_requires_review"`
+	RegistrationEnabled        bool `json:"registration_enabled"`
+	RoomCreationEnabled        bool `json:"room_creation_enabled"`
+	GuestsEnabled              bool `json:"guests_enabled"`
+	ChatEnabled                bool `json:"chat_enabled"`
+	MaxRoomsPerUser            int  `json:"max_rooms_per_user"`
+	DefaultMaxMembers          int  `json:"default_max_members"`
+	MaxRoomMembers             int  `json:"max_room_members"`
+	ChatHistoryLimit           int  `json:"chat_history_limit"`
 }
 
 type TaxonomyEntry struct {

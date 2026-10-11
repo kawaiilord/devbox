@@ -31,6 +31,9 @@ type webDAVCredentials struct {
 }
 
 type MediaSourceManager struct {
+	rtmp               *RTMPService
+	cache              *SliceCache
+	remote             *RemoteProviders
 	repository         Repository
 	vault              *CredentialVault
 	client             *http.Client
@@ -49,6 +52,7 @@ func NewMediaSourceManager(
 	manager := &MediaSourceManager{
 		repository: repository, vault: vault, allowPrivate: allowPrivate,
 	}
+	manager.remote = NewRemoteProviders(repository, vault)
 	manager.trustedAuthorities = map[string]bool{}
 	for _, raw := range strings.Split(os.Getenv("SAMEFRAME_SOURCE_HOST_ALLOWLIST"), ",") {
 		raw = strings.TrimSpace(raw)
@@ -125,6 +129,10 @@ func (m *MediaSourceManager) Browse(
 		return nil, err
 	}
 	switch source.Type {
+	case "rtmp":
+		return []MediaFile{{Name: "房间直播", Path: "/live", ContentType: "application/vnd.apple.mpegurl"}}, nil
+	case "remote-alist", "remote-emby", "remote-bilibili":
+		return m.browseRemote(ctx, source, secret, requestedPath)
 	case "webdav":
 		credentials, err := decodeWebDAVCredentials(secret)
 		if err != nil {
@@ -204,7 +212,34 @@ func (m *MediaSourceManager) Open(
 	if err != nil {
 		return nil, err
 	}
+	fetch := func() (*http.Response, error) {
+		return m.openSource(ctx, source, secret, ticket, method, rangeHeader, ifRange)
+	}
+	if m.cache != nil && source.Type != "rtmp" && cacheEligible(ticket, method, rangeHeader, ifRange) {
+		if strings.HasPrefix(source.Type, "remote-") {
+			c, e := decodeRemoteSecret(secret)
+			if e != nil {
+				return nil, e
+			}
+			if _, e = m.remote.config(ctx, c.Instance, remoteKind(source)); e != nil {
+				return nil, e
+			}
+		}
+		cfg := defaultCacheConfig()
+		if _, e := readServiceConfig(ctx, m.repository, "slice-cache", &cfg); e != nil {
+			return nil, e
+		}
+		raw, _ := json.Marshal([]any{source.ID, source.UserID, source.CredentialsCiphertext, source.AdminVersion, source.UpdatedAt, ticket.SourceVersion, ticket.Path, ticket.StreamURL, ticket.AudioURL, ticket.Kind, ticket.StreamHeaders, rangeHeader})
+		return m.cache.Open(cfg, string(raw), fetch)
+	}
+	return fetch()
+}
+func (m *MediaSourceManager) openSource(ctx context.Context, source MediaSource, secret []byte, ticket MediaTicket, method, rangeHeader, ifRange string) (*http.Response, error) {
 	switch source.Type {
+	case "rtmp":
+		return m.openRTMP(ctx, source, secret, ticket, method, rangeHeader)
+	case "remote-alist", "remote-emby", "remote-bilibili":
+		return m.openRemote(ctx, source, secret, ticket, method, rangeHeader, ifRange)
 	case "webdav":
 		if ticket.Kind != "" && ticket.Kind != "webdav" {
 			return nil, errors.New("invalid media ticket")
@@ -262,6 +297,10 @@ func (m *MediaSourceManager) PrepareMediaTicket(
 		return MediaTicket{}, err
 	}
 	switch source.Type {
+	case "rtmp":
+		return m.prepareRTMP(ctx, source, secret)
+	case "remote-alist", "remote-emby", "remote-bilibili":
+		return m.prepareRemote(ctx, source, secret, requestedPath, "")
 	case "webdav":
 		if _, err := resolveSourcePath(source.BaseURL, requestedPath, false); err != nil {
 			return MediaTicket{}, err
