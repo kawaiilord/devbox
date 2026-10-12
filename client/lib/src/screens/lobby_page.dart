@@ -138,11 +138,12 @@ class _LobbyPageState extends State<LobbyPage> {
         if (!preserveError) _error = null;
       });
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _registrationRulesReady = false;
           if (!preserveError) _error = '暂时无法获取注册设置，请点击重试。';
         });
+      }
     } finally {
       if (mounted) setState(() => _loadingRegistrationRules = false);
     }
@@ -248,8 +249,9 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _signIn() async {
     if (_busy || (_publicAuthEntry && _restoringSession)) return;
     if (_registerMode &&
-        (!_registrationRulesReady || _loadingRegistrationRules))
+        (!_registrationRulesReady || _loadingRegistrationRules)) {
       return;
+    }
     if (_registerMode && !_registrationAllowed) {
       setState(() => _error = '站点当前暂停注册，请联系管理员');
       return;
@@ -285,8 +287,9 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   Future<void> _sendRegistrationCode() async {
-    if (!_requiresEmailCode || _sendingCode || _resendSeconds > 0 || _busy)
+    if (!_requiresEmailCode || _sendingCode || _resendSeconds > 0 || _busy) {
       return;
+    }
     final email = _email.text.trim().toLowerCase();
     setState(() {
       _sendingCode = true;
