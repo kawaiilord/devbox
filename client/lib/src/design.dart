@@ -145,6 +145,7 @@ ThemeData frameTheme({Brightness brightness = Brightness.dark}) {
     useMaterial3: true,
     colorScheme: scheme,
     extensions: [colors],
+    fontFamily: 'Noto Sans SC',
     fontFamilyFallback: const [
       'Noto Sans SC',
       'PingFang SC',
@@ -157,35 +158,37 @@ ThemeData frameTheme({Brightness brightness = Brightness.dark}) {
     canvasColor: colors.surface,
     hoverColor: colors.text.withValues(alpha: .05),
     focusColor: colors.text.withValues(alpha: .10),
-    textTheme: base.textTheme.copyWith(
-      headlineLarge: TextStyle(
-        color: colors.text,
-        fontSize: 34,
-        fontWeight: FontWeight.w600,
-        height: 1.3,
-        letterSpacing: -1,
-      ),
-      headlineSmall: TextStyle(
-        color: colors.text,
-        fontSize: 26,
-        fontWeight: FontWeight.w500,
-        height: 1.4,
-      ),
-      titleLarge: TextStyle(
-        color: colors.text,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        height: 1.4,
-      ),
-      titleMedium: TextStyle(
-        color: colors.text,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        height: 1.4,
-      ),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.6, color: colors.text),
-      bodySmall: TextStyle(fontSize: 12, height: 1.5, color: colors.muted),
-    ),
+    textTheme: base.textTheme
+        .copyWith(
+          headlineLarge: TextStyle(
+            color: colors.text,
+            fontSize: 34,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+            letterSpacing: -1,
+          ),
+          headlineSmall: TextStyle(
+            color: colors.text,
+            fontSize: 26,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+          ),
+          titleLarge: TextStyle(
+            color: colors.text,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            height: 1.4,
+          ),
+          titleMedium: TextStyle(
+            color: colors.text,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 1.4,
+          ),
+          bodyMedium: TextStyle(fontSize: 14, height: 1.6, color: colors.text),
+          bodySmall: TextStyle(fontSize: 12, height: 1.5, color: colors.muted),
+        )
+        .apply(fontFamily: 'Noto Sans SC'),
     appBarTheme: AppBarTheme(
       backgroundColor: colors.background,
       surfaceTintColor: Colors.transparent,
@@ -194,6 +197,7 @@ ThemeData frameTheme({Brightness brightness = Brightness.dark}) {
       toolbarHeight: 68,
       shape: Border(bottom: BorderSide(color: colors.border)),
       titleTextStyle: TextStyle(
+        fontFamily: 'Noto Sans SC',
         fontSize: 17,
         fontWeight: FontWeight.w600,
         color: colors.text,
@@ -219,7 +223,11 @@ ThemeData frameTheme({Brightness brightness = Brightness.dark}) {
         minimumSize: const Size(0, 48),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
         shape: shape,
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontFamily: 'Noto Sans SC',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
