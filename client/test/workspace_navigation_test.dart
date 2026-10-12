@@ -85,6 +85,7 @@ void main() {
                 .first
           : find.byType(Scrollable).first,
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('安全更新'));
     await tester.pumpAndSettle();
     expect(tester.state<ScaffoldState>(find.byType(Scaffold)), same(shell));
@@ -99,6 +100,7 @@ void main() {
     await tester.tap(find.text('全部'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('设备管理'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('设备管理'));
     await tester.pumpAndSettle();
     expect(find.text('登录设备'), findsOneWidget);
@@ -127,6 +129,7 @@ void main() {
                   .first
             : find.byType(Scrollable).first,
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('安全更新'));
       await tester.pumpAndSettle();
       expect(find.text('检查更新'), findsOneWidget);
