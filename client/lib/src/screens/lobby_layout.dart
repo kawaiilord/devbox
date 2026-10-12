@@ -30,6 +30,7 @@ class LobbyLayout extends StatelessWidget {
     required this.onUpdates,
     required this.onLogout,
     this.error,
+    this.onOfficialSite,
     this.workspaceBuilder,
     this.activeDestination,
     this.onHome,
@@ -45,6 +46,7 @@ class LobbyLayout extends StatelessWidget {
   final List<LobbyDestination> destinations;
   final VoidCallback onSearch, onMembership, onLogout;
   final VoidCallback? onUpdates;
+  final VoidCallback? onOfficialSite;
   final VoidCallback onDiscover, onGuestJoin;
   final String? error;
   final Widget Function(Widget home)? workspaceBuilder;
@@ -334,6 +336,11 @@ class LobbyLayout extends StatelessWidget {
           style: const TextStyle(fontSize: 13),
         ),
         const Spacer(),
+        if (onOfficialSite != null)
+          TextButton(
+            onPressed: navigationLocked ? null : onOfficialSite,
+            child: const Text('官网'),
+          ),
         TextButton.icon(
           onPressed: navigationLocked ? null : onDiscover,
           icon: const Icon(Icons.explore_outlined, size: 17),
@@ -651,6 +658,12 @@ class LobbyLayout extends StatelessWidget {
                   label: '安全更新',
                   selected: activeDestination == '安全更新',
                   onTap: () => _navigate(context, onUpdates!, closeDrawer),
+                ),
+              if (onOfficialSite != null)
+                _NavItem(
+                  icon: Icons.language_rounded,
+                  label: '官方网站',
+                  onTap: () => _navigate(context, onOfficialSite!, closeDrawer),
                 ),
               const SizedBox(height: 30),
               if (signedIn)

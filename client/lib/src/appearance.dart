@@ -17,7 +17,10 @@ class FrameAppearance extends ChangeNotifier {
 
   static Future<FrameAppearance> load() async {
     final preferences = await SharedPreferences.getInstance();
-    final saved = preferences.getString(preferenceKey);
+    final browserMode = readBrowserAppearance();
+    final saved = browserMode.isNotEmpty
+        ? browserMode
+        : preferences.getString(preferenceKey);
     final mode =
         ThemeMode.values.where((mode) => mode.name == saved).firstOrNull ??
         ThemeMode.light;

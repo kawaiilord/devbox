@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="同帧 SameFrame — 同步观影，共享此刻。">
+  <meta name="theme-color" content="#fafafa">
+  <meta name="color-scheme" content="light dark">
+  <style>
+    html, body { margin: 0; background: var(--frame-background, #fafafa); color: var(--frame-foreground, #18181b); }
+  </style>
+  <script src="appearance.js"></script>
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="SameFrame">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png?v=transparent-2">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png?v=transparent-2"/>
+
+  <title>登录 · 同帧</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=transparent-2">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <div id="entryLoading" role="status" style="min-height:100vh;display:grid;place-content:center;text-align:center;font:13px system-ui;color:var(--frame-foreground,#18181b)">
+    <p>同帧 SAMEFRAME</p><p style="opacity:.55">正在准备你的观影空间…</p>
+  </div>
+  <script src="site/entry-loading.js"></script>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="vendor/shaka-player.compiled.js"></script>
+  <script src="vendor/mpegts.js"></script>
+  <script src="adaptive-media.js"></script>
+  <script src="security-bridge.js"></script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

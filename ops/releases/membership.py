@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,7 +17,7 @@ import time
 import urllib.error
 import urllib.request
 
-ENTRYPOINTS = ['main.dart.js', 'flutter_bootstrap.js', 'flutter_service_worker.js', 'version.json', 'index.html']
+ENTRYPOINTS = ['main.dart.js', 'flutter_bootstrap.js', 'flutter_service_worker.js', 'version.json', 'app.html', 'login.html', 'register.html', 'index.html']
 
 
 def command(args, root, **kwargs):
@@ -109,7 +110,9 @@ def deploy(args):
     root = Path(args.root).resolve()
     if not args.revision or any(c not in '0123456789abcdef' for c in args.revision):
         raise ValueError('A hexadecimal revision is required')
-    release = root / 'releases' / ('membership-' + args.revision)
+    if not re.fullmatch(r'[a-z0-9-]+', args.name):
+        raise ValueError('A lowercase release name is required')
+    release = root / 'releases' / (args.name + '-' + args.revision)
     release.mkdir(parents=True, exist_ok=False)
     manifest = release / 'deployment.json'
     stage = release / 'web'
@@ -124,7 +127,7 @@ def deploy(args):
     shutil.copyfile(args.server_binary, build / 'sameframe')
     (build / 'sameframe').chmod(0o755)
     shutil.copyfile(__file__, release / 'release.py')
-    backup = root / 'backups' / ('membership-' + time.strftime('%Y%m%d-%H%M%S', time.gmtime()))
+    backup = root / 'backups' / (args.name + '-' + time.strftime('%Y%m%d-%H%M%S', time.gmtime()))
     backup.mkdir(parents=True, mode=0o700)
     shutil.copy2(root / 'bin/sameframe', backup / 'sameframe')
     with tarfile.open(backup / 'web.tgz', 'w:gz') as archive:
@@ -136,15 +139,15 @@ def deploy(args):
     container = output(['docker', 'compose', 'ps', '-q', 'app'], root)
     old_image = output(['docker', 'inspect', container, '--format', '{{.Image}}'], root)
     runtime_name = output(['docker', 'inspect', container, '--format', '{{.Config.Image}}'], root)
-    rollback_image = 'sameframe-app:before-membership-' + args.revision
-    new_image = 'sameframe-app:membership-' + args.revision
+    rollback_image = 'sameframe-app:before-' + args.name + '-' + args.revision
+    new_image = 'sameframe-app:' + args.name + '-' + args.revision
     command(['docker', 'tag', old_image, rollback_image], root)
     record = {
         'revision': args.revision, 'root': str(root), 'status': 'backed_up',
         'created_at_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'backup_directory': str(backup), 'runtime_image_name': runtime_name,
         'rollback_image': rollback_image, 'previous_image_id': old_image,
-        'new_image': new_image, 'database_migration': '020_membership_rewards (additive)',
+        'new_image': new_image, 'database_migration': args.database_note,
         'previous_web_sha256': digest(root / 'web/main.dart.js'),
         'backup_sha256': {name: digest(backup / name) for name in ['sameframe', 'web.tgz', 'database.dump']},
         'server_sha256': digest(build / 'sameframe'), 'web_sha256': digest(stage / 'main.dart.js'),
@@ -183,6 +186,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', default='/opt/sameframe')
     parser.add_argument('--revision')
+    parser.add_argument('--name', default='membership')
+    parser.add_argument('--database-note', default='020_membership_rewards (additive)')
     parser.add_argument('--web-archive')
     parser.add_argument('--server-binary')
     parser.add_argument('--rollback', action='store_true')

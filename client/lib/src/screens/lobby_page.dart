@@ -7,6 +7,8 @@ import 'approvals_page.dart';
 import 'devices_page.dart';
 import 'workspace_navigation.dart';
 import 'workspace_section.dart';
+import 'public_auth_page.dart';
+import '../browser_entry.dart';
 import 'browser_login_dialog.dart';
 import 'remote_source_dialog.dart';
 
@@ -84,6 +86,8 @@ class _LobbyPageState extends State<LobbyPage> {
   late final _workspaceObserver = WorkspaceObserver(_navigationChanged);
   bool _workspaceCanPop = false;
   bool _registerMode = true;
+  bool _publicAuthEntry = false;
+  bool _restoringSession = true;
   bool _verifiedOverride = false;
   bool _busy = false;
   String? _error;
@@ -93,23 +97,35 @@ class _LobbyPageState extends State<LobbyPage> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      final entry = Uri.base.path.split('/').last;
+      _publicAuthEntry = entry == 'login.html' || entry == 'register.html';
+      if (_publicAuthEntry) _registerMode = entry == 'register.html';
+      if (entry == 'app.html' && Uri.base.queryParameters['discover'] == '1') {
+        _workspacePanel = _WorkspacePanel.discover;
+        _mobileTab = 1;
+      }
+    }
     _restoreSession();
   }
 
   Future<void> _restoreSession() async {
-    final session = await widget.sessionStore.read();
-    if (session == null || !mounted) return;
     try {
+      final session = await widget.sessionStore.read();
+      if (session == null || !mounted) return;
       await widget.api.listDevices(session);
       if (!mounted) return;
       setState(() {
         _session = session;
         _verifiedOverride = session.user.emailVerified;
       });
+      if (kIsWeb && _publicAuthEntry) setBrowserEntry('app');
       await _refreshMembership();
       await _showStartupAnnouncement();
     } catch (_) {
       await widget.sessionStore.clear();
+    } finally {
+      if (mounted) setState(() => _restoringSession = false);
     }
   }
 
@@ -176,12 +192,14 @@ class _LobbyPageState extends State<LobbyPage> {
       _verifiedOverride = session.user.emailVerified;
     });
     _password.clear();
+    if (kIsWeb) setBrowserEntry('app');
     await widget.sessionStore.write(session);
     await _refreshMembership();
     await _showStartupAnnouncement();
   }
 
   Future<void> _signIn() async {
+    if (_busy || (_publicAuthEntry && _restoringSession)) return;
     await _run(() async {
       final session = _registerMode
           ? await widget.api.register(
@@ -360,8 +378,11 @@ class _LobbyPageState extends State<LobbyPage> {
       await widget.api.logout(session);
       await widget.sessionStore.clear();
       if (mounted) {
+        if (kIsWeb) setBrowserEntry('login');
         setState(() {
           _session = null;
+          _publicAuthEntry = kIsWeb;
+          _registerMode = false;
           _membership = null;
           _membershipRefresh?.cancel();
           _workspacePanel = null;
@@ -776,7 +797,10 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _requestLogin(int returnTab) {
+    if (kIsWeb) setBrowserEntry('login');
     setState(() {
+      _publicAuthEntry = kIsWeb;
+      _error = null;
       _workspacePanel = null;
       _mobileTab = 0;
       _returnTabAfterLogin = returnTab;
@@ -786,7 +810,10 @@ class _LobbyPageState extends State<LobbyPage> {
 
   void _loginForRoom(String code) {
     if (!mounted) return;
+    if (kIsWeb) setBrowserEntry('login');
     setState(() {
+      _publicAuthEntry = kIsWeb;
+      _error = null;
       _workspacePanel = null;
       _roomCode.text = code;
       _preferJoin = true;
@@ -865,17 +892,30 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop:
-        !_securityBusy &&
-        !_workspaceCanPop &&
-        _workspacePanel == null &&
-        _mobileTab == 0,
-    onPopInvokedWithResult: (didPop, result) {
-      if (!didPop) _backWorkspace();
-    },
-    child: _buildLobby(),
-  );
+  Widget build(BuildContext context) =>
+      _session == null && _publicAuthEntry && _workspacePanel == null
+      ? PublicAuthPage(
+          registerMode: _registerMode,
+          restoring: _restoringSession,
+          form: _loginCard(framed: false),
+          error: _error,
+          onHome: openOfficialWebsite,
+          onDiscover: () {
+            setBrowserEntry('app');
+            _selectMobileTab(1);
+          },
+        )
+      : PopScope(
+          canPop:
+              !_securityBusy &&
+              !_workspaceCanPop &&
+              _workspacePanel == null &&
+              _mobileTab == 0,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) _backWorkspace();
+          },
+          child: _buildLobby(),
+        );
 
   int get _dockIndex => switch (_workspacePanel) {
     null => 0,
@@ -902,6 +942,7 @@ class _LobbyPageState extends State<LobbyPage> {
     onGuestJoin: _joinGuest,
     onMembership: _showMembership,
     onUpdates: kIsWeb ? null : _showUpdates,
+    onOfficialSite: kIsWeb ? openOfficialWebsite : null,
     onLogout: _logout,
     destinations: [
       LobbyDestination(Icons.video_library_outlined, '收藏与历史', _showLibrary),
@@ -924,20 +965,7 @@ class _LobbyPageState extends State<LobbyPage> {
         _showMembership,
       ),
     ],
-    login: _LoginCard(
-      name: _name,
-      email: _email,
-      password: _password,
-      registerMode: _registerMode,
-      busy: _busy,
-      onSubmit: _signIn,
-      onBrowserLogin: _browserSignIn,
-      onForgotPassword: _showPasswordReset,
-      onToggleMode: () => setState(() {
-        _registerMode = !_registerMode;
-        _error = null;
-      }),
-    ),
+    login: _loginCard(),
     create: _CreateCard(
       roomName: _roomName,
       source: _source,
@@ -961,6 +989,26 @@ class _LobbyPageState extends State<LobbyPage> {
             onVerify: _verifyEmail,
           ),
   );
+  Widget _loginCard({bool framed = true}) => _LoginCard(
+    name: _name,
+    email: _email,
+    password: _password,
+    registerMode: _registerMode,
+    busy: _busy || (_publicAuthEntry && _restoringSession),
+    framed: framed,
+    onSubmit: _signIn,
+    onBrowserLogin: _browserSignIn,
+    onForgotPassword: _showPasswordReset,
+    onToggleMode: () {
+      setState(() {
+        _registerMode = !_registerMode;
+        _error = null;
+      });
+      if (kIsWeb && _publicAuthEntry) {
+        setBrowserEntry(_registerMode ? 'register' : 'login');
+      }
+    },
+  );
 }
 
 class _LoginCard extends StatelessWidget {
@@ -974,12 +1022,13 @@ class _LoginCard extends StatelessWidget {
     required this.onBrowserLogin,
     required this.onToggleMode,
     required this.onForgotPassword,
+    this.framed = true,
   });
   final TextEditingController name;
   final TextEditingController email;
   final TextEditingController password;
   final bool registerMode;
-  final bool busy;
+  final bool busy, framed;
   final VoidCallback onSubmit;
   final VoidCallback onBrowserLogin;
   final VoidCallback onToggleMode;
@@ -987,76 +1036,84 @@ class _LoginCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fields = AutofillGroup(
+      child: Column(
+        children: [
+          if (registerMode) ...[
+            TextField(
+              controller: name,
+              autofocus: MediaQuery.sizeOf(context).width >= 700,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.nickname],
+              decoration: const InputDecoration(
+                labelText: '你的昵称',
+                prefixIcon: Icon(Icons.person_outline_rounded, size: 19),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: email,
+            autofocus: !registerMode && MediaQuery.sizeOf(context).width >= 700,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: '邮箱',
+              prefixIcon: Icon(Icons.alternate_email_rounded, size: 19),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: password,
+            obscureText: true,
+            autofillHints: [
+              registerMode ? AutofillHints.newPassword : AutofillHints.password,
+            ],
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              labelText: '密码',
+              prefixIcon: Icon(Icons.lock_outline_rounded, size: 19),
+              helperText: '至少 10 个字符',
+            ),
+            onSubmitted: (_) {
+              if (!busy) onSubmit();
+            },
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: busy ? null : onSubmit,
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: Text(busy ? '连接中…' : (registerMode ? '注册并进入' : '登录')),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: busy ? null : onToggleMode,
+            child: Text(registerMode ? '已有账号？直接登录' : '没有账号？立即注册'),
+          ),
+          OutlinedButton.icon(
+            onPressed: busy ? null : onBrowserLogin,
+            icon: const Icon(Icons.fingerprint),
+            label: const Text('邮箱验证码 / 第三方 / Passkey'),
+          ),
+          if (!registerMode)
+            TextButton(
+              onPressed: busy ? null : onForgotPassword,
+              child: const Text('忘记密码'),
+            ),
+        ],
+      ),
+    );
+    if (!framed) return fields;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),
       child: _Panel(
         title: registerMode ? '创建账号' : '登录 SameFrame',
         subtitle: registerMode ? '为下一次相聚，留一个位置。' : '欢迎回来，继续你们的故事。',
-        child: Column(
-          children: [
-            if (registerMode) ...[
-              TextField(
-                controller: name,
-                autofocus: MediaQuery.sizeOf(context).width >= 700,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.nickname],
-                decoration: const InputDecoration(
-                  labelText: '你的昵称',
-                  prefixIcon: Icon(Icons.person_outline_rounded, size: 19),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            TextField(
-              controller: email,
-              autofocus:
-                  !registerMode && MediaQuery.sizeOf(context).width >= 700,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.email],
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: '邮箱',
-                prefixIcon: Icon(Icons.alternate_email_rounded, size: 19),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: password,
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: '密码',
-                prefixIcon: Icon(Icons.lock_outline_rounded, size: 19),
-                helperText: '至少 10 个字符',
-              ),
-              onSubmitted: (_) => onSubmit(),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: busy ? null : onSubmit,
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: Text(busy ? '连接中…' : (registerMode ? '注册并进入' : '登录')),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: busy ? null : onToggleMode,
-              child: Text(registerMode ? '已有账号？直接登录' : '没有账号？立即注册'),
-            ),
-            OutlinedButton.icon(
-              onPressed: busy ? null : onBrowserLogin,
-              icon: const Icon(Icons.fingerprint),
-              label: const Text('邮箱验证码 / 第三方 / Passkey'),
-            ),
-            if (!registerMode)
-              TextButton(
-                onPressed: busy ? null : onForgotPassword,
-                child: const Text('忘记密码'),
-              ),
-          ],
-        ),
+        child: fields,
       ),
     );
   }

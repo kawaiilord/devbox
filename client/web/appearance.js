@@ -1,5 +1,5 @@
 // Paint the saved appearance before Flutter starts. Preferences in the app
-// remain authoritative; this small cache only avoids a flash on page reload.
+// are shared with the official website to keep navigation between pages consistent.
 (() => {
   const storageKey = 'sameframe.appearance.boot';
   const system = window.matchMedia('(prefers-color-scheme: dark)');
@@ -15,9 +15,17 @@
     root.style.setProperty('--frame-background', background);
     root.style.setProperty('--frame-foreground', dark ? '#f4f4f5' : '#18181b');
     root.style.colorScheme = dark ? 'dark' : 'light';
+    root.dataset.theme = dark ? 'dark' : 'light';
+    window.dispatchEvent(new CustomEvent('sameframe-theme-change'));
     document.querySelector('meta[name="theme-color"]').content = background;
   }
   window.sameframeAppearance = {
+    getMode() {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        return ['light', 'dark', 'system'].includes(saved) ? saved : '';
+      } catch (_) { return ''; }
+    },
     setMode(next) {
       mode = ['light', 'dark', 'system'].includes(next) ? next : 'light';
       try { localStorage.setItem(storageKey, mode); } catch (_) {}
