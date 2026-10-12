@@ -54,6 +54,7 @@ class _LobbyPageState extends State<LobbyPage> {
   int _mobileTab = 0;
   _WorkspacePanel? _workspacePanel;
   bool _securityBusy = false;
+  final _accountSecurityKey = GlobalKey(debugLabel: 'account-security');
   int? _returnTabAfterLogin;
   bool _preferJoin = false;
   final _visitedTabs = <int>{0};
@@ -182,7 +183,7 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   Widget _accountSecurity() => AccountSecurityPanel(
-    key: ValueKey('account-security-${_session!.user.id}'),
+    key: _accountSecurityKey,
     onBusyChanged: (busy) {
       if (mounted) setState(() => _securityBusy = busy);
     },
