@@ -36,7 +36,7 @@ func main() {
 		log.Fatal(err)
 	}
 	auth := app.NewAuthService(repo, tokens)
-	device := app.DeviceInfo{ID: "rewards-seed", Label: "Rewards fixture", Platform: "test"}
+	device := app.DeviceInfo{ID: "rewards-fixture-user-device", Label: "Rewards fixture", Platform: "test"}
 	session, err := auth.Register(ctx, "viewer@rewards.example.test", "同帧体验官", password, device)
 	if err != nil {
 		log.Fatal(err)
@@ -46,7 +46,7 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	peer, err := auth.Register(ctx, "peer@rewards.example.test", "铂金观影搭子", password, app.DeviceInfo{ID: "peer-seed", Label: "Peer fixture", Platform: "test"})
+	peer, err := auth.Register(ctx, "peer@rewards.example.test", "铂金观影搭子", password, app.DeviceInfo{ID: "rewards-fixture-peer-device", Label: "Peer fixture", Platform: "test"})
 	if err != nil {
 		log.Fatal(err)
 	}
