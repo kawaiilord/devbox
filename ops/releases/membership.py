@@ -97,6 +97,13 @@ def rollback(record, manifest):
     with tarfile.open(backup / 'web.tgz', 'r:gz') as archive:
         archive.extractall(stage, filter='data')
     install_web(stage / 'web', root)
+    # Remove only files introduced by this release, preserving unrelated files.
+    web = (root / 'web').resolve()
+    for relative in record.get('added_web_files', []):
+        target = (web / relative).resolve()
+        if not target.is_relative_to(web):
+            raise RuntimeError('Invalid rollback file path')
+        target.unlink(missing_ok=True)
     install_binary(backup / 'sameframe', root)
     command(['docker', 'tag', record['rollback_image'], record['runtime_image_name']], root)
     command(['docker', 'compose', 'up', '-d', '--no-build', '--no-deps', '--force-recreate', 'app'], root)
@@ -151,6 +158,8 @@ def deploy(args):
         'previous_web_sha256': digest(root / 'web/main.dart.js'),
         'backup_sha256': {name: digest(backup / name) for name in ['sameframe', 'web.tgz', 'database.dump']},
         'server_sha256': digest(build / 'sameframe'), 'web_sha256': digest(stage / 'main.dart.js'),
+        'added_web_files': [p.relative_to(stage).as_posix() for p in stage.rglob('*')
+            if p.is_file() and not (root / 'web' / p.relative_to(stage)).exists()],
         'rollback_command': 'python3 ' + str(release / 'release.py') + ' --rollback',
         'rollback_check_command': 'python3 ' + str(release / 'release.py') + ' --check-rollback',
         'database_rollback_policy': 'Preserve new user activity; normal rollback does not restore the database.',

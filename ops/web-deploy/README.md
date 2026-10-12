@@ -14,6 +14,16 @@ SMTP, MFA, OAuth and Provider secrets depend on it.
 certificate under `letsencrypt/live/CERT_NAME/` and render `nginx.conf.template`
 as `nginx.conf`, replacing `CERT_NAME`.
 
+To attach a domain to an existing IP deployment, issue its webroot certificate
+first, then run `python3 configure-domain.py --domain example.com` on the host.
+The script backs up nginx, Compose and the private environment before changing
+them, adds a TLS virtual host, and sets the public media URL and allowed origins.
+It keeps the original IP origin working. `ALLOWED_ORIGINS` may contain a
+comma-separated origin list; it defaults to `PUBLIC_URL` for new deployments.
+The printed manifest includes the independent configuration rollback command.
+Account sessions and Passkeys are browser-origin scoped: users log in again on
+the domain, and existing Passkeys remain associated with their original RP.
+
 Run `docker compose up -d --build`. PostgreSQL and Redis are isolated named
 volumes with loopback-only maintenance ports 55433 and 56380. MediaMTX's control
 API and HLS port are reachable only within this Compose network. Only authorized

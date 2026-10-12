@@ -59,7 +59,7 @@ h1, h2, h3 { font-weight: 620; letter-spacing: -.05em; }
 .hero-note svg { width: 14px; height: 14px; }
 .hero-note > span { margin: 0 2px; }
 .hero-scene { position: relative; padding: 20px 0 55px; }
-.scene-glow { position: absolute; inset: -90px -55px -30px; background: radial-gradient(ellipse, var(--soft), transparent 68%); pointer-events: none; }
+.scene-glow { position: absolute; inset: -90px 0 -30px; background: radial-gradient(ellipse, var(--soft), transparent 68%); pointer-events: none; }
 .room-preview { position: relative; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); padding: 0 13px; box-shadow: 0 30px 90px #18181b15, 0 4px 12px #18181b06; transform: perspective(1400px) rotateY(-5deg) rotateX(2deg); }
 :root[data-theme="dark"] .room-preview { box-shadow: 0 30px 90px #0008; }
 .preview-top { height: 49px; display: flex; align-items: center; gap: 15px; font-size: 10px; color: var(--muted); }

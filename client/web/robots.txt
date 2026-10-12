@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /app.html
+Disallow: /login.html
+Disallow: /register.html
+Sitemap: https://sameframe.top/sitemap.xml
