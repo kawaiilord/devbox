@@ -121,6 +121,8 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
     expect(find.text('先看看公开房间'), findsNothing);
     expect(find.text('邮箱验证码 / 第三方 / Passkey'), findsNothing);
+    await tester.ensureVisible(find.text('已有账号？直接登录'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('已有账号？直接登录'));
     await tester.pumpAndSettle();
     expect(find.text('登录同帧'), findsOneWidget);
