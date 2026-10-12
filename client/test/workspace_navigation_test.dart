@@ -12,51 +12,54 @@ void main() {
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
-    await _open(tester, signedIn: true, size: const Size(1440, 1000));
-    expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
-    await tester.tap(find.text('搜索电影 / 剧集'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '共同的电影');
-    await tester.tap(find.text('搜索'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('测试影片'));
-    await tester.pumpAndSettle();
-    expect(find.text('测试影片 · 影评'), findsOneWidget);
-    expect(find.text('我的媒体源'), findsOneWidget);
-    expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
+    try {
+      await _open(tester, signedIn: true, size: const Size(1440, 1000));
+      expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
+      await tester.tap(find.text('搜索电影 / 剧集'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '共同的电影');
+      await tester.tap(find.text('搜索'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试影片'));
+      await tester.pumpAndSettle();
+      expect(find.text('测试影片 · 影评'), findsOneWidget);
+      expect(find.text('我的媒体源'), findsOneWidget);
+      expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
 
-    tester.view.physicalSize = const Size(390, 844);
-    await tester.pumpAndSettle();
-    expect(find.text('测试影片 · 影评'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    expect(find.text('共同的电影'), findsOneWidget);
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      expect(find.text('测试影片 · 影评'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('共同的电影'), findsOneWidget);
 
-    // System back exits the section only after its detail route is gone.
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(find.text('影视元数据搜索'), findsNothing);
-    expect(find.byType(NavigationBar), findsOneWidget);
+      // System back exits the section only after its detail route is gone.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('影视元数据搜索'), findsNothing);
+      expect(find.byType(NavigationBar), findsOneWidget);
 
-    tester.view.physicalSize = const Size(1440, 1000);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('搜索电影 / 剧集'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '第二次搜索');
-    await tester.tap(find.text('搜索'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('测试影片'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('设备管理'));
-    await tester.pumpAndSettle();
-    expect(find.text('登录设备'), findsOneWidget);
-    expect(find.text('测试影片 · 影评'), findsNothing);
-    await tester.tap(find.byTooltip('返回'));
-    await tester.pumpAndSettle();
-    expect(find.text('今晚，一起看点什么？'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+      tester.view.physicalSize = const Size(1440, 1000);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('搜索电影 / 剧集'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '第二次搜索');
+      await tester.tap(find.text('搜索'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试影片'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('设备管理'));
+      await tester.pumpAndSettle();
+      expect(find.text('登录设备'), findsOneWidget);
+      expect(find.text('测试影片 · 影评'), findsNothing);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      expect(find.text('今晚，一起看点什么？'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('signed-out sections keep bottom tabs and return to profile', (
