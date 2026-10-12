@@ -229,7 +229,7 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
           return;
         }
         final credentials = await _credentials(
-          onGesture: browser.beginAuthorization,
+          onGesture: () => browser.beginAuthorization(),
         );
         if (credentials == null || !mounted) {
           browser.closeAuthorization();

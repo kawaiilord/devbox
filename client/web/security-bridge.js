@@ -7,8 +7,8 @@
   window.sameframeSecurity = {
     get supported() { return window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials; },
     async createPasskey(raw) {
-      if (!this.supported) throw new Error('此浏览器暂不支持 Passkey');
-      this.cancelPasskey();
+      if (!window.sameframeSecurity.supported) throw new Error('此浏览器暂不支持 Passkey');
+      window.sameframeSecurity.cancelPasskey();
       const controller = new AbortController();
       passkeyAbort = controller;
       try {
@@ -26,7 +26,7 @@
     },
     cancelPasskey() { passkeyAbort?.abort(); passkeyAbort = null; },
     beginAuthorization() {
-      this.closeAuthorization();
+      window.sameframeSecurity.closeAuthorization();
       const popup = window.open('about:blank', '_blank', 'popup,width=620,height=740');
       if (!popup) throw new Error('请允许本站打开授权窗口后重试');
       // The new window has its own sessionStorage, initially copied from the opener.
