@@ -18,12 +18,17 @@ void main() {
       final preferences = await SharedPreferences.getInstance();
       expect(preferences.getString('appearance.theme'), 'light');
 
-      for (final mode in [ThemeMode.dark, ThemeMode.system, ThemeMode.light]) {
+      for (final mode in [ThemeMode.dark, ThemeMode.light]) {
         await appearance.setMode(mode);
         final restored = await FrameAppearance.load();
         expect(restored.mode, mode);
         restored.dispose();
       }
+
+      await preferences.setString('appearance.theme', 'system');
+      final migrated = await FrameAppearance.load();
+      expect(migrated.mode, ThemeMode.light);
+      migrated.dispose();
 
       await preferences.setString('appearance.theme', 'unknown-future-mode');
       final fallback = await FrameAppearance.load();
