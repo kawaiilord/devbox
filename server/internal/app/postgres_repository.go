@@ -68,6 +68,9 @@ var providerSourcesMigration string
 //go:embed migrations/018_admin_management.sql
 var adminManagementMigration string
 
+//go:embed migrations/021_registration_invites.sql
+var registrationInvitesMigration string
+
 //go:embed migrations/020_membership_rewards.sql
 var membershipRewardsMigration string
 
@@ -115,6 +118,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		adminManagementMigration,
 		platformServicesMigration,
 		membershipRewardsMigration,
+		registrationInvitesMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err

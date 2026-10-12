@@ -37,6 +37,7 @@ type ActionTokenRecord struct {
 }
 
 type Repository interface {
+	RegistrationInviteRepository
 	PlatformRepository
 	SecurityRepository
 	StreamRepository
@@ -196,6 +197,7 @@ type MemoryRepository struct {
 	externalIdentities     map[string]string
 	approvals              map[string]ApprovalRequest
 	adminDocuments         map[string]AdminDocument
+	registrationInvites    map[string]RegistrationInvite
 	mu                     sync.RWMutex
 	usersByID              map[string]AccountRecord
 	usersByMail            map[string]string

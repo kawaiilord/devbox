@@ -21,6 +21,10 @@ type registrationVerification struct {
 }
 
 func (s *Server) requestRegistrationCode(w http.ResponseWriter, r *http.Request) {
+	if !s.options.RequireRegistrationCode {
+		writeError(w, 403, errors.New("注册邮箱验证码暂未启用"))
+		return
+	}
 	policy, _, err := s.sitePolicy(r.Context())
 	if err != nil {
 		writeError(w, 503, errors.New("注册服务暂不可用"))

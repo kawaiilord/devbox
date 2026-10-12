@@ -28,12 +28,40 @@ func insertApprovalTx(ctx context.Context, tx pgx.Tx, kind, userID, code string)
 	}
 	return scanApproval(tx.QueryRow(ctx, `SELECT `+approvalColumns+approvalFrom+` WHERE a.kind=$1 AND a.user_id=$2 AND COALESCE(a.room_code,'')=$3 AND a.status='pending'`, kind, userID, code))
 }
-func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecord, review bool) (ApprovalRequest, error) {
+func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecord, review bool, inviteHashes ...string) (ApprovalRequest, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return ApprovalRequest{}, err
 	}
 	defer tx.Rollback(ctx)
+	policy := defaultSitePolicy()
+	var raw []byte
+	err = tx.QueryRow(ctx, `SELECT data FROM admin_documents WHERE key='site_policy' FOR SHARE`).Scan(&raw)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return ApprovalRequest{}, err
+	}
+	if len(raw) > 0 {
+		if err = json.Unmarshal(raw, &policy); err != nil {
+			return ApprovalRequest{}, err
+		}
+	}
+	if !policy.RegistrationEnabled {
+		return ApprovalRequest{}, ErrForbidden
+	}
+	hash := ""
+	inviteID := ""
+	if policy.RegistrationRequiresInvite {
+		if len(inviteHashes) > 0 {
+			hash = inviteHashes[0]
+		}
+		err = tx.QueryRow(ctx, `SELECT id FROM registration_invites WHERE code_hash=$1 AND used_at=0 AND revoked_at=0 AND (expires_at=0 OR expires_at>$2) FOR UPDATE`, hash, time.Now().UnixMilli()).Scan(&inviteID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ApprovalRequest{}, ErrRegistrationInvite
+		}
+		if err != nil {
+			return ApprovalRequest{}, err
+		}
+	}
 	status := "active"
 	if review {
 		status = "pending"
@@ -45,6 +73,14 @@ func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecor
 			return ApprovalRequest{}, ErrEmailExists
 		}
 		return ApprovalRequest{}, err
+	}
+	if policy.RegistrationRequiresInvite {
+		if _, err = tx.Exec(ctx, `UPDATE registration_invites SET used_by=$2,used_at=$3 WHERE code_hash=$1`, hash, a.ID, time.Now().UnixMilli()); err != nil {
+			return ApprovalRequest{}, err
+		}
+		if _, err = appendPostgresAudit(ctx, tx, AuditEvent{ActorID: a.ID, Action: "registration_invites.use", TargetType: "registration_invite", TargetID: inviteID}); err != nil {
+			return ApprovalRequest{}, err
+		}
 	}
 	var item ApprovalRequest
 	if review {

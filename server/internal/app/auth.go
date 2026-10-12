@@ -154,7 +154,17 @@ func (s *AuthService) Register(
 	return s.registerAccount(ctx, email, displayName, password, false, devices...)
 }
 
+type accountRegistrationOptions struct {
+	Verified         bool
+	SendVerification bool
+	InviteCode       string
+}
+
 func (s *AuthService) registerAccount(ctx context.Context, email, displayName, password string, verified bool, devices ...DeviceInfo) (Session, error) {
+	return s.registerWithOptions(ctx, email, displayName, password, accountRegistrationOptions{Verified: verified, SendVerification: !verified}, devices...)
+}
+
+func (s *AuthService) registerWithOptions(ctx context.Context, email, displayName, password string, options accountRegistrationOptions, devices ...DeviceInfo) (Session, error) {
 	device, deviceHash, err := normalizeDevice(firstDevice(devices))
 	if err != nil {
 		return Session{}, err
@@ -170,7 +180,7 @@ func (s *AuthService) registerAccount(ctx context.Context, email, displayName, p
 	account := AccountRecord{
 		User: User{
 			ID: mustRandomString(12), DisplayName: strings.TrimSpace(displayName),
-			Email: normalizedEmail, SessionVersion: 1, EmailVerified: verified,
+			Email: normalizedEmail, SessionVersion: 1, EmailVerified: options.Verified,
 		},
 		PasswordHash: passwordHash,
 		CreatedAt:    s.now(),
@@ -183,14 +193,14 @@ func (s *AuthService) registerAccount(ctx context.Context, email, displayName, p
 	if err != nil {
 		return Session{}, err
 	}
-	request, err := s.repository.RegisterAccount(ctx, account, policy.RegistrationRequiresReview && !account.IsAdmin)
+	request, err := s.repository.RegisterAccount(ctx, account, policy.RegistrationRequiresReview && !account.IsAdmin, registrationInviteHash(options.InviteCode))
 	if err != nil {
 		return Session{}, err
 	}
 	if err := s.repository.BindDevice(ctx, account.ID, deviceHash, device); err != nil {
 		return Session{}, err
 	}
-	if !verified {
+	if options.SendVerification && !options.Verified {
 		if err := s.issueActionToken(ctx, account.User, "verify_email", verificationLifetime); err != nil {
 			return Session{}, err
 		}

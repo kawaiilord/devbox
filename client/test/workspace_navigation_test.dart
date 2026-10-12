@@ -116,7 +116,8 @@ void main() {
   ) async {
     await _open(tester, signedIn: false, size: const Size(390, 844));
     expect(find.text('创建同帧账号'), findsOneWidget);
-    expect(find.text('邮箱验证码'), findsOneWidget);
+    expect(find.text('邮箱验证码'), findsNothing);
+    expect(find.text('邀请码'), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
     expect(find.text('先看看公开房间'), findsNothing);
     expect(find.text('邮箱验证码 / 第三方 / Passkey'), findsNothing);
@@ -178,6 +179,12 @@ class _Store implements SessionStore {
 }
 
 class _Api extends ApiClient {
+  @override
+  Future<Map<String, dynamic>> loginOptions() async => {
+    'registration_enabled': true,
+    'registration_invite_required': true,
+    'registration_email_code_required': false,
+  };
   @override
   Future<MembershipStatus> membership(Session session) async =>
       const MembershipStatus(active: false, vipExpiresAt: 0);

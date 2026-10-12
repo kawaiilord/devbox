@@ -178,7 +178,7 @@ func main() {
 		Redis:                   redisCoordinator,
 		RequireVerifiedEmail:    requireVerifiedEmail,
 		RequireAccount:          envBool("SAMEFRAME_REQUIRE_ACCOUNT", true),
-		RequireRegistrationCode: envBool("SAMEFRAME_REQUIRE_REGISTRATION_CODE", true),
+		RequireRegistrationCode: envBool("SAMEFRAME_REQUIRE_REGISTRATION_CODE", false),
 		Sources:                 sourceManager,
 		PublicBaseURL:           os.Getenv("SAMEFRAME_PUBLIC_BASE_URL"),
 		Metadata:                metadataClient,

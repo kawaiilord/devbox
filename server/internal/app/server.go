@@ -133,6 +133,9 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/admin/media-sources", s.adminSources)
 	mux.HandleFunc("PUT /api/v1/admin/media-sources/{id}", s.adminChangeSource)
 	mux.HandleFunc("POST /api/v1/admin/media-sources/{id}/probe", s.adminProbeSource)
+	mux.HandleFunc("GET /api/v1/admin/registration-invites", s.adminRegistrationInvites)
+	mux.HandleFunc("POST /api/v1/admin/registration-invites", s.adminRegistrationInvites)
+	mux.HandleFunc("POST /api/v1/admin/registration-invites/{id}/revoke", s.adminRevokeRegistrationInvite)
 	mux.HandleFunc("GET /api/v1/admin/site-policy", s.adminPolicy)
 	mux.HandleFunc("PUT /api/v1/admin/site-policy", s.adminPolicy)
 	mux.HandleFunc("GET /api/v1/admin/taxonomy", s.adminTaxonomy)
@@ -449,6 +452,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		Password    string `json:"password"`
 		Challenge   string `json:"challenge"`
 		Code        string `json:"code"`
+		InviteCode  string `json:"invite_code"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -473,8 +477,8 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	session, err := s.auth.registerAccount(
-		r.Context(), request.Email, request.DisplayName, request.Password, s.options.RequireRegistrationCode, device,
+	session, err := s.auth.registerWithOptions(
+		r.Context(), request.Email, request.DisplayName, request.Password, accountRegistrationOptions{Verified: s.options.RequireRegistrationCode, InviteCode: request.InviteCode}, device,
 	)
 	if writeLoginChallenge(w, err) || writeApprovalPending(w, err) {
 		return

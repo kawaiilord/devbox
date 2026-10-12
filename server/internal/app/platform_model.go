@@ -6,7 +6,7 @@ import (
 )
 
 type PlatformRepository interface {
-	RegisterAccount(context.Context, AccountRecord, bool) (ApprovalRequest, error)
+	RegisterAccount(context.Context, AccountRecord, bool, ...string) (ApprovalRequest, error)
 	CreateRoomWithApproval(context.Context, Room, RoomFeatures, bool) (ApprovalRequest, error)
 	RequestRoomApproval(context.Context, string, string) (ApprovalRequest, error)
 	ReadApproval(context.Context, string) (ApprovalRequest, error)

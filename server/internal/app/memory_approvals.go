@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 	"time"
@@ -20,11 +21,32 @@ func (r *MemoryRepository) insertApprovalLocked(kind, userID, code string) Appro
 	r.approvals[item.ID] = item
 	return item
 }
-func (r *MemoryRepository) RegisterAccount(_ context.Context, account AccountRecord, review bool) (ApprovalRequest, error) {
+func (r *MemoryRepository) RegisterAccount(_ context.Context, account AccountRecord, review bool, inviteHashes ...string) (ApprovalRequest, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.usersByMail[account.Email]; ok {
 		return ApprovalRequest{}, ErrEmailExists
+	}
+	policy := defaultSitePolicy()
+	if raw := r.adminDocuments["site_policy"].Data; len(raw) > 0 {
+		if err := json.Unmarshal(raw, &policy); err != nil {
+			return ApprovalRequest{}, err
+		}
+	}
+	if !policy.RegistrationEnabled {
+		return ApprovalRequest{}, ErrForbidden
+	}
+	hash := ""
+	var invite RegistrationInvite
+	if policy.RegistrationRequiresInvite {
+		if len(inviteHashes) > 0 {
+			hash = inviteHashes[0]
+		}
+		var exists bool
+		invite, exists = r.registrationInvites[hash]
+		if !exists || inviteStatus(invite, time.Now().UnixMilli()) != "active" {
+			return ApprovalRequest{}, ErrRegistrationInvite
+		}
 	}
 	account.AccountStatus = "active"
 	account.AdminVersion = 1
@@ -33,6 +55,12 @@ func (r *MemoryRepository) RegisterAccount(_ context.Context, account AccountRec
 	}
 	r.usersByID[account.ID] = account
 	r.usersByMail[account.Email] = account.ID
+	if policy.RegistrationRequiresInvite {
+		invite.UsedBy = account.ID
+		invite.UsedAt = time.Now().UnixMilli()
+		r.registrationInvites[hash] = invite
+		r.appendAuditLocked(AuditEvent{ActorID: account.ID, Action: "registration_invites.use", TargetType: "registration_invite", TargetID: invite.ID})
+	}
 	if review {
 		return r.insertApprovalLocked("registration", account.ID, ""), nil
 	}

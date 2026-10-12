@@ -44,6 +44,7 @@ class ApiClient {
     required String password,
     String challenge = '',
     String code = '',
+    String inviteCode = '',
   }) async {
     final data = await _request(
       'POST',
@@ -54,6 +55,7 @@ class ApiClient {
         'password': password,
         'challenge': challenge,
         'code': code,
+        'invite_code': inviteCode,
       },
     );
     return Session.fromJson(data);

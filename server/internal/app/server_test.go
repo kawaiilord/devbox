@@ -74,6 +74,7 @@ func TestAccountSecurityEndpoints(t *testing.T) {
 	if err := json.Unmarshal(registeredBody, &registered); err != nil {
 		t.Fatal(err)
 	}
+	requestJSONDevice(t, http.MethodPost, httpServer.URL+"/api/v1/auth/email/verify-request", registered.Data.AccessToken, nil, deviceA)
 	verification, ok := mailer.LastMessage()
 	if !ok {
 		t.Fatal("verification message missing")

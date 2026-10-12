@@ -59,12 +59,14 @@ const tabs = [
   ['remote_providers', '远程 Provider', 'REMOTE PROVIDERS', '配置服务端点、TLS 和共享密钥，检测连接状态。', '系统'],
   ['slice_cache', '分片缓存', 'SLICE CACHE', '管理各节点容量、命中情况与清理任务。', '系统'],
   ['rtmp', '直播推流', 'LIVE STREAMS', '管理推流策略、活动连接和房间密钥。', '系统'],
+  ['registration_invites', '注册邀请码', 'REGISTRATION INVITES', '管理注册门槛、批量创建和使用记录。', '系统'],
   ['smtp', '邮件服务', 'MAIL', '配置 SMTP 投递、邮件模板与发送测试。', '系统'],
   ['login_security', '登录与安全', 'AUTHENTICATION', '管理第三方登录、Passkey 和动态验证码。', '系统'],
   ['bot', '房间 Bot', 'ROOM ASSISTANT', '配置房间助手的身份、策略与服务连接。', '系统'],
   ['audit', '操作审计', 'AUDIT LOG', '追踪管理操作，查看审计链的完整性。', '系统']
 ];
 icons.remote_providers=icons.layers;
+icons.registration_invites = icons.codes;
 icons.smtp = icons.announcements;
 icons.login_security = icons.shield;
 icons.approvals = icons.check;
@@ -72,7 +74,7 @@ icons.rooms = icons.room;
 icons.taxonomy = icons.layers;
 icons.sources = icons.layers;
 icons.policy = icons.config;
-const tabPermissions = {slice_cache:'config.write',rtmp:'config.write',remote_providers:'config.write',smtp:'config.write',login_security:'config.write',approvals:'review.manage',dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
+const tabPermissions = {registration_invites:'config.write',slice_cache:'config.write',rtmp:'config.write',remote_providers:'config.write',smtp:'config.write',login_security:'config.write',approvals:'review.manage',dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
 const state = {
   permissions: [],
   filters: {},

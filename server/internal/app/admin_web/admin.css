@@ -367,3 +367,5 @@ input[type="checkbox"]:not(.toggle) { width: 17px; min-width: 17px; height: 17px
 /* The shared brand mark has no tile or background. Its ink follows the theme. */
 .brand img, .mobile-brand { background: transparent; }
 :root[data-theme="dark"] .brand img, :root[data-theme="dark"] .mobile-brand { filter: invert(1); }
+
+.invite-code-output { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; font-size: 13px; padding: 16px; background: var(--elevated); border: 1px solid var(--line); border-radius: 10px; }

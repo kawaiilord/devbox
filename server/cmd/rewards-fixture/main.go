@@ -18,6 +18,7 @@ import (
 )
 
 func main() {
+	invites := flag.Bool("registration-invites", false, "enable invitation registration and a local fixture administrator")
 	verified := flag.Bool("verified-access", false, "require accounts and verified registration in this isolated fixture")
 	credentials := flag.String("credentials", "", "private credentials output file (required)")
 	flag.Parse()
@@ -57,15 +58,30 @@ func main() {
 	if err = repo.FollowUser(ctx, session.User.ID, peer.User.ID); err != nil {
 		log.Fatal(err)
 	}
+	extra := map[string]string{}
+	if *invites {
+		admin, e := auth.Register(ctx, "admin@invites.example.test", "测试管理员", password, device)
+		if e != nil {
+			log.Fatal(e)
+		}
+		if e = repo.VerifyEmail(ctx, admin.User.ID); e != nil {
+			log.Fatal(e)
+		}
+		if e = repo.SetUserAdmin(ctx, admin.User.ID, true); e != nil {
+			log.Fatal(e)
+		}
+		extra["admin_email"] = admin.User.Email
+	}
 	file, err := os.OpenFile(*credentials, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = json.NewEncoder(file).Encode(map[string]string{"email": session.User.Email, "password": password}); err != nil {
+	extra["email"], extra["password"] = session.User.Email, password
+	if err = json.NewEncoder(file).Encode(extra); err != nil {
 		log.Fatal(err)
 	}
 	file.Close()
-	server := app.NewServer(app.Options{Repository: repo, Auth: auth, PointsPerCheckIn: 1, RequireAccount: *verified, RequireRegistrationCode: *verified, AllowedOrigins: []string{"http://localhost:18883"}})
+	server := app.NewServer(app.Options{Repository: repo, Auth: auth, PointsPerCheckIn: 1, RequireAccount: *verified || *invites, RequireRegistrationCode: *verified && !*invites, AllowedOrigins: []string{"http://localhost:18883"}})
 	listener, err := net.Listen("tcp", "127.0.0.1:18882")
 	if err != nil {
 		log.Fatal(err)

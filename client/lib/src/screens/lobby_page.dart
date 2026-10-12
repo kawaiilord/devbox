@@ -65,6 +65,11 @@ class _LobbyPageState extends State<LobbyPage> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _registrationCode = TextEditingController();
+  final _inviteCode = TextEditingController();
+  bool _requiresInvite = false, _requiresEmailCode = false;
+  bool _registrationAllowed = true, _registrationRulesReady = false;
+  bool _loadingRegistrationRules = false;
+
   String _registrationChallenge = '', _registrationEmail = '';
   String? _registrationNotice;
   bool _sendingCode = false;
@@ -112,7 +117,35 @@ class _LobbyPageState extends State<LobbyPage> {
         _mobileTab = 1;
       }
     }
+    _loadRegistrationRules();
     _restoreSession();
+  }
+
+  Future<void> _loadRegistrationRules({bool preserveError = false}) async {
+    if (_loadingRegistrationRules) return;
+    setState(() {
+      _loadingRegistrationRules = true;
+    });
+    try {
+      final options = await widget.api.loginOptions();
+      if (!mounted) return;
+      setState(() {
+        _registrationAllowed = options['registration_enabled'] != false;
+        _requiresInvite = options['registration_invite_required'] == true;
+        _requiresEmailCode =
+            options['registration_email_code_required'] == true;
+        _registrationRulesReady = true;
+        if (!preserveError) _error = null;
+      });
+    } catch (_) {
+      if (mounted)
+        setState(() {
+          _registrationRulesReady = false;
+          if (!preserveError) _error = '暂时无法获取注册设置，请点击重试。';
+        });
+    } finally {
+      if (mounted) setState(() => _loadingRegistrationRules = false);
+    }
   }
 
   Future<void> _restoreSession() async {
@@ -147,6 +180,7 @@ class _LobbyPageState extends State<LobbyPage> {
     _email.dispose();
     _password.dispose();
     _registrationCode.dispose();
+    _inviteCode.dispose();
     _resendTimer?.cancel();
     _roomName.dispose();
     _source.dispose();
@@ -214,6 +248,18 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _signIn() async {
     if (_busy || (_publicAuthEntry && _restoringSession)) return;
     if (_registerMode &&
+        (!_registrationRulesReady || _loadingRegistrationRules))
+      return;
+    if (_registerMode && !_registrationAllowed) {
+      setState(() => _error = '站点当前暂停注册，请联系管理员');
+      return;
+    }
+    if (_registerMode && _requiresInvite && _inviteCode.text.trim().isEmpty) {
+      setState(() => _error = '请填写邀请码');
+      return;
+    }
+    if (_registerMode &&
+        _requiresEmailCode &&
         (_registrationChallenge.isEmpty ||
             _registrationEmail != _email.text.trim().toLowerCase() ||
             !RegExp(r'^\d{6}$').hasMatch(_registrationCode.text.trim()))) {
@@ -228,14 +274,19 @@ class _LobbyPageState extends State<LobbyPage> {
               password: _password.text,
               challenge: _registrationChallenge,
               code: _registrationCode.text.trim(),
+              inviteCode: _requiresInvite ? _inviteCode.text.trim() : '',
             )
           : await _passwordLogin();
       await _acceptSession(session);
     });
+    if (mounted && _session == null && _registerMode) {
+      await _loadRegistrationRules(preserveError: true);
+    }
   }
 
   Future<void> _sendRegistrationCode() async {
-    if (_sendingCode || _resendSeconds > 0 || _busy) return;
+    if (!_requiresEmailCode || _sendingCode || _resendSeconds > 0 || _busy)
+      return;
     final email = _email.text.trim().toLowerCase();
     setState(() {
       _sendingCode = true;
@@ -1031,6 +1082,13 @@ class _LobbyPageState extends State<LobbyPage> {
     framed: framed,
     onSubmit: _signIn,
     registrationCode: _registrationCode,
+    inviteCode: _inviteCode,
+    requiresInvite: _requiresInvite,
+    requiresEmailCode: _requiresEmailCode,
+    registrationAllowed: _registrationAllowed,
+    rulesReady: _registrationRulesReady,
+    rulesLoading: _loadingRegistrationRules,
+    onReloadRules: _loadRegistrationRules,
     onSendCode: _sendRegistrationCode,
     sendingCode: _sendingCode,
     resendSeconds: _resendSeconds,
@@ -1041,6 +1099,7 @@ class _LobbyPageState extends State<LobbyPage> {
         _registerMode = !_registerMode;
         _error = null;
       });
+      if (_registerMode) _loadRegistrationRules();
       if (kIsWeb && _publicAuthEntry) {
         setBrowserEntry(_registerMode ? 'register' : 'login');
       }
@@ -1057,6 +1116,13 @@ class _LoginCard extends StatelessWidget {
     required this.busy,
     required this.onSubmit,
     required this.registrationCode,
+    required this.inviteCode,
+    required this.requiresInvite,
+    required this.requiresEmailCode,
+    required this.registrationAllowed,
+    required this.rulesReady,
+    required this.rulesLoading,
+    required this.onReloadRules,
     required this.onSendCode,
     required this.sendingCode,
     required this.resendSeconds,
@@ -1071,7 +1137,10 @@ class _LoginCard extends StatelessWidget {
   final bool registerMode;
   final bool busy, framed;
   final VoidCallback onSubmit;
-  final TextEditingController registrationCode;
+  final TextEditingController registrationCode, inviteCode;
+  final bool requiresInvite, requiresEmailCode, registrationAllowed;
+  final bool rulesReady, rulesLoading;
+  final VoidCallback onReloadRules;
   final VoidCallback onSendCode;
   final bool sendingCode;
   final int resendSeconds;
@@ -1125,7 +1194,25 @@ class _LoginCard extends StatelessWidget {
               if (!busy) onSubmit();
             },
           ),
-          if (registerMode) ...[
+          if (registerMode && requiresInvite) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: inviteCode,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: '邀请码',
+                helperText: '请填写管理员提供的邀请码',
+                prefixIcon: Icon(Icons.vpn_key_outlined, size: 19),
+              ),
+              onSubmitted: (_) {
+                if (!busy) onSubmit();
+              },
+            ),
+          ],
+          if (registerMode && requiresEmailCode) ...[
             const SizedBox(height: 12),
             TextField(
               controller: registrationCode,
@@ -1175,11 +1262,32 @@ class _LoginCard extends StatelessWidget {
                 ),
               ),
           ],
+          if (registerMode && rulesLoading)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: LinearProgressIndicator(),
+            ),
+          if (registerMode && !rulesLoading && !rulesReady)
+            TextButton.icon(
+              onPressed: onReloadRules,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试获取注册设置'),
+            ),
+          if (registerMode && rulesReady && !registrationAllowed)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Text('站点当前暂停注册，请联系管理员。'),
+            ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: busy ? null : onSubmit,
+              onPressed:
+                  busy ||
+                      (registerMode &&
+                          (!rulesReady || rulesLoading || !registrationAllowed))
+                  ? null
+                  : onSubmit,
               icon: const Icon(Icons.arrow_forward_rounded),
               label: Text(busy ? '连接中…' : (registerMode ? '注册并进入' : '登录')),
             ),

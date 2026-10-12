@@ -454,13 +454,18 @@ func (s *Server) publicLoginOptions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 503, e)
 		return
 	}
+	policy, _, err := s.sitePolicy(r.Context())
+	if err != nil {
+		writeError(w, 503, errors.New("注册设置暂不可用"))
+		return
+	}
 	providers := []map[string]string{}
 	for _, p := range c.Providers {
 		if p.Enabled {
 			providers = append(providers, map[string]string{"id": p.ID, "name": p.Name, "kind": p.Kind})
 		}
 	}
-	writeJSON(w, 200, apiResponse{Code: 0, Data: map[string]any{"password_login": c.PasswordLogin, "email_login": c.EmailLogin, "passkeys": c.Passkeys, "providers": providers}})
+	writeJSON(w, 200, apiResponse{Code: 0, Data: map[string]any{"password_login": c.PasswordLogin, "email_login": c.EmailLogin, "passkeys": c.Passkeys, "providers": providers, "registration_enabled": policy.RegistrationEnabled, "registration_invite_required": policy.RegistrationRequiresInvite, "registration_email_code_required": s.options.RequireRegistrationCode}})
 }
 func (s *Server) adminLoginConfig(w http.ResponseWriter, r *http.Request) {
 	actor, ok := s.requirePermission(w, r, "config.write")

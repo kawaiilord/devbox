@@ -291,6 +291,10 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 				result.Error = "本站已关闭新账号注册"
 				return ErrForbidden
 			}
+			if policy.RegistrationRequiresInvite {
+				result.Error = "本站需要邀请码，请先通过注册页创建账号，再关联第三方身份"
+				return ErrForbidden
+			}
 			name := strings.TrimSpace(profile.Name)
 			if len([]rune(name)) < 2 {
 				name = "新用户"

@@ -73,6 +73,7 @@ type AdminDocument struct {
 }
 
 type SitePolicy struct {
+	RegistrationRequiresInvite bool `json:"registration_requires_invite"`
 	RegistrationRequiresReview bool `json:"registration_requires_review"`
 	RoomCreationRequiresReview bool `json:"room_creation_requires_review"`
 	RegistrationEnabled        bool `json:"registration_enabled"`
