@@ -15,9 +15,11 @@ class AccountSecurityPanel extends StatefulWidget {
     super.key,
     required this.api,
     required this.session,
+    required this.onBusyChanged,
   });
   final ApiClient api;
   final Session session;
+  final ValueChanged<bool> onBusyChanged;
   @override
   State<AccountSecurityPanel> createState() => _AccountSecurityPanelState();
 }
@@ -79,6 +81,7 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
 
   Future<void> _perform(Future<void> Function() work) async {
     if (_busy || _loading) return;
+    widget.onBusyChanged(true);
     setState(() {
       _busy = true;
       _error = null;
@@ -93,7 +96,10 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        widget.onBusyChanged(false);
+      }
     }
   }
 

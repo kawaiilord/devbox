@@ -31,6 +31,7 @@ class LobbyLayout extends StatelessWidget {
     this.content,
     this.activeDestination,
     this.onHome,
+    this.navigationLocked = false,
     this.mobileTabs = false,
     this.preferJoin = false,
   });
@@ -45,6 +46,7 @@ class LobbyLayout extends StatelessWidget {
   final Widget? content;
   final String? activeDestination;
   final VoidCallback? onHome;
+  final bool navigationLocked;
   final bool mobileTabs, preferJoin;
 
   @override
@@ -60,7 +62,7 @@ class LobbyLayout extends StatelessWidget {
                 leading: content != null
                     ? IconButton(
                         tooltip: '返回观影大厅',
-                        onPressed: onHome,
+                        onPressed: navigationLocked ? null : onHome,
                         icon: const Icon(Icons.arrow_back_rounded),
                       )
                     : null,
@@ -70,7 +72,9 @@ class LobbyLayout extends StatelessWidget {
                 actions: [
                   const FrameThemeMenu(),
                   IconButton(
-                    onPressed: signedIn ? onSearch : onUpdates,
+                    onPressed: navigationLocked
+                        ? null
+                        : (signedIn ? onSearch : onUpdates),
                     tooltip: signedIn ? '影视搜索' : '检查更新',
                     icon: Icon(
                       signedIn
@@ -161,7 +165,7 @@ class LobbyLayout extends StatelessWidget {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: onDiscover,
+              onPressed: navigationLocked ? null : onDiscover,
               icon: const Icon(Icons.explore_outlined, size: 17),
               label: const Text('发现房间'),
             ),
@@ -215,14 +219,14 @@ class LobbyLayout extends StatelessWidget {
         ),
         const Spacer(),
         TextButton.icon(
-          onPressed: onDiscover,
+          onPressed: navigationLocked ? null : onDiscover,
           icon: const Icon(Icons.explore_outlined, size: 17),
           label: const Text('发现公开房间'),
         ),
         const SizedBox(width: 8),
         const FrameThemeMenu(),
         IconButton(
-          onPressed: onUpdates,
+          onPressed: navigationLocked ? null : onUpdates,
           tooltip: '检查更新',
           icon: const Icon(Icons.system_update_alt_rounded, size: 19),
         ),
@@ -265,7 +269,7 @@ class LobbyLayout extends StatelessWidget {
                 runSpacing: 10,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: onDiscover,
+                    onPressed: navigationLocked ? null : onDiscover,
                     icon: const Icon(Icons.explore_outlined, size: 18),
                     label: const Text('发现公开房间'),
                   ),
@@ -346,7 +350,7 @@ class LobbyLayout extends StatelessWidget {
           const _Eyebrow('开始一场放映'),
           const Spacer(),
           TextButton.icon(
-            onPressed: onDiscover,
+            onPressed: navigationLocked ? null : onDiscover,
             icon: const Icon(Icons.arrow_outward_rounded, size: 16),
             label: const Text('发现房间'),
           ),
@@ -432,6 +436,7 @@ class LobbyLayout extends StatelessWidget {
         );
 
   void _navigate(BuildContext context, VoidCallback action, bool closeDrawer) {
+    if (navigationLocked) return;
     if (closeDrawer) Navigator.of(context).pop();
     action();
   }
@@ -488,7 +493,7 @@ class LobbyLayout extends StatelessWidget {
                   icon: destinations[i].icon,
                   label: destinations[i].label,
                   selected: activeDestination == destinations[i].label,
-                  onTap: signedIn
+                  onTap: signedIn && !navigationLocked
                       ? () => _navigate(
                           context,
                           destinations[i].onTap,

@@ -53,6 +53,7 @@ class _LobbyPageState extends State<LobbyPage> {
   Session? _session;
   int _mobileTab = 0;
   _WorkspacePanel? _workspacePanel;
+  bool _securityBusy = false;
   int? _returnTabAfterLogin;
   bool _preferJoin = false;
   final _visitedTabs = <int>{0};
@@ -182,6 +183,9 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Widget _accountSecurity() => AccountSecurityPanel(
     key: ValueKey('account-security-${_session!.user.id}'),
+    onBusyChanged: (busy) {
+      if (mounted) setState(() => _securityBusy = busy);
+    },
     api: widget.api,
     session: _session!,
   );
@@ -478,7 +482,10 @@ class _LobbyPageState extends State<LobbyPage> {
     setState(() => _workspacePanel = _WorkspacePanel.media);
   }
 
-  void _closeWorkspacePanel() => setState(() => _workspacePanel = null);
+  void _closeWorkspacePanel() {
+    if (_securityBusy) return;
+    setState(() => _workspacePanel = null);
+  }
 
   Future<bool> _connectMediaKind(String kind) {
     switch (kind) {
@@ -542,7 +549,7 @@ class _LobbyPageState extends State<LobbyPage> {
       ),
       leading: IconButton(
         tooltip: '返回',
-        onPressed: _closeWorkspacePanel,
+        onPressed: _securityBusy ? null : _closeWorkspacePanel,
         icon: const Icon(Icons.arrow_back_rounded),
       ),
       actions: const [FrameThemeMenu()],
@@ -702,6 +709,7 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _selectMobileTab(int tab) {
+    if (_securityBusy) return;
     FocusScope.of(context).unfocus();
     setState(() {
       _workspacePanel = null;
@@ -889,7 +897,9 @@ class _LobbyPageState extends State<LobbyPage> {
                     height: 72,
                     elevation: 0,
                     selectedIndex: _mobileTab,
-                    onDestinationSelected: _selectMobileTab,
+                    onDestinationSelected: _securityBusy
+                        ? null
+                        : _selectMobileTab,
                     labelBehavior:
                         NavigationDestinationLabelBehavior.alwaysShow,
                     destinations: const [
@@ -923,6 +933,7 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Widget _buildLobby({bool mobileTabs = false}) => LobbyLayout(
     mobileTabs: mobileTabs,
+    navigationLocked: _securityBusy,
     content: _session == null || mobileTabs
         ? null
         : switch (_workspacePanel) {
