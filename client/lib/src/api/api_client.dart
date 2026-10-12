@@ -121,6 +121,118 @@ class ApiClient {
     String method,
   ) => _request(method, '/api/v1/rooms/$code/rtmp', session: session);
 
+  Future<Map<String, dynamic>> accountSecurity(Session session) =>
+      _request('GET', '/api/v1/account/security', session: session);
+  Future<Map<String, dynamic>> loginOptions() =>
+      _request('GET', '/api/v1/auth/options');
+  Future<Map<String, dynamic>> beginTOTP(Session session, String password) =>
+      _request(
+        'POST',
+        '/api/v1/account/totp/setup',
+        session: session,
+        body: {'password': password},
+      );
+  Future<List<String>> confirmTOTP(
+    Session session,
+    String challenge,
+    String code,
+  ) async {
+    final result = await _request(
+      'POST',
+      '/api/v1/account/totp/confirm',
+      session: session,
+      body: {'challenge': challenge, 'code': code},
+      allowRefresh: false,
+    );
+    await _acceptSecuritySession(
+      session,
+      result['session'] as Map<String, dynamic>,
+    );
+    return (result['recovery_codes'] as List<dynamic>).cast<String>();
+  }
+
+  Future<void> disableTOTP(
+    Session session,
+    Map<String, dynamic> credentials,
+  ) async {
+    final result = await _request(
+      'POST',
+      '/api/v1/account/totp/disable',
+      session: session,
+      body: credentials,
+      allowRefresh: false,
+    );
+    await _acceptSecuritySession(session, result);
+  }
+
+  Future<Map<String, dynamic>> beginPasskey(
+    Session session,
+    Map<String, dynamic> credentials,
+  ) => _request(
+    'POST',
+    '/api/v1/account/passkeys/begin',
+    session: session,
+    body: credentials,
+    allowRefresh: false,
+  );
+  Future<void> finishPasskey(
+    Session session,
+    String challenge,
+    Map<String, dynamic> credential,
+  ) async {
+    final result = await _request(
+      'POST',
+      '/api/v1/account/passkeys/finish',
+      session: session,
+      body: {'challenge': challenge, 'credential': credential},
+      allowRefresh: false,
+    );
+    await _acceptSecuritySession(session, result);
+  }
+
+  Future<void> removePasskey(
+    Session session,
+    String id,
+    Map<String, dynamic> credentials,
+  ) async {
+    final result = await _request(
+      'DELETE',
+      '/api/v1/account/passkeys/${Uri.encodeComponent(id)}',
+      session: session,
+      body: credentials,
+      allowRefresh: false,
+    );
+    await _acceptSecuritySession(session, result);
+  }
+
+  Future<Map<String, dynamic>> beginIdentityLink(
+    Session session,
+    String id,
+    Map<String, dynamic> credentials,
+  ) => _request(
+    'POST',
+    '/api/v1/auth/oauth/${Uri.encodeComponent(id)}/start',
+    session: session,
+    body: {...credentials, 'link': true},
+    allowRefresh: false,
+  );
+  Future<Map<String, dynamic>> pollIdentityLink(String token) => _request(
+    'POST',
+    '/api/v1/auth/oauth/exchange',
+    body: {'token': token},
+    allowRefresh: false,
+  );
+  Future<void> _acceptSecuritySession(
+    Session session,
+    Map<String, dynamic> value,
+  ) async {
+    final next = Session.fromJson(value);
+    if (next.user.id != session.user.id)
+      throw const ApiException('安全设置返回了不匹配的账号');
+    session.replaceTokens(next);
+    await onSessionUpdated?.call(session);
+  }
+
   Future<void> logout(Session session) async {
     await _request(
       'POST',
@@ -1217,8 +1329,10 @@ class ApiClient {
         allowRefresh) {
       if (session.accessToken == requestAccessToken) {
         final refreshed = await _refreshSingleFlight(session.refreshToken);
-        session.replaceTokens(refreshed);
-        await onSessionUpdated?.call(session);
+        if (session.accessToken == requestAccessToken) {
+          session.replaceTokens(refreshed);
+          await onSessionUpdated?.call(session);
+        }
       }
       return _request(
         method,

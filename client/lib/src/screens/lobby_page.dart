@@ -4,8 +4,6 @@ import 'approvals_page.dart';
 import 'browser_login_dialog.dart';
 import 'remote_source_dialog.dart';
 
-import 'package:url_launcher/url_launcher.dart';
-
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
@@ -13,6 +11,7 @@ import 'lobby_layout.dart';
 import 'mobile_profile.dart';
 import 'media_source_browser.dart';
 import 'media_center.dart';
+import 'account_security_panel.dart';
 import 'library_connection_dialog.dart';
 import '../appearance.dart';
 import 'quark_source_dialog.dart';
@@ -28,6 +27,8 @@ import 'privacy_page.dart';
 import 'room_page.dart';
 import 'social_page.dart';
 import 'update_page.dart';
+
+enum _WorkspacePanel { media, security }
 
 class LobbyPage extends StatefulWidget {
   const LobbyPage({super.key, required this.api, required this.sessionStore});
@@ -51,7 +52,7 @@ class _LobbyPageState extends State<LobbyPage> {
   final _verificationToken = TextEditingController();
   Session? _session;
   int _mobileTab = 0;
-  bool _mediaCenterOpen = false;
+  _WorkspacePanel? _workspacePanel;
   int? _returnTabAfterLogin;
   bool _preferJoin = false;
   final _visitedTabs = <int>{0};
@@ -173,16 +174,17 @@ class _LobbyPageState extends State<LobbyPage> {
     });
   }
 
-  Future<void> _showAccountSecurity() async {
-    await _run(() async {
-      if (!await launchUrl(
-        Uri.parse(widget.api.baseUrl).resolve('/admin/account.html'),
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw const ApiException('无法打开账号安全中心');
-      }
-    });
+  void _showAccountSecurity() {
+    if (_session == null) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _workspacePanel = _WorkspacePanel.security);
   }
+
+  Widget _accountSecurity() => AccountSecurityPanel(
+    key: ValueKey('account-security-${_session!.user.id}'),
+    api: widget.api,
+    session: _session!,
+  );
 
   Future<void> _showStartupAnnouncement() async {
     final items = await widget.api.announcements();
@@ -307,7 +309,7 @@ class _LobbyPageState extends State<LobbyPage> {
       if (mounted) {
         setState(() {
           _session = null;
-          _mediaCenterOpen = false;
+          _workspacePanel = null;
           _mobileTab = 0;
           _visitedTabs
             ..clear()
@@ -473,10 +475,10 @@ class _LobbyPageState extends State<LobbyPage> {
   void _showMediaSources() {
     if (_session == null) return;
     FocusScope.of(context).unfocus();
-    setState(() => _mediaCenterOpen = true);
+    setState(() => _workspacePanel = _WorkspacePanel.media);
   }
 
-  void _closeMediaCenter() => setState(() => _mediaCenterOpen = false);
+  void _closeWorkspacePanel() => setState(() => _workspacePanel = null);
 
   Future<bool> _connectMediaKind(String kind) {
     switch (kind) {
@@ -533,22 +535,26 @@ class _LobbyPageState extends State<LobbyPage> {
     },
   );
 
-  Widget _mobileMediaCenter() => Scaffold(
+  Widget _mobileWorkspacePanel() => Scaffold(
     appBar: AppBar(
-      title: const Text('我的媒体源'),
+      title: Text(
+        _workspacePanel == _WorkspacePanel.security ? '账号与安全' : '我的媒体源',
+      ),
       leading: IconButton(
         tooltip: '返回',
-        onPressed: _closeMediaCenter,
+        onPressed: _closeWorkspacePanel,
         icon: const Icon(Icons.arrow_back_rounded),
       ),
       actions: const [FrameThemeMenu()],
     ),
     body: SafeArea(
       child: SingleChildScrollView(
-        key: const PageStorageKey('mobile-media-center'),
+        key: PageStorageKey('mobile-${_workspacePanel?.name}'),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-        child: _mediaCenter(),
+        child: _workspacePanel == _WorkspacePanel.security
+            ? _accountSecurity()
+            : _mediaCenter(),
       ),
     ),
   );
@@ -590,7 +596,7 @@ class _LobbyPageState extends State<LobbyPage> {
     );
     if (file == null || !mounted) return false;
     setState(() {
-      _mediaCenterOpen = false;
+      _workspacePanel = null;
       _mobileTab = 0;
       _visitedTabs.add(0);
       _selectedMediaSourceId = source.id;
@@ -698,7 +704,7 @@ class _LobbyPageState extends State<LobbyPage> {
   void _selectMobileTab(int tab) {
     FocusScope.of(context).unfocus();
     setState(() {
-      _mediaCenterOpen = false;
+      _workspacePanel = null;
       _mobileTab = tab;
       _visitedTabs.add(tab);
     });
@@ -727,9 +733,9 @@ class _LobbyPageState extends State<LobbyPage> {
   Widget build(BuildContext context) {
     if (MediaQuery.sizeOf(context).width >= 700) {
       return PopScope(
-        canPop: !_mediaCenterOpen,
+        canPop: _workspacePanel == null,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop) _closeMediaCenter();
+          if (!didPop) _closeWorkspacePanel();
         },
         child: _buildLobby(),
       );
@@ -737,11 +743,11 @@ class _LobbyPageState extends State<LobbyPage> {
     final colors = FrameColors.of(context);
     final session = _session;
     return PopScope(
-      canPop: _mobileTab == 0 && !_mediaCenterOpen,
+      canPop: _mobileTab == 0 && _workspacePanel == null,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
-          if (_mediaCenterOpen) {
-            _closeMediaCenter();
+          if (_workspacePanel != null) {
+            _closeWorkspacePanel();
           } else {
             _selectMobileTab(0);
           }
@@ -752,7 +758,7 @@ class _LobbyPageState extends State<LobbyPage> {
           child: Stack(
             children: [
               Offstage(
-                offstage: _mediaCenterOpen,
+                offstage: _workspacePanel != null,
                 child: IndexedStack(
                   index: _mobileTab,
                   children: [
@@ -810,7 +816,7 @@ class _LobbyPageState extends State<LobbyPage> {
                         ),
                         (
                           icon: Icons.security_outlined,
-                          label: '账号安全',
+                          label: '账号与安全',
                           onTap: session == null ? null : _showAccountSecurity,
                         ),
                         (
@@ -843,7 +849,8 @@ class _LobbyPageState extends State<LobbyPage> {
                   ],
                 ),
               ),
-              if (_mediaCenterOpen && session != null) _mobileMediaCenter(),
+              if (_workspacePanel != null && session != null)
+                _mobileWorkspacePanel(),
             ],
           ),
         ),
@@ -916,11 +923,19 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Widget _buildLobby({bool mobileTabs = false}) => LobbyLayout(
     mobileTabs: mobileTabs,
-    content: _mediaCenterOpen && _session != null && !mobileTabs
-        ? _mediaCenter()
-        : null,
-    activeDestination: _mediaCenterOpen ? '我的媒体源' : null,
-    onHome: _closeMediaCenter,
+    content: _session == null || mobileTabs
+        ? null
+        : switch (_workspacePanel) {
+            _WorkspacePanel.media => _mediaCenter(),
+            _WorkspacePanel.security => _accountSecurity(),
+            null => null,
+          },
+    activeDestination: switch (_workspacePanel) {
+      _WorkspacePanel.media => '我的媒体源',
+      _WorkspacePanel.security => '账号与安全',
+      null => null,
+    },
+    onHome: _closeWorkspacePanel,
     preferJoin: _preferJoin,
     signedIn: _session != null,
     name: _session?.user.displayName ?? '',
@@ -936,7 +951,7 @@ class _LobbyPageState extends State<LobbyPage> {
       LobbyDestination(Icons.people_outline_rounded, '好友与私聊', _showSocial),
       LobbyDestination(Icons.favorite_border_rounded, '情侣空间', _showCouple),
       LobbyDestination(Icons.folder_open_rounded, '我的媒体源', _showMediaSources),
-      LobbyDestination(Icons.security_outlined, '账号安全', _showAccountSecurity),
+      LobbyDestination(Icons.security_outlined, '账号与安全', _showAccountSecurity),
       LobbyDestination(Icons.fact_check_outlined, '我的申请', _showApprovals),
       LobbyDestination(Icons.devices_rounded, '设备管理', _showDevices),
       LobbyDestination(Icons.shield_outlined, '隐私与屏蔽', _showPrivacy),

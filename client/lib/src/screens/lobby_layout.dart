@@ -65,7 +65,7 @@ class LobbyLayout extends StatelessWidget {
                       )
                     : null,
                 title: content != null
-                    ? const Text('我的媒体源')
+                    ? Text(activeDestination ?? '我的空间')
                     : FrameBrand(compact: constraints.maxWidth < 420),
                 actions: [
                   const FrameThemeMenu(),
