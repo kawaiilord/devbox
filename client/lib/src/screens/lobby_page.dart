@@ -467,7 +467,6 @@ class _LobbyPageState extends State<LobbyPage> {
   Widget _workspace(Widget home) {
     final mobile = MediaQuery.sizeOf(context).width < 700;
     final session = _session;
-    final primary = _panelForTab(_mobileTab);
     final title = _workspaceTitle;
     final panelContent = switch (_workspacePanel) {
       _WorkspacePanel.security => _accountSecurity(),
@@ -491,7 +490,6 @@ class _LobbyPageState extends State<LobbyPage> {
       _WorkspacePanel.media || _WorkspacePanel.security => Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(
-            leading: WorkspaceNavigation.leading(context),
             title: Text(title!),
             actions: mobile ? const [FrameThemeMenu()] : null,
           ),
@@ -532,29 +530,23 @@ class _LobbyPageState extends State<LobbyPage> {
       ),
       _WorkspacePanel.updates => const UpdatePage(),
     };
-    return WorkspaceNavigation(
-      locked: _securityBusy,
-      onExit: _workspacePanel == null || (mobile && _workspacePanel == primary)
-          ? null
-          : _closeWorkspacePanel,
-      // A route's modal barrier must not hide the shell's navigation from
-      // accessibility tools. Keep its semantics inside the content region.
-      child: Semantics(
-        container: true,
-        explicitChildNodes: true,
-        child: Navigator(
-          key: _workspaceNavigator,
-          observers: [_workspaceObserver],
-          pages: [
-            MaterialPage<void>(
-              key: ValueKey(
-                '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
-              ),
-              child: page,
+    // A route's modal barrier must not hide the shell's navigation from
+    // accessibility tools. Keep its semantics inside the content region.
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: Navigator(
+        key: _workspaceNavigator,
+        observers: [_workspaceObserver],
+        pages: [
+          MaterialPage<void>(
+            key: ValueKey(
+              '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
             ),
-          ],
-          onDidRemovePage: (_) {},
-        ),
+            child: page,
+          ),
+        ],
+        onDidRemovePage: (_) {},
       ),
     );
   }

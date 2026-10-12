@@ -53,7 +53,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('登录设备'), findsOneWidget);
       expect(find.text('测试影片 · 影评'), findsNothing);
-      await tester.tap(find.byTooltip('返回'));
+      expect(find.byType(BackButton), findsNothing);
+      await tester.tap(find.text('观影大厅'));
       await tester.pumpAndSettle();
       expect(find.text('今晚，一起看点什么？'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -62,28 +63,30 @@ void main() {
     }
   });
 
-  testWidgets('signed-out sections keep bottom tabs and return to profile', (
-    tester,
-  ) async {
-    await _open(tester, signedIn: false, size: const Size(390, 844));
-    await tester.tap(find.text('我的'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('安全更新'));
-    await tester.tap(find.text('安全更新'));
-    await tester.pumpAndSettle();
-    expect(find.text('检查更新'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
-    await tester.tap(find.byTooltip('返回'));
-    await tester.pumpAndSettle();
-    expect(find.text('登录或注册'), findsOneWidget);
-    await tester.tap(find.text('片库'));
-    await tester.pumpAndSettle();
-    expect(find.byType(NavigationBar), findsOneWidget);
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(find.text('注册并进入'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'signed-out sections switch through bottom tabs without a back button',
+    (tester) async {
+      await _open(tester, signedIn: false, size: const Size(390, 844));
+      await tester.tap(find.text('我的'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('安全更新'));
+      await tester.tap(find.text('安全更新'));
+      await tester.pumpAndSettle();
+      expect(find.text('检查更新'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(BackButton), findsNothing);
+      await tester.tap(find.text('我的'));
+      await tester.pumpAndSettle();
+      expect(find.text('登录或注册'), findsOneWidget);
+      await tester.tap(find.text('片库'));
+      await tester.pumpAndSettle();
+      expect(find.byType(NavigationBar), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('注册并进入'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 Future<void> _open(

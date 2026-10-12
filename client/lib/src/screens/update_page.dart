@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'workspace_navigation.dart';
-
 import '../update_service.dart';
 
 class UpdatePage extends StatefulWidget {
@@ -62,10 +60,7 @@ class _UpdatePageState extends State<UpdatePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: WorkspaceNavigation.leading(context),
-      title: const Text('安全更新'),
-    ),
+    appBar: AppBar(title: const Text('安全更新')),
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [

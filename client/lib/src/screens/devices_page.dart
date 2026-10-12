@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
-import 'workspace_navigation.dart';
 
 class DevicesPage extends StatefulWidget {
   const DevicesPage({super.key, required this.api, required this.session});
@@ -76,7 +75,6 @@ class _DevicesPageState extends State<DevicesPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      leading: WorkspaceNavigation.leading(context),
       title: const Text('设备管理'),
       actions: [
         IconButton(

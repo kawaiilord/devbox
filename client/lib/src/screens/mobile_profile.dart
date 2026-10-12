@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'workspace_navigation.dart';
-
 import '../appearance.dart';
 import '../design.dart';
 
@@ -27,7 +25,6 @@ class MobileProfile extends StatelessWidget {
     final colors = FrameColors.of(context);
     return Scaffold(
       appBar: AppBar(
-        leading: WorkspaceNavigation.leading(context),
         automaticallyImplyLeading: false,
         toolbarHeight: 60,
         title: const Text('我的'),
@@ -174,7 +171,6 @@ class MobileLibrarySignIn extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      leading: WorkspaceNavigation.leading(context),
       automaticallyImplyLeading: false,
       toolbarHeight: 60,
       title: const Text('片库'),

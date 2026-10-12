@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'workspace_navigation.dart';
-
 import '../api/api_client.dart';
 import '../models.dart';
 
@@ -270,10 +268,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
   Widget build(BuildContext context) {
     final settings = _settings;
     return Scaffold(
-      appBar: AppBar(
-        leading: WorkspaceNavigation.leading(context),
-        title: const Text('隐私与屏蔽'),
-      ),
+      appBar: AppBar(title: const Text('隐私与屏蔽')),
       body: _busy && settings == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(

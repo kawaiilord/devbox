@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'workspace_navigation.dart';
-
 import '../api/api_client.dart';
 import '../models.dart';
 import 'reviews_page.dart';
@@ -52,10 +50,7 @@ class _MetadataSearchPageState extends State<MetadataSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: WorkspaceNavigation.leading(context),
-        title: const Text('影视元数据搜索'),
-      ),
+      appBar: AppBar(title: const Text('影视元数据搜索')),
       body: Column(
         children: [
           Padding(

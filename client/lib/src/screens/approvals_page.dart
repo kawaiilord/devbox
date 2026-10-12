@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'workspace_navigation.dart';
-
 import '../api/api_client.dart';
 import '../models.dart';
 
@@ -122,7 +120,6 @@ class _ApprovalsPageState extends State<ApprovalsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      leading: WorkspaceNavigation.leading(context),
       title: Text(widget.roomCode == null ? '我的申请' : '加房审批'),
       actions: [
         IconButton(

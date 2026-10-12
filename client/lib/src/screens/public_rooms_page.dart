@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'workspace_navigation.dart';
-
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
@@ -106,7 +104,6 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
     final mobile = MediaQuery.sizeOf(context).width < 700;
     return Scaffold(
       appBar: AppBar(
-        leading: WorkspaceNavigation.leading(context),
         automaticallyImplyLeading: !widget.embedded,
         title: const Text('发现一起看的房间'),
         toolbarHeight: mobile ? 60 : 68,
