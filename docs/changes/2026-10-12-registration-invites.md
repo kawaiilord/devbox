@@ -58,4 +58,3 @@
 ![邀请码管理](assets/registration-invites-admin.png)
 ![桌面注册](assets/registration-invites-desktop.png)
 ![手机注册](assets/registration-invites-mobile.png)
-
