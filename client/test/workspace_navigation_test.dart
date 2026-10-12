@@ -11,7 +11,10 @@ void main() {
   testWidgets('details stay in the workspace and survive viewport changes', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
+    addTearDown(semantics.dispose);
     await _open(tester, signedIn: true, size: const Size(1440, 1000));
+    expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
     await tester.tap(find.text('搜索电影 / 剧集'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '共同的电影');
@@ -21,6 +24,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('测试影片 · 影评'), findsOneWidget);
     expect(find.text('我的媒体源'), findsOneWidget);
+    expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
 
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();

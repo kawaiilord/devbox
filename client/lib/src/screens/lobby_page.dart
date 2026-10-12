@@ -537,18 +537,24 @@ class _LobbyPageState extends State<LobbyPage> {
       onExit: _workspacePanel == null || (mobile && _workspacePanel == primary)
           ? null
           : _closeWorkspacePanel,
-      child: Navigator(
-        key: _workspaceNavigator,
-        observers: [_workspaceObserver],
-        pages: [
-          MaterialPage<void>(
-            key: ValueKey(
-              '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
+      // A route's modal barrier must not hide the shell's navigation from
+      // accessibility tools. Keep its semantics inside the content region.
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        child: Navigator(
+          key: _workspaceNavigator,
+          observers: [_workspaceObserver],
+          pages: [
+            MaterialPage<void>(
+              key: ValueKey(
+                '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
+              ),
+              child: page,
             ),
-            child: page,
-          ),
-        ],
-        onDidRemovePage: (_) {},
+          ],
+          onDidRemovePage: (_) {},
+        ),
       ),
     );
   }
