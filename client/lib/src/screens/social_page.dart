@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'workspace_navigation.dart';
+
 import '../api/api_client.dart';
 import '../models.dart';
 import '../sync/room_socket.dart';
@@ -189,7 +191,10 @@ class _SocialPageState extends State<SocialPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('社交与私聊${_unread > 0 ? ' ($_unread)' : ''}')),
+    appBar: AppBar(
+      leading: WorkspaceNavigation.leading(context),
+      title: Text('社交与私聊${_unread > 0 ? ' ($_unread)' : ''}'),
+    ),
     body: ListView(
       padding: const EdgeInsets.all(18),
       children: [

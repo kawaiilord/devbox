@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'workspace_navigation.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
@@ -365,6 +368,7 @@ class _MembershipPageState extends State<MembershipPage> {
     final membership = _membership;
     return Scaffold(
       appBar: AppBar(
+        leading: WorkspaceNavigation.leading(context),
         title: const Text('会员中心'),
         actions: [
           IconButton(

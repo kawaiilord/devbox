@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'workspace_navigation.dart';
+
 import '../api/api_client.dart';
 import '../models.dart';
 import '../appearance.dart';
@@ -101,7 +103,7 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
         ),
       );
-      await _load();
+      if (mounted) await _load();
     } catch (exception) {
       if (mounted) setState(() => _error = exception.toString());
     } finally {
@@ -126,7 +128,7 @@ class _LibraryPageState extends State<LibraryPage> {
     });
     try {
       await operation();
-      await _load();
+      if (mounted) await _load();
     } catch (exception) {
       if (mounted) setState(() => _error = exception.toString());
     } finally {
@@ -138,6 +140,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: WorkspaceNavigation.leading(context),
         automaticallyImplyLeading: !widget.embedded,
         toolbarHeight: widget.embedded ? 60 : 68,
         title: Text(widget.embedded ? '片库' : '收藏与观看历史'),

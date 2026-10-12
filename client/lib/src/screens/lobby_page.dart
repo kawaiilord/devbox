@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'approvals_page.dart';
+import 'devices_page.dart';
+import 'workspace_navigation.dart';
 import 'browser_login_dialog.dart';
 import 'remote_source_dialog.dart';
 
@@ -28,7 +30,21 @@ import 'room_page.dart';
 import 'social_page.dart';
 import 'update_page.dart';
 
-enum _WorkspacePanel { media, security }
+enum _WorkspacePanel {
+  discover,
+  library,
+  profile,
+  media,
+  security,
+  approvals,
+  devices,
+  privacy,
+  search,
+  social,
+  couple,
+  membership,
+  updates,
+}
 
 class LobbyPage extends StatefulWidget {
   const LobbyPage({super.key, required this.api, required this.sessionStore});
@@ -54,10 +70,13 @@ class _LobbyPageState extends State<LobbyPage> {
   int _mobileTab = 0;
   _WorkspacePanel? _workspacePanel;
   bool _securityBusy = false;
-  final _accountSecurityKey = GlobalKey(debugLabel: 'account-security');
   int? _returnTabAfterLogin;
   bool _preferJoin = false;
-  final _visitedTabs = <int>{0};
+  final _workspaceNavigator = GlobalKey<NavigatorState>(
+    debugLabel: 'workspace',
+  );
+  late final _workspaceObserver = WorkspaceObserver(_navigationChanged);
+  bool _workspaceCanPop = false;
   bool _registerMode = true;
   bool _verifiedOverride = false;
   bool _busy = false;
@@ -143,7 +162,7 @@ class _LobbyPageState extends State<LobbyPage> {
       _session = session;
       if (_returnTabAfterLogin != null) {
         _mobileTab = _returnTabAfterLogin!;
-        _visitedTabs.add(_mobileTab);
+        _workspacePanel = _panelForTab(_mobileTab);
         _returnTabAfterLogin = null;
       }
       _verifiedOverride = session.user.emailVerified;
@@ -176,14 +195,10 @@ class _LobbyPageState extends State<LobbyPage> {
     });
   }
 
-  void _showAccountSecurity() {
-    if (_session == null) return;
-    FocusScope.of(context).unfocus();
-    setState(() => _workspacePanel = _WorkspacePanel.security);
-  }
+  void _showAccountSecurity() => _showPanel(_WorkspacePanel.security);
 
   Widget _accountSecurity() => AccountSecurityPanel(
-    key: _accountSecurityKey,
+    key: ValueKey('account-security-${_session!.user.id}'),
     onBusyChanged: (busy) {
       if (mounted) setState(() => _securityBusy = busy);
     },
@@ -244,22 +259,7 @@ class _LobbyPageState extends State<LobbyPage> {
     }
   }
 
-  void _showPublicRooms() {
-    if (MediaQuery.sizeOf(context).width < 700) {
-      _selectMobileTab(1);
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PublicRoomsPage(
-          api: widget.api,
-          session: _session,
-          onJoined: _openRoom,
-          onLoginRequired: _loginForRoom,
-        ),
-      ),
-    );
-  }
+  void _showPublicRooms() => _selectMobileTab(1);
 
   Future<void> _joinGuest() async {
     final joined = await showDialog<JoinedRoom>(
@@ -316,9 +316,6 @@ class _LobbyPageState extends State<LobbyPage> {
           _session = null;
           _workspacePanel = null;
           _mobileTab = 0;
-          _visitedTabs
-            ..clear()
-            ..add(0);
           _returnTabAfterLogin = null;
           _preferJoin = false;
           _password.clear();
@@ -340,153 +337,77 @@ class _LobbyPageState extends State<LobbyPage> {
     });
   }
 
-  Future<void> _showApprovals() async {
-    final session = _session;
-    if (session == null) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => ApprovalsPage(api: widget.api, session: session),
-      ),
-    );
-  }
+  void _showApprovals() => _showPanel(_WorkspacePanel.approvals);
+  void _showDevices() => _showPanel(_WorkspacePanel.devices);
+  void _showPrivacy() => _showPanel(_WorkspacePanel.privacy);
+  void _showLibrary() => _selectMobileTab(2);
+  void _showMetadataSearch() => _showPanel(_WorkspacePanel.search);
+  void _showSocial() => _showPanel(_WorkspacePanel.social);
+  void _showCouple() => _showPanel(_WorkspacePanel.couple);
+  void _showMembership() => _showPanel(_WorkspacePanel.membership);
+  void _showUpdates() => _showPanel(_WorkspacePanel.updates);
+  void _showMediaSources() => _showPanel(_WorkspacePanel.media);
 
-  Future<void> _showDevices() async {
-    final session = _session;
-    if (session == null) return;
-    await _run(() async {
-      final devices = await widget.api.listDevices(session);
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('登录设备'),
-          content: SizedBox(
-            width: 480,
-            child: devices.isEmpty
-                ? const Text('没有可管理的设备。')
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final device in devices)
-                        ListTile(
-                          leading: Icon(
-                            device.current
-                                ? Icons.devices_rounded
-                                : Icons.computer_rounded,
-                          ),
-                          title: Text(device.label),
-                          subtitle: Text(
-                            '${device.platform} · ${DateTime.fromMillisecondsSinceEpoch(device.lastSeen).toLocal()}',
-                          ),
-                          trailing: device.current
-                              ? const Chip(label: Text('当前'))
-                              : IconButton(
-                                  tooltip: '撤销设备',
-                                  icon: const Icon(Icons.link_off_rounded),
-                                  onPressed: () async {
-                                    await widget.api.revokeDevice(
-                                      session,
-                                      device.id,
-                                    );
-                                    if (dialogContext.mounted) {
-                                      Navigator.of(dialogContext).pop();
-                                    }
-                                  },
-                                ),
-                        ),
-                    ],
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('关闭'),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
-  void _showPrivacy() {
-    final session = _session;
-    if (session == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PrivacyPage(api: widget.api, session: session),
-      ),
-    );
-  }
-
-  void _showLibrary() {
-    if (MediaQuery.sizeOf(context).width < 700) {
-      _selectMobileTab(2);
+  void _showPanel(_WorkspacePanel panel) {
+    if (_securityBusy ||
+        (_session == null && panel != _WorkspacePanel.updates)) {
       return;
     }
-    final session = _session;
-    if (session == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => LibraryPage(api: widget.api, session: session),
-      ),
-    );
-  }
-
-  void _showMetadataSearch() {
-    final session = _session;
-    if (session == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MetadataSearchPage(api: widget.api, session: session),
-      ),
-    );
-  }
-
-  void _showSocial() {
-    final session = _session;
-    if (session == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => SocialPage(api: widget.api, session: session),
-      ),
-    );
-  }
-
-  void _showCouple() {
-    final session = _session;
-    if (session == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CouplePage(api: widget.api, session: session),
-      ),
-    );
-  }
-
-  void _showMembership() {
-    final session = _session;
-    if (session == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => MembershipPage(api: widget.api, session: session),
-      ),
-    );
-  }
-
-  void _showUpdates() {
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const UpdatePage()));
-  }
-
-  void _showMediaSources() {
-    if (_session == null) return;
     FocusScope.of(context).unfocus();
-    setState(() => _workspacePanel = _WorkspacePanel.media);
+    if (_workspacePanel == panel) {
+      _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
+    }
+    setState(() => _workspacePanel = panel);
   }
 
   void _closeWorkspacePanel() {
     if (_securityBusy) return;
-    setState(() => _workspacePanel = null);
+    final mobile = MediaQuery.sizeOf(context).width < 700;
+    final primary = _panelForTab(_mobileTab);
+    if (mobile && _workspacePanel != primary) {
+      setState(() => _workspacePanel = primary);
+    } else {
+      _selectMobileTab(0);
+    }
   }
+
+  Future<void> _backWorkspace() async {
+    if (_securityBusy) return;
+    if (await _workspaceNavigator.currentState!.maybePop()) return;
+    if (mounted) _closeWorkspacePanel();
+  }
+
+  void _navigationChanged() {
+    if (!mounted) return;
+    final canPop = _workspaceNavigator.currentState?.canPop() ?? false;
+    if (canPop != _workspaceCanPop) {
+      setState(() => _workspaceCanPop = canPop);
+    }
+  }
+
+  _WorkspacePanel? _panelForTab(int tab) => switch (tab) {
+    1 => _WorkspacePanel.discover,
+    2 => _WorkspacePanel.library,
+    3 => _WorkspacePanel.profile,
+    _ => null,
+  };
+
+  String? get _workspaceTitle => switch (_workspacePanel) {
+    _WorkspacePanel.discover => '发现房间',
+    _WorkspacePanel.library => '收藏与历史',
+    _WorkspacePanel.profile => '我的',
+    _WorkspacePanel.media => '我的媒体源',
+    _WorkspacePanel.security => '账号与安全',
+    _WorkspacePanel.approvals => '我的申请',
+    _WorkspacePanel.devices => '设备管理',
+    _WorkspacePanel.privacy => '隐私与屏蔽',
+    _WorkspacePanel.search => '影视搜索',
+    _WorkspacePanel.social => '好友与私聊',
+    _WorkspacePanel.couple => '情侣空间',
+    _WorkspacePanel.membership => '会员中心',
+    _WorkspacePanel.updates => '安全更新',
+    null => null,
+  };
 
   Future<bool> _connectMediaKind(String kind) {
     switch (kind) {
@@ -543,29 +464,94 @@ class _LobbyPageState extends State<LobbyPage> {
     },
   );
 
-  Widget _mobileWorkspacePanel() => Scaffold(
-    appBar: AppBar(
-      title: Text(
-        _workspacePanel == _WorkspacePanel.security ? '账号与安全' : '我的媒体源',
+  Widget _workspace(Widget home) {
+    final mobile = MediaQuery.sizeOf(context).width < 700;
+    final session = _session;
+    final primary = _panelForTab(_mobileTab);
+    final title = _workspaceTitle;
+    final panelContent = switch (_workspacePanel) {
+      _WorkspacePanel.security => _accountSecurity(),
+      _WorkspacePanel.media => _mediaCenter(),
+      _ => null,
+    };
+    final page = switch (_workspacePanel) {
+      null => home,
+      _WorkspacePanel.discover => PublicRoomsPage(
+        api: widget.api,
+        session: session,
+        embedded: true,
+        onJoined: _openRoom,
+        onLoginRequired: _loginForRoom,
       ),
-      leading: IconButton(
-        tooltip: '返回',
-        onPressed: _securityBusy ? null : _closeWorkspacePanel,
-        icon: const Icon(Icons.arrow_back_rounded),
+      _WorkspacePanel.library =>
+        session == null
+            ? MobileLibrarySignIn(onLogin: () => _requestLogin(2))
+            : LibraryPage(api: widget.api, session: session, embedded: mobile),
+      _WorkspacePanel.profile => _profile(),
+      _WorkspacePanel.media || _WorkspacePanel.security => Builder(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            leading: WorkspaceNavigation.leading(context),
+            title: Text(title!),
+            actions: mobile ? const [FrameThemeMenu()] : null,
+          ),
+          body: SingleChildScrollView(
+            key: PageStorageKey(_workspacePanel),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.all(mobile ? 16 : 32),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1180),
+                child: panelContent,
+              ),
+            ),
+          ),
+        ),
       ),
-      actions: const [FrameThemeMenu()],
-    ),
-    body: SafeArea(
-      child: SingleChildScrollView(
-        key: PageStorageKey('mobile-${_workspacePanel?.name}'),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-        child: _workspacePanel == _WorkspacePanel.security
-            ? _accountSecurity()
-            : _mediaCenter(),
+      _WorkspacePanel.approvals => ApprovalsPage(
+        api: widget.api,
+        session: session!,
       ),
-    ),
-  );
+      _WorkspacePanel.devices => DevicesPage(
+        api: widget.api,
+        session: session!,
+      ),
+      _WorkspacePanel.privacy => PrivacyPage(
+        api: widget.api,
+        session: session!,
+      ),
+      _WorkspacePanel.search => MetadataSearchPage(
+        api: widget.api,
+        session: session!,
+      ),
+      _WorkspacePanel.social => SocialPage(api: widget.api, session: session!),
+      _WorkspacePanel.couple => CouplePage(api: widget.api, session: session!),
+      _WorkspacePanel.membership => MembershipPage(
+        api: widget.api,
+        session: session!,
+      ),
+      _WorkspacePanel.updates => const UpdatePage(),
+    };
+    return WorkspaceNavigation(
+      locked: _securityBusy,
+      onExit: _workspacePanel == null || (mobile && _workspacePanel == primary)
+          ? null
+          : _closeWorkspacePanel,
+      child: Navigator(
+        key: _workspaceNavigator,
+        observers: [_workspaceObserver],
+        pages: [
+          MaterialPage<void>(
+            key: ValueKey(
+              '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
+            ),
+            child: page,
+          ),
+        ],
+        onDidRemovePage: (_) {},
+      ),
+    );
+  }
 
   Future<bool> _promptAddQuark({MediaSource? source}) async {
     final session = _session;
@@ -606,7 +592,7 @@ class _LobbyPageState extends State<LobbyPage> {
     setState(() {
       _workspacePanel = null;
       _mobileTab = 0;
-      _visitedTabs.add(0);
+
       _selectedMediaSourceId = source.id;
       _selectedMediaPath = file.path;
       _source.text =
@@ -701,7 +687,7 @@ class _LobbyPageState extends State<LobbyPage> {
 
   void _openRoom(Session session, Room room) {
     if (!mounted) return;
-    Navigator.of(context).push(
+    _workspaceNavigator.currentState!.push(
       MaterialPageRoute<void>(
         builder: (_) =>
             RoomPage(api: widget.api, session: session, initialRoom: room),
@@ -712,15 +698,18 @@ class _LobbyPageState extends State<LobbyPage> {
   void _selectMobileTab(int tab) {
     if (_securityBusy) return;
     FocusScope.of(context).unfocus();
+    if (_workspacePanel == _panelForTab(tab)) {
+      _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
+    }
     setState(() {
-      _workspacePanel = null;
+      _workspacePanel = _panelForTab(tab);
       _mobileTab = tab;
-      _visitedTabs.add(tab);
     });
   }
 
   void _requestLogin(int returnTab) {
     setState(() {
+      _workspacePanel = null;
       _mobileTab = 0;
       _returnTabAfterLogin = returnTab;
       _registerMode = false;
@@ -730,6 +719,7 @@ class _LobbyPageState extends State<LobbyPage> {
   void _loginForRoom(String code) {
     if (!mounted) return;
     setState(() {
+      _workspacePanel = null;
       _roomCode.text = code;
       _preferJoin = true;
       _registerMode = false;
@@ -738,216 +728,169 @@ class _LobbyPageState extends State<LobbyPage> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width >= 700) {
-      return PopScope(
-        canPop: _workspacePanel == null,
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop) _closeWorkspacePanel();
-        },
-        child: _buildLobby(),
-      );
-    }
-    final colors = FrameColors.of(context);
+  Widget _profile() {
     final session = _session;
-    return PopScope(
-      canPop: _mobileTab == 0 && _workspacePanel == null,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          if (_workspacePanel != null) {
-            _closeWorkspacePanel();
-          } else {
-            _selectMobileTab(0);
-          }
-        }
-      },
-      child: Scaffold(
-        body: PrimaryScrollController.none(
-          child: Stack(
-            children: [
-              Offstage(
-                offstage: _workspacePanel != null,
-                child: IndexedStack(
-                  index: _mobileTab,
-                  children: [
-                    _buildLobby(mobileTabs: true),
-                    if (_visitedTabs.contains(1))
-                      PublicRoomsPage(
-                        api: widget.api,
-                        session: session,
-                        embedded: true,
-                        onJoined: _openRoom,
-                        onLoginRequired: _loginForRoom,
-                      )
-                    else
-                      const SizedBox.shrink(),
-                    if (!_visitedTabs.contains(2))
-                      const SizedBox.shrink()
-                    else if (session != null)
-                      LibraryPage(
-                        key: ValueKey(session.user.id),
-                        api: widget.api,
-                        session: session,
-                        embedded: true,
-                      )
-                    else
-                      MobileLibrarySignIn(onLogin: () => _requestLogin(2)),
-                    MobileProfile(
-                      name: session?.user.displayName ?? '',
-                      email: session?.user.email ?? '',
-                      signedIn: session != null,
-                      onLogin: () => _requestLogin(3),
-                      onLogout: _logout,
-                      verification: session == null || _verifiedOverride
-                          ? null
-                          : _VerificationCard(
-                              token: _verificationToken,
-                              busy: _busy,
-                              onRequest: _requestVerification,
-                              onVerify: _verifyEmail,
-                            ),
-                      items: [
-                        (
-                          icon: Icons.folder_open_rounded,
-                          label: '我的媒体源',
-                          onTap: session == null ? null : _showMediaSources,
-                        ),
-                        (
-                          icon: Icons.people_outline_rounded,
-                          label: '好友与私聊',
-                          onTap: session == null ? null : _showSocial,
-                        ),
-                        (
-                          icon: Icons.favorite_border_rounded,
-                          label: '情侣空间',
-                          onTap: session == null ? null : _showCouple,
-                        ),
-                        (
-                          icon: Icons.security_outlined,
-                          label: '账号与安全',
-                          onTap: session == null ? null : _showAccountSecurity,
-                        ),
-                        (
-                          icon: Icons.fact_check_outlined,
-                          label: '我的申请',
-                          onTap: session == null ? null : _showApprovals,
-                        ),
-                        (
-                          icon: Icons.devices_rounded,
-                          label: '设备管理',
-                          onTap: session == null ? null : _showDevices,
-                        ),
-                        (
-                          icon: Icons.shield_outlined,
-                          label: '隐私与屏蔽',
-                          onTap: session == null ? null : _showPrivacy,
-                        ),
-                        (
-                          icon: Icons.workspace_premium_outlined,
-                          label: '会员中心',
-                          onTap: session == null ? null : _showMembership,
-                        ),
-                        (
-                          icon: Icons.system_update_alt_rounded,
-                          label: '安全更新',
-                          onTap: _showUpdates,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (_workspacePanel != null && session != null)
-                _mobileWorkspacePanel(),
-            ],
-          ),
+    return MobileProfile(
+      name: session?.user.displayName ?? '',
+      email: session?.user.email ?? '',
+      signedIn: session != null,
+      onLogin: () => _requestLogin(3),
+      onLogout: _logout,
+      verification: session == null || _verifiedOverride
+          ? null
+          : _VerificationCard(
+              token: _verificationToken,
+              busy: _busy,
+              onRequest: _requestVerification,
+              onVerify: _verifyEmail,
+            ),
+      items: [
+        (
+          icon: Icons.folder_open_rounded,
+          label: '我的媒体源',
+          onTap: session == null ? null : _showMediaSources,
         ),
-        bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
-            ? null
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: colors.border)),
-                ),
-                child: NavigationBarTheme(
-                  data: NavigationBarThemeData(
-                    backgroundColor: colors.surface,
-                    surfaceTintColor: Colors.transparent,
-                    indicatorColor: Colors.transparent,
-                    labelTextStyle: WidgetStateProperty.resolveWith(
-                      (states) => TextStyle(
-                        fontSize: 11,
-                        fontWeight: states.contains(WidgetState.selected)
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: states.contains(WidgetState.selected)
-                            ? colors.accent
-                            : colors.muted,
-                      ),
-                    ),
-                    iconTheme: WidgetStateProperty.resolveWith(
-                      (states) => IconThemeData(
-                        size: 24,
-                        color: states.contains(WidgetState.selected)
-                            ? colors.accent
-                            : colors.muted,
-                      ),
-                    ),
-                  ),
-                  child: NavigationBar(
-                    height: 72,
-                    elevation: 0,
-                    selectedIndex: _mobileTab,
-                    onDestinationSelected: _securityBusy
-                        ? null
-                        : _selectMobileTab,
-                    labelBehavior:
-                        NavigationDestinationLabelBehavior.alwaysShow,
-                    destinations: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.meeting_room_outlined),
-                        selectedIcon: Icon(Icons.meeting_room_rounded),
-                        label: '房间',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.explore_outlined),
-                        selectedIcon: Icon(Icons.explore_rounded),
-                        label: '发现',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.video_library_outlined),
-                        selectedIcon: Icon(Icons.video_library_rounded),
-                        label: '片库',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.person_outline_rounded),
-                        selectedIcon: Icon(Icons.person_rounded),
-                        label: '我的',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-      ),
+        (
+          icon: Icons.people_outline_rounded,
+          label: '好友与私聊',
+          onTap: session == null ? null : _showSocial,
+        ),
+        (
+          icon: Icons.favorite_border_rounded,
+          label: '情侣空间',
+          onTap: session == null ? null : _showCouple,
+        ),
+        (
+          icon: Icons.security_outlined,
+          label: '账号与安全',
+          onTap: session == null ? null : _showAccountSecurity,
+        ),
+        (
+          icon: Icons.fact_check_outlined,
+          label: '我的申请',
+          onTap: session == null ? null : _showApprovals,
+        ),
+        (
+          icon: Icons.devices_rounded,
+          label: '设备管理',
+          onTap: session == null ? null : _showDevices,
+        ),
+        (
+          icon: Icons.shield_outlined,
+          label: '隐私与屏蔽',
+          onTap: session == null ? null : _showPrivacy,
+        ),
+        (
+          icon: Icons.workspace_premium_outlined,
+          label: '会员中心',
+          onTap: session == null ? null : _showMembership,
+        ),
+        (
+          icon: Icons.system_update_alt_rounded,
+          label: '安全更新',
+          onTap: _showUpdates,
+        ),
+      ],
     );
   }
 
-  Widget _buildLobby({bool mobileTabs = false}) => LobbyLayout(
+  @override
+  Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 700;
+    final colors = FrameColors.of(context);
+    return PopScope(
+      canPop:
+          !_securityBusy &&
+          !_workspaceCanPop &&
+          _workspacePanel == null &&
+          _mobileTab == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _backWorkspace();
+      },
+      child: !mobile
+          ? _buildLobby(workspaceBuilder: _workspace)
+          : Scaffold(
+              body: PrimaryScrollController.none(
+                child: _workspace(_buildLobby(mobileTabs: true)),
+              ),
+              bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
+                  ? null
+                  : DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border(top: BorderSide(color: colors.border)),
+                      ),
+                      child: NavigationBarTheme(
+                        data: NavigationBarThemeData(
+                          backgroundColor: colors.surface,
+                          surfaceTintColor: Colors.transparent,
+                          indicatorColor: Colors.transparent,
+                          labelTextStyle: WidgetStateProperty.resolveWith(
+                            (states) => TextStyle(
+                              fontSize: 11,
+                              fontWeight: states.contains(WidgetState.selected)
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: states.contains(WidgetState.selected)
+                                  ? colors.accent
+                                  : colors.muted,
+                            ),
+                          ),
+                          iconTheme: WidgetStateProperty.resolveWith(
+                            (states) => IconThemeData(
+                              size: 24,
+                              color: states.contains(WidgetState.selected)
+                                  ? colors.accent
+                                  : colors.muted,
+                            ),
+                          ),
+                        ),
+                        child: NavigationBar(
+                          height: 72,
+                          elevation: 0,
+                          selectedIndex: _mobileTab,
+                          onDestinationSelected: _securityBusy
+                              ? null
+                              : _selectMobileTab,
+                          labelBehavior:
+                              NavigationDestinationLabelBehavior.alwaysShow,
+                          destinations: const [
+                            NavigationDestination(
+                              icon: Icon(Icons.meeting_room_outlined),
+                              selectedIcon: Icon(Icons.meeting_room_rounded),
+                              label: '房间',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.explore_outlined),
+                              selectedIcon: Icon(Icons.explore_rounded),
+                              label: '发现',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.video_library_outlined),
+                              selectedIcon: Icon(Icons.video_library_rounded),
+                              label: '片库',
+                            ),
+                            NavigationDestination(
+                              icon: Icon(Icons.person_outline_rounded),
+                              selectedIcon: Icon(Icons.person_rounded),
+                              label: '我的',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+    );
+  }
+
+  Widget _buildLobby({
+    bool mobileTabs = false,
+    Widget Function(Widget)? workspaceBuilder,
+  }) => LobbyLayout(
     mobileTabs: mobileTabs,
     navigationLocked: _securityBusy,
-    content: _session == null || mobileTabs
-        ? null
-        : switch (_workspacePanel) {
-            _WorkspacePanel.media => _mediaCenter(),
-            _WorkspacePanel.security => _accountSecurity(),
-            null => null,
-          },
-    activeDestination: switch (_workspacePanel) {
-      _WorkspacePanel.media => '我的媒体源',
-      _WorkspacePanel.security => '账号与安全',
-      null => null,
-    },
-    onHome: _closeWorkspacePanel,
+    workspaceBuilder: workspaceBuilder,
+    activeDestination: _workspaceTitle,
+    onHome: () => _selectMobileTab(0),
     preferJoin: _preferJoin,
     signedIn: _session != null,
     name: _session?.user.displayName ?? '',

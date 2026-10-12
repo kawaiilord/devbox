@@ -28,7 +28,7 @@ class LobbyLayout extends StatelessWidget {
     required this.onUpdates,
     required this.onLogout,
     this.error,
-    this.content,
+    this.workspaceBuilder,
     this.activeDestination,
     this.onHome,
     this.navigationLocked = false,
@@ -43,7 +43,7 @@ class LobbyLayout extends StatelessWidget {
   final VoidCallback onSearch, onMembership, onUpdates, onLogout;
   final VoidCallback onDiscover, onGuestJoin;
   final String? error;
-  final Widget? content;
+  final Widget Function(Widget home)? workspaceBuilder;
   final String? activeDestination;
   final VoidCallback? onHome;
   final bool navigationLocked;
@@ -59,16 +59,7 @@ class LobbyLayout extends StatelessWidget {
             : AppBar(
                 automaticallyImplyLeading: !mobileTabs,
                 toolbarHeight: constraints.maxWidth < 700 ? 60 : 68,
-                leading: content != null
-                    ? IconButton(
-                        tooltip: '返回观影大厅',
-                        onPressed: navigationLocked ? null : onHome,
-                        icon: const Icon(Icons.arrow_back_rounded),
-                      )
-                    : null,
-                title: content != null
-                    ? Text(activeDestination ?? '我的空间')
-                    : FrameBrand(compact: constraints.maxWidth < 420),
+                title: FrameBrand(compact: constraints.maxWidth < 420),
                 actions: [
                   const FrameThemeMenu(),
                   IconButton(
@@ -99,39 +90,7 @@ class LobbyLayout extends StatelessWidget {
                 child: Column(
                   children: [
                     if (desktop) _toolbar(context),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        key: ValueKey(activeDestination ?? 'lobby'),
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: EdgeInsets.fromLTRB(
-                          desktop ? 40 : 16,
-                          desktop ? 36 : 16,
-                          desktop ? 40 : 16,
-                          28,
-                        ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1180),
-                            child:
-                                content ??
-                                (constraints.maxWidth < 700
-                                    ? signedIn
-                                          ? MobileHome(
-                                              name: name,
-                                              create: create,
-                                              join: join,
-                                              error: error,
-                                              initiallyJoining: preferJoin,
-                                            )
-                                          : _mobileWelcome(context)
-                                    : signedIn
-                                    ? _workspace(context)
-                                    : _welcome(context)),
-                          ),
-                        ),
-                      ),
-                    ),
+                    Expanded(child: _content(context, constraints, desktop)),
                   ],
                 ),
               ),
@@ -141,6 +100,44 @@ class LobbyLayout extends StatelessWidget {
       );
     },
   );
+
+  Widget _content(
+    BuildContext context,
+    BoxConstraints constraints,
+    bool desktop,
+  ) {
+    final home = SingleChildScrollView(
+      key: const PageStorageKey('lobby'),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(
+        desktop ? 40 : 16,
+        desktop ? 36 : 16,
+        desktop ? 40 : 16,
+        28,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: constraints.maxWidth < 700
+              ? signedIn
+                    ? MobileHome(
+                        name: name,
+                        create: create,
+                        join: join,
+                        error: error,
+                        initiallyJoining: preferJoin,
+                      )
+                    : _mobileWelcome(context)
+              : signedIn
+              ? _workspace(context)
+              : _welcome(context),
+        ),
+      ),
+    );
+    // Feature pages own their scrolling and need bounded height (not a child
+    // of the lobby's scroll view). The same navigator survives viewport changes.
+    return workspaceBuilder?.call(home) ?? home;
+  }
 
   Widget _mobileWelcome(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -463,15 +460,15 @@ class LobbyLayout extends StatelessWidget {
                 icon: Icons.space_dashboard_outlined,
                 label: '观影大厅',
                 selected: activeDestination == null,
-                onTap: () {
-                  if (closeDrawer) Navigator.of(context).pop();
-                  onHome?.call();
-                },
+                onTap: navigationLocked || onHome == null
+                    ? null
+                    : () => _navigate(context, onHome!, closeDrawer),
               ),
               const SizedBox(height: 5),
               _NavItem(
                 icon: Icons.explore_outlined,
                 label: '发现房间',
+                selected: activeDestination == '发现房间',
                 onTap: () => _navigate(context, onDiscover, closeDrawer),
               ),
               _NavItem(
@@ -505,6 +502,7 @@ class LobbyLayout extends StatelessWidget {
               _NavItem(
                 icon: Icons.system_update_alt_rounded,
                 label: '安全更新',
+                selected: activeDestination == '安全更新',
                 onTap: () => _navigate(context, onUpdates, closeDrawer),
               ),
               const SizedBox(height: 30),

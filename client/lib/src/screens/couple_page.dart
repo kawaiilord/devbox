@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'workspace_navigation.dart';
+
 import '../api/api_client.dart';
 import '../design.dart';
 import '../models.dart';
@@ -67,7 +69,10 @@ class _CouplePageState extends State<CouplePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('情侣空间')),
+    appBar: AppBar(
+      leading: WorkspaceNavigation.leading(context),
+      title: const Text('情侣空间'),
+    ),
     body: ListView(
       padding: const EdgeInsets.all(18),
       children: [
