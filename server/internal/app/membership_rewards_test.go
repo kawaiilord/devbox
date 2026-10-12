@@ -143,3 +143,17 @@ func TestMembershipRewardBoundary(t *testing.T) {
 		t.Fatal("expired membership must begin at redemption time")
 	}
 }
+
+func TestCheckInStreakBeforeTodayAndAfterMissedDay(t *testing.T) {
+	items := []CheckIn{{Date: "2026-10-10"}, {Date: "2026-10-11"}}
+	if got := consecutiveCheckInDays(items, "2026-10-12"); got != 2 {
+		t.Fatalf("unclaimed today streak=%d", got)
+	}
+	if got := consecutiveCheckInDays(items, "2026-10-13"); got != 0 {
+		t.Fatalf("missed day streak=%d", got)
+	}
+	items = append(items, CheckIn{Date: "2026-10-12"})
+	if got := consecutiveCheckInDays(items, "2026-10-12"); got != 3 {
+		t.Fatalf("checked today streak=%d", got)
+	}
+}

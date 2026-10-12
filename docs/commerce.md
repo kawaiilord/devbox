@@ -66,11 +66,34 @@ SAMEFRAME_POINTS_PER_CHECK_IN=1
 SAMEFRAME_POINTS_PER_VIP_DAY=0
 ```
 
-Check-ins use UTC dates and a `(user_id, check_date)` primary key. Every balance
-change writes a ledger row with the resulting balance in the same transaction.
-`SAMEFRAME_POINTS_PER_VIP_DAY=0` closes redemption; a positive value is the
-number of points required per membership day. Redemption locks and debits the
-points account before extending membership atomically.
+Check-ins use UTC dates (08:00 in Asia/Shanghai) and a `(user_id, check_date)`
+primary key. Repeating today's check-in returns the current status without
+awarding points twice. Every balance change writes a ledger row with the resulting
+balance in the same transaction.
+
+The current client uses the fixed monthly reward returned as `monthly_reward`
+by `GET /api/v1/check-ins/status`: **30 points for 30 days**. To redeem, send:
+
+```json
+{"request_id":"a-unique-uuid-for-this-confirmed-redemption"}
+```
+
+to `POST /api/v1/points/redeem-month`. Keep the same request identifier when
+retrying an uncertain response. The server fixes the cost and duration, locks the
+user before the points account, and atomically writes the debit, membership expiry,
+ledger and receipt. Receipts are scoped to the user. Insufficient points and
+lifetime membership do not debit the balance. An active membership extends from its
+expiry; an expired membership starts from successful redemption time.
+
+`SAMEFRAME_POINTS_PER_VIP_DAY` applies only to the retained legacy
+`/points/redeem-vip` API. Zero leaves that legacy API disabled; it does not disable
+or reprice the fixed monthly reward. Existing clients remain compatible.
+
+`go run ./cmd/rewards-fixture --credentials /private/path/rewards.json` runs a
+loopback-only, in-memory browser fixture with 29 historical one-point check-ins.
+It has no connection to the production database. One real UI check-in reaches 30
+points and allows the monthly redemption workflow to be tested without modifying
+real users. Remove its generated credentials after testing.
 
 ## Room entitlement
 

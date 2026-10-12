@@ -74,8 +74,9 @@ class _MembershipPageState extends State<MembershipPage> {
       });
       widget.onMembershipChanged?.call(_membership!);
     } catch (exception) {
-      if (mounted && generation == _loadGeneration)
+      if (mounted && generation == _loadGeneration) {
         setState(() => _error = exception.toString());
+      }
     }
   }
 
@@ -385,11 +386,12 @@ class _MembershipPageState extends State<MembershipPage> {
                       final result = await widget.api.dailyCheckIn(
                         widget.session,
                       );
-                      if (mounted)
+                      if (mounted) {
                         setState(() {
                           _status = result;
                           _notice = '签到成功，今日积分已领取。';
                         });
+                      }
                     }),
               icon: Icon(
                 status.checkedInToday

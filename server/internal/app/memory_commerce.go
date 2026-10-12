@@ -294,6 +294,10 @@ func consecutiveCheckInDays(items []CheckIn, today string) int {
 	for _, item := range items {
 		set[item.Date] = true
 	}
+	// Yesterday's streak remains valid until today's check-in window ends.
+	if !set[day.Format("2006-01-02")] {
+		day = day.AddDate(0, 0, -1)
+	}
 	count := 0
 	for set[day.Format("2006-01-02")] {
 		count++

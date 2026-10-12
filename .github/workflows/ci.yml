@@ -50,6 +50,11 @@ jobs:
       - run: python3 -m json.tool ../ops/monitoring/grafana-dashboard.json >/dev/null
       - run: CGO_ENABLED=0 go build -trimpath -o ../bin/sameframe ./cmd/sameframe
       - run: go build -trimpath -o ../bin/sign-update ./cmd/sign-update
+      - run: CGO_ENABLED=0 go build -trimpath -o ../bin/rewards-fixture ./cmd/rewards-fixture
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sameframe-rewards-fixture-linux
+          path: bin/rewards-fixture
       - uses: actions/upload-artifact@v7
         with:
           name: sameframe-server-linux
