@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'design.dart';
+
 import 'appearance_platform_stub.dart'
     if (dart.library.js_interop) 'appearance_platform_web.dart';
 
@@ -49,44 +51,77 @@ class FrameAppearanceScope extends InheritedNotifier<FrameAppearance> {
       .notifier!;
 }
 
-class FrameThemeMenu extends StatelessWidget {
-  const FrameThemeMenu({super.key});
+class FrameThemeSwitch extends StatelessWidget {
+  const FrameThemeSwitch({super.key});
+
+  Future<void> _select(BuildContext context, ThemeMode mode) async {
+    try {
+      await FrameAppearanceScope.of(context).setMode(mode);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('外观已切换，但未能保存偏好，请稍后重试。')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final appearance = FrameAppearanceScope.of(context);
-    return PopupMenuButton<ThemeMode>(
-      tooltip: '切换外观',
-      initialValue: appearance.mode,
-      icon: Icon(
-        Theme.of(context).brightness == Brightness.light
-            ? Icons.light_mode_outlined
-            : Icons.dark_mode_outlined,
-        size: 20,
+    final colors = FrameColors.of(context);
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.elevated,
+        borderRadius: BorderRadius.circular(11),
       ),
-      onSelected: (mode) async {
-        try {
-          await appearance.setMode(mode);
-        } catch (_) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('外观已切换，但未能保存偏好，请稍后重试。')),
-            );
-          }
-        }
-      },
-      itemBuilder: (_) => [
-        for (final entry in const {
-          ThemeMode.light: '浅色模式',
-          ThemeMode.dark: '深色模式',
-          ThemeMode.system: '跟随系统',
-        }.entries)
-          CheckedPopupMenuItem(
-            value: entry.key,
-            checked: appearance.mode == entry.key,
-            child: Text(entry.value),
-          ),
-      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 2,
+        children: [
+          for (final (mode, label, icon) in const [
+            (ThemeMode.light, '浅色模式', Icons.light_mode_outlined),
+            (ThemeMode.dark, '深色模式', Icons.dark_mode_outlined),
+            (ThemeMode.system, '跟随系统', Icons.desktop_windows_outlined),
+          ])
+            Semantics(
+              label: label,
+              button: true,
+              toggled: appearance.mode == mode,
+              inMutuallyExclusiveGroup: true,
+              onTap: () => _select(context, mode),
+              child: Tooltip(
+                message: label,
+                excludeFromSemantics: true,
+                child: Material(
+                  color: appearance.mode == mode
+                      ? colors.surface
+                      : Colors.transparent,
+                  elevation: appearance.mode == mode ? 1 : 0,
+                  shadowColor: Colors.black.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    excludeFromSemantics: true,
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => _select(context, mode),
+                    child: SizedBox(
+                      width: 38,
+                      height: 36,
+                      child: Icon(
+                        icon,
+                        size: 19,
+                        color: appearance.mode == mode
+                            ? colors.text
+                            : colors.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

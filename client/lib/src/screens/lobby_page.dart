@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'approvals_page.dart';
@@ -345,11 +346,15 @@ class _LobbyPageState extends State<LobbyPage> {
   void _showSocial() => _showPanel(_WorkspacePanel.social);
   void _showCouple() => _showPanel(_WorkspacePanel.couple);
   void _showMembership() => _showPanel(_WorkspacePanel.membership);
-  void _showUpdates() => _showPanel(_WorkspacePanel.updates);
+  void _showUpdates() {
+    if (!kIsWeb) _showPanel(_WorkspacePanel.updates);
+  }
+
   void _showMediaSources() => _showPanel(_WorkspacePanel.media);
 
   void _showPanel(_WorkspacePanel panel) {
     if (_securityBusy ||
+        (kIsWeb && panel == _WorkspacePanel.updates) ||
         (_session == null && panel != _WorkspacePanel.updates)) {
       return;
     }
@@ -535,7 +540,8 @@ class _LobbyPageState extends State<LobbyPage> {
         api: widget.api,
         session: session!,
       ),
-      _WorkspacePanel.updates => const UpdatePage(),
+      _WorkspacePanel.updates =>
+        kIsWeb ? const SizedBox.shrink() : const UpdatePage(),
     };
     // A route's modal barrier must not hide the shell's navigation from
     // accessibility tools. Keep its semantics inside the content region.
@@ -795,11 +801,12 @@ class _LobbyPageState extends State<LobbyPage> {
           label: '会员中心',
           onTap: session == null ? null : _showMembership,
         ),
-        (
-          icon: Icons.system_update_alt_rounded,
-          label: '安全更新',
-          onTap: _showUpdates,
-        ),
+        if (!kIsWeb)
+          (
+            icon: Icons.system_update_alt_rounded,
+            label: '安全更新',
+            onTap: _showUpdates,
+          ),
       ],
     );
   }
@@ -840,7 +847,7 @@ class _LobbyPageState extends State<LobbyPage> {
     onDiscover: _showPublicRooms,
     onGuestJoin: _joinGuest,
     onMembership: _showMembership,
-    onUpdates: _showUpdates,
+    onUpdates: kIsWeb ? null : _showUpdates,
     onLogout: _logout,
     destinations: [
       LobbyDestination(Icons.video_library_outlined, '收藏与历史', _showLibrary),

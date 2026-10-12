@@ -7,8 +7,6 @@ import 'rtmp_dialog.dart';
 
 import 'package:flutter/services.dart';
 
-import '../appearance.dart';
-
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../api/api_client.dart';
@@ -691,7 +689,6 @@ class _RoomPageState extends State<RoomPage> {
             ),
             actions: MediaQuery.sizeOf(context).width < 700
                 ? [
-                    const FrameThemeMenu(),
                     PopupMenuButton<String>(
                       tooltip: '房间功能',
                       onSelected: (value) {
@@ -784,7 +781,6 @@ class _RoomPageState extends State<RoomPage> {
                     ),
                   ]
                 : [
-                    const FrameThemeMenu(),
                     IconButton(
                       tooltip: '片单 / 画质 / 来源',
                       onPressed: controller.loading ? null : _showPlaylist,

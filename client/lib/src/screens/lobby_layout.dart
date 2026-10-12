@@ -41,7 +41,8 @@ class LobbyLayout extends StatelessWidget {
   final Widget login, create, join;
   final Widget? verification;
   final List<LobbyDestination> destinations;
-  final VoidCallback onSearch, onMembership, onUpdates, onLogout;
+  final VoidCallback onSearch, onMembership, onLogout;
+  final VoidCallback? onUpdates;
   final VoidCallback onDiscover, onGuestJoin;
   final String? error;
   final Widget Function(Widget home)? workspaceBuilder;
@@ -79,18 +80,21 @@ class LobbyLayout extends StatelessWidget {
                         ],
                       ),
                 actions: [
-                  const FrameThemeMenu(),
-                  IconButton(
-                    onPressed: navigationLocked
-                        ? null
-                        : (signedIn ? onSearch : onUpdates),
-                    tooltip: signedIn ? '影视搜索' : '检查更新',
-                    icon: Icon(
-                      signedIn
-                          ? Icons.search_rounded
-                          : Icons.system_update_alt_rounded,
+                  if ((signedIn || onUpdates != null) &&
+                      constraints.maxWidth >= 360)
+                    IconButton(
+                      onPressed: navigationLocked
+                          ? null
+                          : (signedIn ? onSearch : onUpdates),
+                      tooltip: signedIn ? '影视搜索' : '检查更新',
+                      icon: Icon(
+                        signedIn
+                            ? Icons.search_rounded
+                            : Icons.system_update_alt_rounded,
+                      ),
                     ),
-                  ),
+                  const Center(child: FrameThemeSwitch()),
+                  const SizedBox(width: 12),
                 ],
               ),
         drawer: desktop
@@ -334,12 +338,13 @@ class LobbyLayout extends StatelessWidget {
           label: const Text('发现公开房间'),
         ),
         const SizedBox(width: 8),
-        const FrameThemeMenu(),
-        IconButton(
-          onPressed: navigationLocked ? null : onUpdates,
-          tooltip: '检查更新',
-          icon: const Icon(Icons.system_update_alt_rounded, size: 19),
-        ),
+        if (onUpdates != null)
+          IconButton(
+            onPressed: navigationLocked ? null : onUpdates,
+            tooltip: '检查更新',
+            icon: const Icon(Icons.system_update_alt_rounded, size: 19),
+          ),
+        const FrameThemeSwitch(),
       ],
     ),
   );
@@ -638,12 +643,13 @@ class LobbyLayout extends StatelessWidget {
                       : null,
                 ),
               ],
-              _NavItem(
-                icon: Icons.system_update_alt_rounded,
-                label: '安全更新',
-                selected: activeDestination == '安全更新',
-                onTap: () => _navigate(context, onUpdates, closeDrawer),
-              ),
+              if (onUpdates != null)
+                _NavItem(
+                  icon: Icons.system_update_alt_rounded,
+                  label: '安全更新',
+                  selected: activeDestination == '安全更新',
+                  onTap: () => _navigate(context, onUpdates!, closeDrawer),
+                ),
               const SizedBox(height: 30),
               if (signedIn)
                 Card(
