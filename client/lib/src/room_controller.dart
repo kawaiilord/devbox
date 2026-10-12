@@ -46,6 +46,15 @@ class RoomController extends ChangeNotifier {
   String? error;
   AlignmentAction? lastAlignment;
   PlaybackFailure? playbackFailure;
+  final Map<String, bool> _memberStatus = {};
+  bool isVIP(String userId, {bool fallback = false}) =>
+      _memberStatus[userId] ??
+      room.members
+          .where((member) => member.userId == userId)
+          .firstOrNull
+          ?.isVip ??
+      fallback;
+
   final List<ChatMessage> messages = <ChatMessage>[];
   final List<DanmakuMessage> danmakuMessages = <DanmakuMessage>[];
   final Set<String> blockedUserIds = <String>{};
@@ -454,7 +463,18 @@ class RoomController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (envelope.type == 'room.membership') {
+      final values = envelope.payload['memberships'];
+      if (values is Map<String, dynamic>) {
+        _memberStatus
+          ..clear()
+          ..addAll(values.map((key, value) => MapEntry(key, value == true)));
+        notifyListeners();
+      }
+      return;
+    }
     if (envelope.type == 'room.state') {
+      _memberStatus.clear();
       _lastServerSequence = envelope.sequence;
       unawaited(acceptRoom(Room.fromJson(envelope.payload)));
       return;

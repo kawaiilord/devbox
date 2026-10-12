@@ -76,6 +76,7 @@ func (s *Server) redeemMonthlyMembership(w http.ResponseWriter, r *http.Request)
 		writeStoreError(w, err)
 		return
 	}
+	s.publishUserMembership(r.Context(), user.ID)
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: receipt, Msg: "redeemed"})
 }
 

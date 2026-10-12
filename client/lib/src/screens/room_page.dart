@@ -114,16 +114,10 @@ class _RoomPageState extends State<RoomPage> {
                                   Expanded(
                                     child: MemberName(
                                       name: message.displayName,
-                                      member:
-                                          controller.room.members
-                                              .where(
-                                                (member) =>
-                                                    member.userId ==
-                                                    message.userId,
-                                              )
-                                              .firstOrNull
-                                              ?.isVip ??
-                                          message.isVip,
+                                      member: controller.isVIP(
+                                        message.userId,
+                                        fallback: message.isVip,
+                                      ),
                                       style: Theme.of(context)
                                           .textTheme
                                           .labelSmall,
@@ -593,7 +587,7 @@ class _RoomPageState extends State<RoomPage> {
                   ListTile(
                     title: MemberName(
                       name: member.displayName,
-                      member: member.isVip,
+                      member: controller.isVIP(member.userId),
                     ),
                     subtitle: Text(
                       member.role == 'owner'
@@ -1427,9 +1421,12 @@ class _MembersPanel extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               leading: MemberAvatar(
                 name: member.displayName,
-                member: member.isVip,
+                member: controller.isVIP(member.userId),
               ),
-              title: MemberName(name: member.displayName, member: member.isVip),
+              title: MemberName(
+                name: member.displayName,
+                member: controller.isVIP(member.userId),
+              ),
               subtitle: Text(
                 member.userId == controller.session.user.id
                     ? '当前设备'

@@ -1586,11 +1586,13 @@ func (s *Server) writeSocket(ctx context.Context, conn *websocket.Conn, client *
 func (s *Server) snapshotLoop(ctx context.Context) {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
+	ticks := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			ticks++
 			for _, code := range s.store.RoomCodes() {
 				if s.redis != nil {
 					playback, seq, acquired, err := s.redis.Snapshot(ctx, code)
@@ -1600,12 +1602,18 @@ func (s *Server) snapshotLoop(ctx context.Context) {
 					room, err := s.store.ApplyAuthoritativePlayback(code, playback, seq)
 					if err == nil {
 						s.broadcastSnapshot(ctx, room, seq, "server")
+						if ticks%20 == 0 {
+							s.broadcastMembershipStatus(ctx, room)
+						}
 					}
 					continue
 				}
 				room, seq, err := s.store.Snapshot(code)
 				if err == nil {
 					s.broadcastSnapshot(ctx, room, seq, "server")
+					if ticks%20 == 0 {
+						s.broadcastMembershipStatus(ctx, room)
+					}
 				}
 			}
 		}
@@ -1676,6 +1684,11 @@ func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
 		if err != nil {
 			return
 		}
+		ids := make([]string, 0, len(room.Members))
+		for _, member := range room.Members {
+			ids = append(ids, member.UserID)
+		}
+		memberships, _ := s.repo.ActiveMemberships(ctx, ids)
 		s.hub.BroadcastFor(room.Code, func(user User) *Envelope {
 			member := false
 			for _, m := range room.Members {
@@ -1693,6 +1706,7 @@ func (s *Server) broadcastLocal(ctx context.Context, envelope Envelope) {
 			copy.Features = &view
 			copy.Members = append([]Member(nil), room.Members...)
 			for i := range copy.Members {
+				copy.Members[i].IsVIP = memberships[copy.Members[i].UserID]
 				copy.Members[i].Role = f.role(room, copy.Members[i].UserID)
 			}
 			out := envelope

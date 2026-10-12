@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -35,4 +36,34 @@ func (r *PostgresRepository) ActiveMemberships(ctx context.Context, ids []string
 		result[id] = active
 	}
 	return result, rows.Err()
+}
+
+// Membership metadata is refreshed separately from playback so expiry changes
+// never reload a movie or alter its synchronization sequence.
+func (s *Server) broadcastMembershipStatus(ctx context.Context, room Room) {
+	ids := make([]string, 0, len(room.Members))
+	for _, member := range room.Members {
+		ids = append(ids, member.UserID)
+	}
+	values, err := s.repo.ActiveMemberships(ctx, ids)
+	if err != nil {
+		return
+	}
+	payload, _ := json.Marshal(map[string]any{"memberships": values})
+	s.emitEnvelope(ctx, Envelope{Type: "room.membership", Room: room.Code, TS: time.Now().UnixMilli(), Payload: payload, From: "server"})
+}
+
+func (s *Server) publishUserMembership(ctx context.Context, userID string) {
+	for _, code := range s.store.RoomCodes() {
+		room, err := s.store.Room(code)
+		if err != nil {
+			continue
+		}
+		for _, member := range room.Members {
+			if member.UserID == userID {
+				s.broadcastMembershipStatus(ctx, room)
+				break
+			}
+		}
+	}
 }

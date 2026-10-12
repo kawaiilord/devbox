@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -155,5 +156,60 @@ func TestCheckInStreakBeforeTodayAndAfterMissedDay(t *testing.T) {
 	items = append(items, CheckIn{Date: "2026-10-12"})
 	if got := consecutiveCheckInDays(items, "2026-10-12"); got != 3 {
 		t.Fatalf("checked today streak=%d", got)
+	}
+}
+
+func TestRoomMembershipStatusUsesCurrentAccountWithoutChangingPlayback(t *testing.T) {
+	ctx := context.Background()
+	repo := NewMemoryRepository()
+	user := User{ID: "member-identity-owner", Email: "identity@example.test", DisplayName: "Identity Member"}
+	if err := repo.CreateUser(ctx, AccountRecord{User: user, CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SetUserVIP(ctx, user.ID, time.Now().Add(time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(Options{Repository: repo})
+	room, err := server.store.CreateRoom(user, "Membership identity", "https://example.test/video.mp4", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.SaveRoom(ctx, room); err != nil {
+		t.Fatal(err)
+	}
+	client := &socketClient{user: user, send: make(chan []byte, 2)}
+	unsubscribe := server.hub.Subscribe(room.Code, client)
+	defer unsubscribe()
+	server.broadcastRoomState(ctx, room, 0)
+	var envelope Envelope
+	select {
+	case message := <-client.send:
+		if err = json.Unmarshal(message, &envelope); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatal("missing room state")
+	}
+	var view Room
+	if err = json.Unmarshal(envelope.Payload, &view); err != nil || len(view.Members) != 1 || !view.Members[0].IsVIP {
+		t.Fatalf("member=%+v err=%v", view.Members, err)
+	}
+	if err = repo.SetUserVIP(ctx, user.ID, time.Now().Add(-time.Hour).UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	server.broadcastMembershipStatus(ctx, room)
+	select {
+	case message := <-client.send:
+		if err = json.Unmarshal(message, &envelope); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatal("missing membership expiry update")
+	}
+	var status struct {
+		Memberships map[string]bool `json:"memberships"`
+	}
+	if err = json.Unmarshal(envelope.Payload, &status); err != nil || envelope.Type != "room.membership" || status.Memberships[user.ID] {
+		t.Fatalf("expiry envelope=%+v status=%v err=%v", envelope, status, err)
 	}
 }

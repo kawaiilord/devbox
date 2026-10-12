@@ -140,8 +140,9 @@ class _MembershipPageState extends State<MembershipPage> {
     final reward = _status?.monthlyReward;
     if (_busy ||
         reward == null ||
-        (_redemptionRequestId == null && (_membership?.isLifetime ?? false)))
+        (_redemptionRequestId == null && (_membership?.isLifetime ?? false))) {
       return;
+    }
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
