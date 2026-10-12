@@ -151,6 +151,10 @@ func (s *AuthService) Register(
 	email, displayName, password string,
 	devices ...DeviceInfo,
 ) (Session, error) {
+	return s.registerAccount(ctx, email, displayName, password, false, devices...)
+}
+
+func (s *AuthService) registerAccount(ctx context.Context, email, displayName, password string, verified bool, devices ...DeviceInfo) (Session, error) {
 	device, deviceHash, err := normalizeDevice(firstDevice(devices))
 	if err != nil {
 		return Session{}, err
@@ -166,7 +170,7 @@ func (s *AuthService) Register(
 	account := AccountRecord{
 		User: User{
 			ID: mustRandomString(12), DisplayName: strings.TrimSpace(displayName),
-			Email: normalizedEmail, SessionVersion: 1,
+			Email: normalizedEmail, SessionVersion: 1, EmailVerified: verified,
 		},
 		PasswordHash: passwordHash,
 		CreatedAt:    s.now(),
@@ -186,8 +190,10 @@ func (s *AuthService) Register(
 	if err := s.repository.BindDevice(ctx, account.ID, deviceHash, device); err != nil {
 		return Session{}, err
 	}
-	if err := s.issueActionToken(ctx, account.User, "verify_email", verificationLifetime); err != nil {
-		return Session{}, err
+	if !verified {
+		if err := s.issueActionToken(ctx, account.User, "verify_email", verificationLifetime); err != nil {
+			return Session{}, err
+		}
 	}
 	if request.ID != "" {
 		return Session{}, &ApprovalPendingError{RequestID: request.ID, Kind: "registration"}

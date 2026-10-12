@@ -96,6 +96,13 @@ func initialRoomFeatures(room Room, in roomSettingsInput) (RoomFeatures, error) 
 }
 
 func (s *Server) discoverPublicRooms(w http.ResponseWriter, r *http.Request) {
+	if s.options.RequireAccount {
+		if _, err := s.userFromRequest(r); err != nil {
+			writeError(w, 401, errors.New("请先登录后查看房间"))
+			return
+		}
+	}
+
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	q := normalizeDiscoveryQuery(r.URL.Query().Get("q"), r.URL.Query().Get("category"), r.URL.Query().Get("tag"), offset, limit)
@@ -411,6 +418,11 @@ func (s *AuthService) createGuest(ctx context.Context, code, name string, expire
 }
 
 func (s *Server) joinRoomAsGuest(w http.ResponseWriter, r *http.Request) {
+	if s.options.RequireAccount {
+		writeError(w, 403, errors.New("请注册并登录账号后加入房间"))
+		return
+	}
+
 	policy, _, policyErr := s.sitePolicy(r.Context())
 	if policyErr != nil || !policy.GuestsEnabled {
 		writeError(w, 403, errors.New("站点当前未开放访客访问"))

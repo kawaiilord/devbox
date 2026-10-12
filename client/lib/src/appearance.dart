@@ -22,7 +22,10 @@ class FrameAppearance extends ChangeNotifier {
         ? browserMode
         : preferences.getString(preferenceKey);
     final mode =
-        ThemeMode.values.where((mode) => mode.name == saved).firstOrNull ??
+        const [
+          ThemeMode.light,
+          ThemeMode.dark,
+        ].where((mode) => mode.name == saved).firstOrNull ??
         ThemeMode.light;
     syncBrowserAppearance(mode.name);
     return FrameAppearance._(mode, preferences);
@@ -73,57 +76,23 @@ class FrameThemeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final appearance = FrameAppearanceScope.of(context);
     final colors = FrameColors.of(context);
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: colors.elevated,
-        borderRadius: BorderRadius.circular(11),
+    final dark = appearance.mode == ThemeMode.dark;
+    return IconButton(
+      tooltip: dark ? '切换为浅色' : '切换为深色',
+      onPressed: () =>
+          _select(context, dark ? ThemeMode.light : ThemeMode.dark),
+      style: IconButton.styleFrom(
+        foregroundColor: colors.muted,
+        backgroundColor: Colors.transparent,
+        minimumSize: const Size(42, 42),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: 2,
-        children: [
-          for (final (mode, label, icon) in const [
-            (ThemeMode.light, '浅色模式', Icons.light_mode_outlined),
-            (ThemeMode.dark, '深色模式', Icons.dark_mode_outlined),
-            (ThemeMode.system, '跟随系统', Icons.desktop_windows_outlined),
-          ])
-            Semantics(
-              label: label,
-              button: true,
-              toggled: appearance.mode == mode,
-              inMutuallyExclusiveGroup: true,
-              onTap: () => _select(context, mode),
-              child: Tooltip(
-                message: label,
-                excludeFromSemantics: true,
-                child: Material(
-                  color: appearance.mode == mode
-                      ? colors.surface
-                      : Colors.transparent,
-                  elevation: appearance.mode == mode ? 1 : 0,
-                  shadowColor: Colors.black.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(8),
-                  child: InkWell(
-                    excludeFromSemantics: true,
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () => _select(context, mode),
-                    child: SizedBox(
-                      width: 38,
-                      height: 36,
-                      child: Icon(
-                        icon,
-                        size: 19,
-                        color: appearance.mode == mode
-                            ? colors.text
-                            : colors.muted,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        child: Icon(
+          dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+          key: ValueKey(dark),
+          size: 21,
+        ),
       ),
     );
   }

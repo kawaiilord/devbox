@@ -75,6 +75,9 @@ func (s *Server) withNamedMutation(ctx context.Context, name string, work func(c
 }
 
 func (s *Server) authorizedRoom(ctx context.Context, code string, user User) (Room, RoomFeatures, error) {
+	if s.options.RequireAccount && !hasRegisteredAccount(user) {
+		return Room{}, RoomFeatures{}, ErrUnauthorized
+	}
 	if err := s.validateLiveUser(ctx, user); err != nil {
 		return Room{}, RoomFeatures{}, err
 	}

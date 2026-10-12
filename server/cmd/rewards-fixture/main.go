@@ -18,6 +18,7 @@ import (
 )
 
 func main() {
+	verified := flag.Bool("verified-access", false, "require accounts and verified registration in this isolated fixture")
 	credentials := flag.String("credentials", "", "private credentials output file (required)")
 	flag.Parse()
 	if *credentials == "" {
@@ -35,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	auth := app.NewAuthService(repo, tokens)
+	auth := app.NewAuthService(repo, tokens, fixtureMailer{path: *credentials + ".mail.json"})
 	device := app.DeviceInfo{ID: "rewards-fixture-user-device", Label: "Rewards fixture", Platform: "test"}
 	session, err := auth.Register(ctx, "viewer@rewards.example.test", "同帧体验官", password, device)
 	if err != nil {
@@ -64,11 +65,25 @@ func main() {
 		log.Fatal(err)
 	}
 	file.Close()
-	server := app.NewServer(app.Options{Repository: repo, Auth: auth, PointsPerCheckIn: 1, AllowedOrigins: []string{"http://localhost:18883"}})
+	server := app.NewServer(app.Options{Repository: repo, Auth: auth, PointsPerCheckIn: 1, RequireAccount: *verified, RequireRegistrationCode: *verified, AllowedOrigins: []string{"http://localhost:18883"}})
 	listener, err := net.Listen("tcp", "127.0.0.1:18882")
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Print("Rewards fixture listening on 127.0.0.1:18882; 29 seeded historical points")
 	log.Fatal(http.Serve(listener, server.Handler()))
+}
+
+// Verification messages are private, local test artifacts, never an HTTP endpoint.
+type fixtureMailer struct{ path string }
+
+func (m fixtureMailer) Send(_ context.Context, message app.MailMessage) error {
+	if message.Type != "register_code" {
+		return nil
+	}
+	data, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(m.path, data, 0600)
 }

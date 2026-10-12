@@ -44,10 +44,10 @@ svg.icon { width: 19px; height: 19px; flex: 0 0 auto; vertical-align: middle; }
 .tag, .badge { display: inline-flex; align-items: center; gap: 6px; width: fit-content; padding: 3px 8px; background: var(--elevated); border: 1px solid var(--line); border-radius: 5px; color: var(--silver); font-size: 11px; font-weight: 500; white-space: nowrap; }
 .tag { font-size: 9px; letter-spacing: .8px; }
 .badge .icon { width: 13px; height: 13px; }
-.theme-switch { display: inline-flex; flex-shrink: 0; gap: 2px; padding: 3px; background: var(--elevated); border: 1px solid var(--line); border-radius: 9px; }
-.theme-switch button { min-width: 33px; min-height: 30px; padding: 5px 7px; border-radius: 6px; background: transparent; color: var(--muted); }
-.theme-switch button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px #0000000c; }
-.theme-switch svg { width: 16px; height: 16px; }
+.theme-toggle { display: inline-grid; place-items: center; width: 40px; min-height: 40px; padding: 8px; flex-shrink: 0; border: 0; background: transparent; color: var(--muted); border-radius: 9px; }
+.theme-toggle:hover { background: var(--elevated); color: var(--text); }
+.theme-toggle svg { width: 20px; height: 20px; }
+
 .skip-link { position: fixed; top: -70px; left: 16px; z-index: 100; padding: 12px; background: var(--text); color: var(--inverse); border-radius: 8px; }
 .skip-link:focus { top: 12px; }
 /* Login */
@@ -247,7 +247,7 @@ summary { color: var(--muted); cursor: pointer; font-size: 12px; width: fit-cont
   .mobile-dock button.active { color: var(--text); background: var(--elevated); }
   .mobile-dock .icon { width: 20px; height: 20px; }
   .nav-button { min-height: 43px; font-size: 13px; }
-  .theme-switch button { min-width: 35px; min-height: 33px; }
+
   .sidebar-brand { height: 76px; }
   .sidebar-footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
   .login-topbar { padding: 22px 24px; }

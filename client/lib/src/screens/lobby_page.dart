@@ -9,7 +9,6 @@ import 'workspace_navigation.dart';
 import 'workspace_section.dart';
 import 'public_auth_page.dart';
 import '../browser_entry.dart';
-import 'browser_login_dialog.dart';
 import 'remote_source_dialog.dart';
 
 import '../api/api_client.dart';
@@ -65,6 +64,13 @@ class _LobbyPageState extends State<LobbyPage> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _registrationCode = TextEditingController();
+  String _registrationChallenge = '', _registrationEmail = '';
+  String? _registrationNotice;
+  bool _sendingCode = false;
+  int _resendSeconds = 0;
+  Timer? _resendTimer;
+
   final _roomName = TextEditingController(text: '周五放映室');
   final _source = TextEditingController(
     text: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
@@ -99,8 +105,8 @@ class _LobbyPageState extends State<LobbyPage> {
     super.initState();
     if (kIsWeb) {
       final entry = Uri.base.path.split('/').last;
-      _publicAuthEntry = entry == 'login.html' || entry == 'register.html';
-      if (_publicAuthEntry) _registerMode = entry == 'register.html';
+      _publicAuthEntry = true;
+      _registerMode = entry == 'register.html';
       if (entry == 'app.html' && Uri.base.queryParameters['discover'] == '1') {
         _workspacePanel = _WorkspacePanel.discover;
         _mobileTab = 1;
@@ -112,7 +118,12 @@ class _LobbyPageState extends State<LobbyPage> {
   Future<void> _restoreSession() async {
     try {
       final session = await widget.sessionStore.read();
-      if (session == null || !mounted) return;
+      if (!mounted) return;
+      if (session == null || session.user.isGuest) {
+        if (session != null) await widget.sessionStore.clear();
+        if (kIsWeb) setBrowserEntry(_registerMode ? 'register' : 'login');
+        return;
+      }
       await widget.api.listDevices(session);
       if (!mounted) return;
       setState(() {
@@ -135,6 +146,8 @@ class _LobbyPageState extends State<LobbyPage> {
     _name.dispose();
     _email.dispose();
     _password.dispose();
+    _registrationCode.dispose();
+    _resendTimer?.cancel();
     _roomName.dispose();
     _source.dispose();
     _roomCode.dispose();
@@ -200,26 +213,62 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Future<void> _signIn() async {
     if (_busy || (_publicAuthEntry && _restoringSession)) return;
+    if (_registerMode &&
+        (_registrationChallenge.isEmpty ||
+            _registrationEmail != _email.text.trim().toLowerCase() ||
+            !RegExp(r'^\d{6}$').hasMatch(_registrationCode.text.trim()))) {
+      setState(() => _error = '请先获取并填写该邮箱的 6 位验证码');
+      return;
+    }
     await _run(() async {
       final session = _registerMode
           ? await widget.api.register(
               email: _email.text,
               displayName: _name.text,
               password: _password.text,
+              challenge: _registrationChallenge,
+              code: _registrationCode.text.trim(),
             )
           : await _passwordLogin();
       await _acceptSession(session);
     });
   }
 
-  Future<void> _browserSignIn() async {
-    await _run(() async {
-      final session = await showDialog<Session>(
-        context: context,
-        builder: (_) => BrowserLoginDialog(api: widget.api),
-      );
-      if (session != null) await _acceptSession(session);
+  Future<void> _sendRegistrationCode() async {
+    if (_sendingCode || _resendSeconds > 0 || _busy) return;
+    final email = _email.text.trim().toLowerCase();
+    setState(() {
+      _sendingCode = true;
+      _error = null;
+      _registrationNotice = null;
     });
+    try {
+      final result = await widget.api.requestRegistrationCode(email);
+      if (!mounted) return;
+      setState(() {
+        _registrationChallenge = result['challenge'] as String;
+        _registrationEmail = email;
+        _registrationCode.clear();
+        _resendSeconds = (result['retry_after'] as num?)?.toInt() ?? 60;
+        _registrationNotice = '验证码已发送，10 分钟内有效，请查看邮箱。';
+      });
+      _resendTimer?.cancel();
+      _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() => _resendSeconds--);
+        if (_resendSeconds <= 0) timer.cancel();
+      });
+    } catch (e) {
+      if (mounted)
+        setState(
+          () => _error = e is ApiException ? e.message : '验证码发送失败，请稍后重试',
+        );
+    } finally {
+      if (mounted) setState(() => _sendingCode = false);
+    }
   }
 
   void _setMembership(MembershipStatus status) {
@@ -326,17 +375,6 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   void _showPublicRooms() => _selectMobileTab(1);
-
-  Future<void> _joinGuest() async {
-    final joined = await showDialog<JoinedRoom>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => RoomJoinDialog(api: widget.api),
-    );
-    if (joined != null && mounted) {
-      _openRoom(joined.session, joined.room);
-    }
-  }
 
   Future<bool> _promptAddRemote() async {
     final session = _session;
@@ -892,18 +930,13 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _session == null && _publicAuthEntry && _workspacePanel == null
+  Widget build(BuildContext context) => _session == null
       ? PublicAuthPage(
           registerMode: _registerMode,
           restoring: _restoringSession,
           form: _loginCard(framed: false),
           error: _error,
           onHome: openOfficialWebsite,
-          onDiscover: () {
-            setBrowserEntry('app');
-            _selectMobileTab(1);
-          },
         )
       : PopScope(
           canPop:
@@ -939,7 +972,6 @@ class _LobbyPageState extends State<LobbyPage> {
     error: _error,
     onSearch: _showMetadataSearch,
     onDiscover: _showPublicRooms,
-    onGuestJoin: _joinGuest,
     onMembership: _showMembership,
     onUpdates: kIsWeb ? null : _showUpdates,
     onOfficialSite: kIsWeb ? openOfficialWebsite : null,
@@ -994,10 +1026,14 @@ class _LobbyPageState extends State<LobbyPage> {
     email: _email,
     password: _password,
     registerMode: _registerMode,
-    busy: _busy || (_publicAuthEntry && _restoringSession),
+    busy: _busy || _restoringSession,
     framed: framed,
     onSubmit: _signIn,
-    onBrowserLogin: _browserSignIn,
+    registrationCode: _registrationCode,
+    onSendCode: _sendRegistrationCode,
+    sendingCode: _sendingCode,
+    resendSeconds: _resendSeconds,
+    notice: _registrationNotice,
     onForgotPassword: _showPasswordReset,
     onToggleMode: () {
       setState(() {
@@ -1019,7 +1055,11 @@ class _LoginCard extends StatelessWidget {
     required this.registerMode,
     required this.busy,
     required this.onSubmit,
-    required this.onBrowserLogin,
+    required this.registrationCode,
+    required this.onSendCode,
+    required this.sendingCode,
+    required this.resendSeconds,
+    this.notice,
     required this.onToggleMode,
     required this.onForgotPassword,
     this.framed = true,
@@ -1030,7 +1070,11 @@ class _LoginCard extends StatelessWidget {
   final bool registerMode;
   final bool busy, framed;
   final VoidCallback onSubmit;
-  final VoidCallback onBrowserLogin;
+  final TextEditingController registrationCode;
+  final VoidCallback onSendCode;
+  final bool sendingCode;
+  final int resendSeconds;
+  final String? notice;
   final VoidCallback onToggleMode;
   final VoidCallback onForgotPassword;
 
@@ -1080,6 +1124,56 @@ class _LoginCard extends StatelessWidget {
               if (!busy) onSubmit();
             },
           ),
+          if (registerMode) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: registrationCode,
+              keyboardType: TextInputType.number,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              maxLength: 6,
+              decoration: InputDecoration(
+                labelText: '邮箱验证码',
+                counterText: '',
+                prefixIcon: const Icon(
+                  Icons.mark_email_read_outlined,
+                  size: 19,
+                ),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: TextButton(
+                    onPressed: busy || sendingCode || resendSeconds > 0
+                        ? null
+                        : onSendCode,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(
+                      sendingCode
+                          ? '发送中…'
+                          : resendSeconds > 0
+                          ? '${resendSeconds}s'
+                          : '获取验证码',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
+              onSubmitted: (_) {
+                if (!busy) onSubmit();
+              },
+            ),
+            if (notice != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  notice!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: FrameColors.of(context).muted,
+                  ),
+                ),
+              ),
+          ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -1093,11 +1187,6 @@ class _LoginCard extends StatelessWidget {
           TextButton(
             onPressed: busy ? null : onToggleMode,
             child: Text(registerMode ? '已有账号？直接登录' : '没有账号？立即注册'),
-          ),
-          OutlinedButton.icon(
-            onPressed: busy ? null : onBrowserLogin,
-            icon: const Icon(Icons.fingerprint),
-            label: const Text('邮箱验证码 / 第三方 / Passkey'),
           ),
           if (!registerMode)
             TextButton(

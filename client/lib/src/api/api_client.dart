@@ -35,15 +35,26 @@ class ApiClient {
     return Session.fromJson(data);
   }
 
+  Future<Map<String, dynamic>> requestRegistrationCode(String email) =>
+      _request('POST', '/api/v1/auth/register/code', body: {'email': email});
+
   Future<Session> register({
     required String email,
     required String displayName,
     required String password,
+    String challenge = '',
+    String code = '',
   }) async {
     final data = await _request(
       'POST',
       '/api/v1/auth/register',
-      body: {'email': email, 'display_name': displayName, 'password': password},
+      body: {
+        'email': email,
+        'display_name': displayName,
+        'password': password,
+        'challenge': challenge,
+        'code': code,
+      },
     );
     return Session.fromJson(data);
   }
@@ -1082,6 +1093,7 @@ class ApiClient {
 
   Future<({List<PublicRoom> rooms, bool hasMore, int nextOffset})>
   discoverRooms({
+    Session? session,
     String query = '',
     String category = '',
     String tag = '',
@@ -1097,7 +1109,7 @@ class ApiClient {
         'limit': '20',
       },
     );
-    final data = await _request('GET', uri.toString());
+    final data = await _request('GET', uri.toString(), session: session);
     return (
       rooms: (data['rooms'] as List<dynamic>)
           .map((v) => PublicRoom.fromJson(v as Map<String, dynamic>))

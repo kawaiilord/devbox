@@ -21,28 +21,30 @@ import (
 )
 
 type Options struct {
-	TrustedProxyCIDRs    []string
-	RTMP                 *RTMPService
-	Address              string
-	AllowedOrigins       []string
-	Logger               *slog.Logger
-	Repository           Repository
-	Auth                 *AuthService
-	InitialRooms         []Room
-	AllowDemoAuth        bool
-	Redis                *RedisCoordinator
-	RequireVerifiedEmail bool
-	Sources              *MediaSourceManager
-	PublicBaseURL        string
-	Metadata             *MetadataClient
-	RTC                  *RTCConfigManager
-	Objects              ObjectStore
-	Payment              PaymentProvider
-	Vault                *CredentialVault
-	VIPAnnouncement      string
-	PointsPerCheckIn     int
-	PointsPerVIPDay      int
-	MetricsToken         string
+	TrustedProxyCIDRs       []string
+	RTMP                    *RTMPService
+	Address                 string
+	AllowedOrigins          []string
+	Logger                  *slog.Logger
+	Repository              Repository
+	Auth                    *AuthService
+	InitialRooms            []Room
+	AllowDemoAuth           bool
+	Redis                   *RedisCoordinator
+	RequireVerifiedEmail    bool
+	RequireAccount          bool
+	RequireRegistrationCode bool
+	Sources                 *MediaSourceManager
+	PublicBaseURL           string
+	Metadata                *MetadataClient
+	RTC                     *RTCConfigManager
+	Objects                 ObjectStore
+	Payment                 PaymentProvider
+	Vault                   *CredentialVault
+	VIPAnnouncement         string
+	PointsPerCheckIn        int
+	PointsPerVIPDay         int
+	MetricsToken            string
 }
 
 type Server struct {
@@ -232,6 +234,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/couple/shared-favorites", s.coupleSharedFavorites)
 	mux.HandleFunc("GET /api/v1/couple/shared-movies", s.coupleSharedMovies)
 	mux.HandleFunc("POST /api/v1/auth/register", s.register)
+	mux.HandleFunc("POST /api/v1/auth/register/code", s.requestRegistrationCode)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", s.refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
@@ -389,7 +392,7 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 	if policy, _, policyErr := s.sitePolicy(r.Context()); policyErr == nil {
 		features["registration"] = policy.RegistrationEnabled
 		features["room_creation"] = policy.RoomCreationEnabled
-		features["guests"] = policy.GuestsEnabled
+		features["guests"] = policy.GuestsEnabled && !s.options.RequireAccount
 		features["chat"] = features["chat"] && policy.ChatEnabled
 	}
 	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: map[string]any{
@@ -406,7 +409,7 @@ func (s *Server) clock(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) demoSession(w http.ResponseWriter, r *http.Request) {
-	if !s.options.AllowDemoAuth {
+	if !s.options.AllowDemoAuth || s.options.RequireAccount {
 		writeError(w, http.StatusNotFound, ErrNotFound)
 		return
 	}
@@ -444,6 +447,8 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		Email       string `json:"email"`
 		DisplayName string `json:"display_name"`
 		Password    string `json:"password"`
+		Challenge   string `json:"challenge"`
+		Code        string `json:"code"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -458,8 +463,18 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		!s.enforceRateLimit(w, r, "register-device", device.ID, 5, time.Hour) {
 		return
 	}
-	session, err := s.auth.Register(
-		r.Context(), request.Email, request.DisplayName, request.Password, device,
+	if s.options.RequireRegistrationCode {
+		if _, err := validateCredentials(request.Email, request.DisplayName, request.Password); err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		if err := s.verifyRegistrationCode(r.Context(), request.Email, device.ID, request.Challenge, request.Code); err != nil {
+			writeError(w, 400, err)
+			return
+		}
+	}
+	session, err := s.auth.registerAccount(
+		r.Context(), request.Email, request.DisplayName, request.Password, s.options.RequireRegistrationCode, device,
 	)
 	if writeLoginChallenge(w, err) || writeApprovalPending(w, err) {
 		return
@@ -1043,7 +1058,7 @@ func (s *Server) issueTicketForRoom(
 	}
 	ticket.RoomCode = room.Code
 	viewerAccount, viewerErr := s.repo.UserByID(ctx, viewer)
-	if viewerErr != nil || !accountActive(viewerAccount.User) {
+	if viewerErr != nil || !accountActive(viewerAccount.User) || (s.options.RequireAccount && !hasRegisteredAccount(viewerAccount.User)) {
 		return Room{}, time.Time{}, ErrUnauthorized
 	}
 	ticket.ViewerID = viewer
@@ -1933,6 +1948,9 @@ func (s *Server) userFromRequest(r *http.Request) (User, error) {
 	)
 	if err != nil {
 		return User{}, err
+	}
+	if s.options.RequireAccount && !hasRegisteredAccount(user) {
+		return User{}, ErrUnauthorized
 	}
 	if user.GuestRoomCode != "" {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/blocks" {

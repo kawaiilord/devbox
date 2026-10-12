@@ -9,7 +9,7 @@ external String? _readStorage(String key);
 String readBrowserAppearance() {
   try {
     final value = _readStorage('sameframe.appearance.boot');
-    return const {'light', 'dark', 'system'}.contains(value) ? value! : '';
+    return const {'light', 'dark'}.contains(value) ? value! : '';
   } catch (_) {
     return '';
   }

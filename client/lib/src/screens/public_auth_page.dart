@@ -12,7 +12,6 @@ class PublicAuthPage extends StatelessWidget {
     required this.registerMode,
     required this.form,
     required this.onHome,
-    required this.onDiscover,
     this.error,
     this.restoring = false,
   });
@@ -20,7 +19,7 @@ class PublicAuthPage extends StatelessWidget {
   final bool registerMode, restoring;
   final Widget form;
   final String? error;
-  final VoidCallback onHome, onDiscover;
+  final VoidCallback onHome;
 
   @override
   Widget build(BuildContext context) {
@@ -276,14 +275,6 @@ class PublicAuthPage extends StatelessWidget {
                 ),
               ),
             ),
-          const SizedBox(height: 22),
-          const Divider(height: 1),
-          const SizedBox(height: 14),
-          TextButton.icon(
-            onPressed: restoring ? null : onDiscover,
-            icon: const Icon(Icons.explore_outlined, size: 16),
-            label: const Text('先看看公开房间'),
-          ),
         ],
       ),
     );

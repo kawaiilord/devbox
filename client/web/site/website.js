@@ -23,13 +23,16 @@
     if (event.key === 'Escape' && !menu.hidden) { closeMenu(); toggle.focus(); }
   });
   function renderTheme() {
-    const current = window.sameframeAppearance.getMode() || 'light';
-    document.querySelectorAll('[data-theme-choice]').forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.themeChoice === current));
+    const dark = document.documentElement.dataset.theme === 'dark';
+    document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+      const label = dark ? '切换为浅色' : '切换为深色';
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      button.querySelector('use').setAttribute('href', dark ? '#i-moon' : '#i-sun');
     });
   }
-  document.querySelectorAll('[data-theme-choice]').forEach(button => {
-    button.addEventListener('click', () => window.sameframeAppearance.setMode(button.dataset.themeChoice));
+  document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+    button.addEventListener('click', () => window.sameframeAppearance.setMode(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
   });
   window.addEventListener('sameframe-theme-change', renderTheme);
   renderTheme();

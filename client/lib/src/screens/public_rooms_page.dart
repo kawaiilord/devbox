@@ -47,6 +47,13 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
   }
 
   Future<void> _load({bool more = false}) async {
+    if (widget.session == null) {
+      setState(() {
+        _loading = false;
+        _error = '请先登录后查看房间';
+      });
+      return;
+    }
     final generation = ++_generation;
     setState(() {
       _loading = true;
@@ -54,6 +61,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
     });
     try {
       final result = await widget.api.discoverRooms(
+        session: widget.session,
         query: _query.text.trim(),
         category: _category,
         tag: _tag.text.trim(),
@@ -79,7 +87,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
   }
 
   Future<void> _join(PublicRoom room) async {
-    if (widget.session == null && !room.allowGuests) {
+    if (widget.session == null) {
       if (!widget.embedded) Navigator.of(context).pop();
       widget.onLoginRequired(room.code);
       return;
@@ -430,7 +438,7 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
                 child: Text(
                   room.members >= room.maxMembers
                       ? '房间已满'
-                      : widget.session == null && !room.allowGuests
+                      : widget.session == null
                       ? '先登录'
                       : '加入房间',
                 ),

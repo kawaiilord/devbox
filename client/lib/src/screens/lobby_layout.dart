@@ -25,7 +25,6 @@ class LobbyLayout extends StatelessWidget {
     required this.destinations,
     required this.onSearch,
     required this.onDiscover,
-    required this.onGuestJoin,
     required this.onMembership,
     required this.onUpdates,
     required this.onLogout,
@@ -47,7 +46,7 @@ class LobbyLayout extends StatelessWidget {
   final VoidCallback onSearch, onMembership, onLogout;
   final VoidCallback? onUpdates;
   final VoidCallback? onOfficialSite;
-  final VoidCallback onDiscover, onGuestJoin;
+  final VoidCallback onDiscover;
   final String? error;
   final Widget Function(Widget home)? workspaceBuilder;
   final String? activeDestination;
@@ -288,14 +287,6 @@ class LobbyLayout extends StatelessWidget {
               label: const Text('发现房间'),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onGuestJoin,
-              icon: const Icon(Icons.meeting_room_outlined, size: 17),
-              label: const Text('访客加入'),
-            ),
-          ),
         ],
       ),
       const SizedBox(height: 20),
@@ -396,11 +387,6 @@ class LobbyLayout extends StatelessWidget {
                     onPressed: navigationLocked ? null : onDiscover,
                     icon: const Icon(Icons.explore_outlined, size: 18),
                     label: const Text('发现公开房间'),
-                  ),
-                  TextButton.icon(
-                    onPressed: onGuestJoin,
-                    icon: const Icon(Icons.north_east_rounded, size: 17),
-                    label: const Text('访客加入'),
                   ),
                 ],
               ),
@@ -624,11 +610,7 @@ class LobbyLayout extends StatelessWidget {
                 selected: activeDestination == '发现房间',
                 onTap: () => _navigate(context, onDiscover, closeDrawer),
               ),
-              _NavItem(
-                icon: Icons.meeting_room_outlined,
-                label: '访客加入',
-                onTap: () => _navigate(context, onGuestJoin, closeDrawer),
-              ),
+
               const Padding(
                 padding: EdgeInsets.fromLTRB(12, 28, 0, 10),
                 child: _Eyebrow('资料库'),

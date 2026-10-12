@@ -111,42 +111,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'signed-out sections switch through bottom tabs without a back button',
-    (tester) async {
-      await _open(tester, signedIn: false, size: const Size(390, 844));
-      await tester.tap(find.text('我的'));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('安全更新'),
-        180,
-        scrollable: find.byType(Drawer).evaluate().isNotEmpty
-            ? find
-                  .descendant(
-                    of: find.byType(Drawer),
-                    matching: find.byType(Scrollable),
-                  )
-                  .first
-            : find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('安全更新'));
-      await tester.pumpAndSettle();
-      expect(find.text('检查更新'), findsOneWidget);
-      expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.byType(BackButton), findsNothing);
-      await tester.tap(find.text('我的'));
-      await tester.pumpAndSettle();
-      expect(find.text('登录或注册'), findsOneWidget);
-      await tester.tap(find.text('片库'));
-      await tester.pumpAndSettle();
-      expect(find.byType(NavigationBar), findsOneWidget);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.text('注册并进入'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('signed-out users cannot enter the viewing workspace', (
+    tester,
+  ) async {
+    await _open(tester, signedIn: false, size: const Size(390, 844));
+    expect(find.text('创建同帧账号'), findsOneWidget);
+    expect(find.text('邮箱验证码'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('先看看公开房间'), findsNothing);
+    expect(find.text('邮箱验证码 / 第三方 / Passkey'), findsNothing);
+    await tester.tap(find.text('已有账号？直接登录'));
+    await tester.pumpAndSettle();
+    expect(find.text('登录同帧'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _open(

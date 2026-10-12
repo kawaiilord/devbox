@@ -250,7 +250,6 @@ async function mutate(path, method, body, reload = true, headers = {}) {
 
 document.querySelectorAll('[data-icon]').forEach(element => { element.innerHTML = icon(element.dataset.icon); });
 window.adminTheme.apply();
-document.querySelectorAll('[data-theme-choice]').forEach(button => button.addEventListener('click', () => window.adminTheme.set(button.dataset.themeChoice)));
 $('loginForm').addEventListener('submit', login);
 $('logout').onclick = logout;
 $('refresh').onclick = () => loadTab();

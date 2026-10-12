@@ -45,4 +45,4 @@ async function init(){if(fragment.has('oauth_done')&&sessionStorage.getItem('sf_
  if(fragment.get('action')==='verify_email'){await call('/api/v1/auth/email/verify',{token:fragment.get('token')});message('邮箱验证成功。');}
  if(fragment.get('action')==='reset_password'){const input=await promptFields('设置新密码',[{name:'password',label:'新密码（至少 10 位）',type:'password'}]);if(input){await call('/api/v1/auth/password/reset',{token:fragment.get('token'),password:input.password});message('密码已重设，请重新登录。');}}
  await render();}
-document.querySelectorAll('[data-theme-choice]').forEach(b=>b.onclick=()=>window.adminTheme.set(b.dataset.themeChoice));window.adminTheme.apply();run(init);
+window.adminTheme.apply();run(init);

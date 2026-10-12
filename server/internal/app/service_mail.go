@@ -53,6 +53,7 @@ func defaultSMTPConfig() SMTPConfig {
 	return SMTPConfig{Port: 587, Security: "starttls", FromName: "同帧", Templates: map[string]MailTemplate{
 		"verify_email":   {Subject: "验证你的同帧邮箱", Body: "请验证你的邮箱：{{.Link}}\n验证码：{{.Token}}\n有效期至 {{.ExpiresAt}}"},
 		"reset_password": {Subject: "重设同帧密码", Body: "点击链接重设密码：{{.Link}}\n重设令牌：{{.Token}}\n有效期至 {{.ExpiresAt}}"},
+		"register_code":  {Subject: "同帧注册验证码", Body: "你的注册验证码是 {{.Token}}，10 分钟内有效。请勿将验证码分享给他人。"},
 		"login_code":     {Subject: "同帧登录验证码", Body: "你的登录验证码是 {{.Token}}，有效期至 {{.ExpiresAt}}。"},
 		"test":           {Subject: "同帧邮件测试", Body: "邮件服务已成功连接。"},
 	}}
@@ -121,6 +122,11 @@ func (m *RuntimeMailer) Send(ctx context.Context, message MailMessage) error {
 		return e
 	}
 	if !c.Enabled {
+		if message.Type == "register_code" {
+			if _, noop := m.fallback.(NoopMailer); noop || m.fallback == nil {
+				return errors.New("邮件服务尚未配置")
+			}
+		}
 		if m.fallback != nil {
 			return m.fallback.Send(ctx, message)
 		}
@@ -150,6 +156,9 @@ func sendSMTP(ctx context.Context, c SMTPConfig, message MailMessage) error {
 		return errors.New("收件人地址无效")
 	}
 	t, ok := c.Templates[message.Type]
+	if !ok {
+		t, ok = defaultSMTPConfig().Templates[message.Type]
+	}
 	if !ok {
 		return errors.New("邮件模板不存在")
 	}
