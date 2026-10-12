@@ -80,6 +80,12 @@ def deploy(args):
                       deployed_at_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
         save(release / 'invitation-policy.json', record)
         save(pending, record)
+        manifest = release / 'deployment.json'
+        deployment = json.loads(manifest.read_text())
+        deployment['application_only_rollback_command'] = deployment['rollback_command']
+        deployment['rollback_command'] = record['rollback_command']
+        deployment['registration_policy_record'] = str(release / 'invitation-policy.json')
+        save(manifest, deployment)
     except Exception:
         manifest = release / 'deployment.json'
         if manifest.exists() and json.loads(manifest.read_text()).get('status') == 'deployed':
