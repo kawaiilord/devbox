@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+  <style>:root{color:#18181b}@media(prefers-color-scheme:dark){:root{color:#f4f4f5}}</style>
+  <g fill="none" stroke="currentColor" stroke-width="1.8">
+    <rect x="3" y="4" width="23" height="23" rx="7"/>
+    <rect x="10" y="11" width="23" height="23" rx="7"/>
+  </g>
+  <path d="M16 16 23 20 16 24Z" fill="currentColor"/>
+</svg>

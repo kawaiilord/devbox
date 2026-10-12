@@ -363,3 +363,7 @@ input[type="checkbox"]:not(.toggle) { width: 17px; min-width: 17px; height: 17px
 .plain-fieldset:disabled { opacity: .65; }
 .playback-form { margin-top: 20px; }
 .room-members-panel { margin-top: 20px; }
+
+/* The shared brand mark has no tile or background. Its ink follows the theme. */
+.brand img, .mobile-brand { background: transparent; }
+:root[data-theme="dark"] .brand img, :root[data-theme="dark"] .mobile-brand { filter: invert(1); }
