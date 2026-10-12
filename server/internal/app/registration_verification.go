@@ -56,7 +56,7 @@ func (s *Server) requestRegistrationCode(w http.ResponseWriter, r *http.Request)
 	if _, err := s.repo.UserByEmail(r.Context(), email); err == nil {
 		writeError(w, 409, ErrEmailExists)
 		return
-	} else if !errors.Is(err, ErrNotFound) {
+	} else if !errors.Is(err, ErrInvalidCredentials) {
 		writeError(w, 503, errors.New("注册服务暂不可用"))
 		return
 	}

@@ -24,7 +24,7 @@ func TestVerifiedRegistrationAndAccountBoundary(t *testing.T) {
 	if got := requestStatusDevice(t, "POST", httpServer.URL+"/api/v1/auth/register", "", payload, device); got != 400 {
 		t.Fatalf("registration without code: %d", got)
 	}
-	if _, err := repo.UserByEmail(context.Background(), email); !errors.Is(err, ErrNotFound) {
+	if _, err := repo.UserByEmail(context.Background(), email); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatal("account created without email proof")
 	}
 	for _, path := range []string{"/api/v1/public/rooms", "/api/v1/rooms/ABCDEF", "/api/v1/rooms/ABCDEF/messages"} {
@@ -84,7 +84,7 @@ func TestRegistrationFailsClosedWithoutMail(t *testing.T) {
 	if got := requestStatusDevice(t, "POST", h.URL+"/api/v1/auth/register/code", "", map[string]string{"email": "no-mail@example.test"}, device); got != 503 {
 		t.Fatalf("unconfigured mail: %d", got)
 	}
-	if _, err := server.repo.UserByEmail(context.Background(), "no-mail@example.test"); !errors.Is(err, ErrNotFound) {
+	if _, err := server.repo.UserByEmail(context.Background(), "no-mail@example.test"); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatal("failed delivery created an account")
 	}
 }

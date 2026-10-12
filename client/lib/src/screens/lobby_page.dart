@@ -262,10 +262,11 @@ class _LobbyPageState extends State<LobbyPage> {
         if (_resendSeconds <= 0) timer.cancel();
       });
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = e is ApiException ? e.message : '验证码发送失败，请稍后重试',
         );
+      }
     } finally {
       if (mounted) setState(() => _sendingCode = false);
     }
