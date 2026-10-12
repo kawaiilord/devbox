@@ -24,6 +24,7 @@ class AccountSecurityPanel extends StatefulWidget {
 
 class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
   Map<String, dynamic>? _security;
+  AppUser? _profile;
   List<Map<String, dynamic>> _providers = [];
   List<UserDevice> _devices = [];
   bool _loading = true, _busy = false, _cancelLink = false;
@@ -54,6 +55,7 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
         widget.api.accountSecurity(widget.session),
         widget.api.loginOptions(),
         widget.api.listDevices(widget.session),
+        widget.api.accountProfile(widget.session),
       ]);
       if (!mounted) return;
       setState(() {
@@ -62,12 +64,14 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
             ((data[1] as Map<String, dynamic>)['providers'] as List<dynamic>)
                 .cast<Map<String, dynamic>>();
         _devices = data[2] as List<UserDevice>;
+        _profile = data[3] as AppUser;
       });
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = e is ApiException ? e.message : '安全设置加载失败，请重试。',
         );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -83,10 +87,11 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
     try {
       await work();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => _error = e is ApiException ? e.message : '操作未完成，请刷新后重试。',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -178,8 +183,9 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
       await _openBrowserSettings();
       return;
     }
-    if (!browser.supportsBrowserSecurity)
+    if (!browser.supportsBrowserSecurity) {
       throw const ApiException('此浏览器暂不支持 Passkey，请换用支持的浏览器。');
+    }
     final credentials = await _credentials(name: true);
     if (credentials == null || !mounted) return;
     final start = await widget.api.beginPasskey(widget.session, credentials);
@@ -251,8 +257,9 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
               setState(() => _notice = '${provider['name']} 已关联。');
               return;
             }
-            if (result['pending'] != true)
+            if (result['pending'] != true) {
               throw const ApiException('未能完成关联，请重新开始。');
+            }
           }
           if (mounted && !_cancelLink) throw const ApiException('授权已超时，请重新开始。');
         } finally {
@@ -298,18 +305,21 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
   Future<void> _copy(String value) async {
     try {
       await Clipboard.setData(ClipboardData(text: value));
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('已复制，请妥善保管。')));
+      }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('无法自动复制，请长按文字手动复制。')));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final profile = _profile ?? widget.session.user;
     final colors = FrameColors.of(context);
     final disabled = _busy || _loading;
     final keys = (_security?['passkeys'] as List<dynamic>? ?? [])
@@ -393,7 +403,7 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.session.user.displayName,
+                profile.displayName,
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
@@ -401,15 +411,15 @@ class _AccountSecurityPanelState extends State<AccountSecurityPanel> {
               ),
               const SizedBox(height: 6),
               SelectableText(
-                widget.session.user.email,
+                profile.email,
                 style: TextStyle(color: colors.muted),
               ),
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerLeft,
                 child: FramePill(
-                  widget.session.user.emailVerified ? '邮箱已验证' : '邮箱待验证',
-                  icon: widget.session.user.emailVerified
+                  profile.emailVerified ? '邮箱已验证' : '邮箱待验证',
+                  icon: profile.emailVerified
                       ? Icons.verified_user_outlined
                       : Icons.mail_outline_rounded,
                 ),

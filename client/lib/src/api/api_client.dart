@@ -121,6 +121,9 @@ class ApiClient {
     String method,
   ) => _request(method, '/api/v1/rooms/$code/rtmp', session: session);
 
+  Future<AppUser> accountProfile(Session session) async => AppUser.fromJson(
+    await _request('GET', '/api/v1/users/me', session: session),
+  );
   Future<Map<String, dynamic>> accountSecurity(Session session) =>
       _request('GET', '/api/v1/account/security', session: session);
   Future<Map<String, dynamic>> loginOptions() =>
@@ -227,8 +230,9 @@ class ApiClient {
     Map<String, dynamic> value,
   ) async {
     final next = Session.fromJson(value);
-    if (next.user.id != session.user.id)
+    if (next.user.id != session.user.id) {
       throw const ApiException('安全设置返回了不匹配的账号');
+    }
     session.replaceTokens(next);
     await onSessionUpdated?.call(session);
   }

@@ -74,13 +74,15 @@ void main() {
           refreshStarted.complete();
           return refreshResponse.future;
         }
-        if (request.url.path.endsWith('/totp/disable'))
+        if (request.url.path.endsWith('/totp/disable')) {
           return _response(_session('secured').toJson());
-        if (request.headers['Authorization'] == 'Bearer old-access')
+        }
+        if (request.headers['Authorization'] == 'Bearer old-access') {
           return http.Response(
             jsonEncode({'code': 401, 'msg': 'expired'}),
             401,
           );
+        }
         expect(request.headers['Authorization'], 'Bearer secured-access');
         return _response({'devices': <Object>[]});
       });
