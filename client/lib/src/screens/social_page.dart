@@ -6,6 +6,7 @@ import 'workspace_section.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
+import '../membership_visuals.dart';
 import '../sync/room_socket.dart';
 
 class SocialPage extends StatefulWidget {
@@ -109,7 +110,10 @@ class _SocialPageState extends State<SocialPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(conversation.peer.displayName),
+          title: MemberName(
+            name: conversation.peer.displayName,
+            member: conversation.peer.isVip,
+          ),
           content: SizedBox(
             width: 520,
             height: 440,
@@ -221,10 +225,8 @@ class _SocialPageState extends State<SocialPage> {
           ),
         for (final user in _users)
           ListTile(
-            leading: CircleAvatar(
-              child: Text(user.displayName.characters.first),
-            ),
-            title: Text(user.displayName),
+            leading: MemberAvatar(name: user.displayName, member: user.isVip),
+            title: MemberName(name: user.displayName, member: user.isVip),
             subtitle: Text(
               '${user.followerCount} 粉丝${user.signature.isEmpty ? '' : ' · ${user.signature}'}',
             ),
@@ -248,7 +250,10 @@ class _SocialPageState extends State<SocialPage> {
             leading: CircleAvatar(
               child: Text(conversation.peer.displayName.characters.first),
             ),
-            title: Text(conversation.peer.displayName),
+            title: MemberName(
+              name: conversation.peer.displayName,
+              member: conversation.peer.isVip,
+            ),
             subtitle: Text(
               conversation.lastMessage.isEmpty
                   ? '还没有消息'

@@ -99,13 +99,35 @@ func TestCommercePaymentCodesCheckInAndRoomEntitlement(t *testing.T) {
 	}
 
 	requestJSONDevice(t, http.MethodPost, httpServer.URL+"/api/v1/check-ins", user.AccessToken, nil, userDevice)
-	if got := requestStatusDevice(t, http.MethodPost, httpServer.URL+"/api/v1/check-ins", user.AccessToken, nil, userDevice); got != http.StatusBadRequest {
+	if got := requestStatusDevice(t, http.MethodPost, httpServer.URL+"/api/v1/check-ins", user.AccessToken, nil, userDevice); got != http.StatusOK {
 		t.Fatalf("duplicate check-in status=%d", got)
 	}
 	requestJSONDevice(t, http.MethodPost, httpServer.URL+"/api/v1/points/redeem-vip", user.AccessToken, map[string]int{"days": 1}, userDevice)
 	account, _ = repo.UserByID(ctx, user.User.ID)
 	if account.VIPExpiresAt <= firstExpiry {
 		t.Fatalf("points did not extend VIP: before=%d after=%d", firstExpiry, account.VIPExpiresAt)
+	}
+
+	// Monthly rewards have a fixed server-side price, independent of the legacy daily rate.
+	if _, err := repo.DailyCheckIn(ctx, user.User.ID, "2020-01-01", 30); err != nil {
+		t.Fatal(err)
+	}
+	monthBody := requestJSONDevice(t, http.MethodPost, httpServer.URL+"/api/v1/points/redeem-month", user.AccessToken, map[string]string{"request_id": "monthly-http-request-01"}, userDevice)
+	var monthly struct {
+		Data MembershipRedemption `json:"data"`
+	}
+	if err := json.Unmarshal(monthBody, &monthly); err != nil {
+		t.Fatal(err)
+	}
+	if monthly.Data.PointsCost != 30 || monthly.Data.DurationDays != 30 || monthly.Data.Replayed {
+		t.Fatalf("monthly receipt=%+v", monthly.Data)
+	}
+	replay := requestJSONDevice(t, http.MethodPost, httpServer.URL+"/api/v1/points/redeem-month", user.AccessToken, map[string]string{"request_id": "monthly-http-request-01"}, userDevice)
+	if err := json.Unmarshal(replay, &monthly); err != nil || !monthly.Data.Replayed {
+		t.Fatalf("replay=%s err=%v", replay, err)
+	}
+	if got := requestStatusDevice(t, http.MethodPost, httpServer.URL+"/api/v1/points/redeem-month", user.AccessToken, map[string]string{"request_id": "short"}, userDevice); got != http.StatusBadRequest {
+		t.Fatalf("invalid request status=%d", got)
 	}
 
 	codesBody := requestJSONDevice(t, http.MethodPost, httpServer.URL+"/api/v1/admin/activation-codes", admin.AccessToken, map[string]any{"duration_days": 7, "count": 1}, adminDevice)

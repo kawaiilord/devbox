@@ -125,7 +125,16 @@ func (s *Server) roomForViewer(ctx context.Context, room Room, userID string) (R
 	view := f.view(room, userID)
 	room.Features = &view
 	room.Members = append([]Member(nil), room.Members...)
+	ids := make([]string, 0, len(room.Members))
+	for _, member := range room.Members {
+		ids = append(ids, member.UserID)
+	}
+	memberships, err := s.repo.ActiveMemberships(ctx, ids)
+	if err != nil {
+		return Room{}, err
+	}
 	for i := range room.Members {
+		room.Members[i].IsVIP = memberships[room.Members[i].UserID]
 		room.Members[i].Role = f.role(room, room.Members[i].UserID)
 	}
 	return room, nil

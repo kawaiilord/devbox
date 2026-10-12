@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../design.dart';
 import '../appearance.dart';
+import '../membership_visuals.dart';
 import 'mobile_home.dart';
 
 class LobbyDestination {
@@ -15,6 +16,7 @@ class LobbyLayout extends StatelessWidget {
   const LobbyLayout({
     super.key,
     required this.signedIn,
+    this.member = false,
     required this.name,
     required this.login,
     required this.create,
@@ -36,7 +38,7 @@ class LobbyLayout extends StatelessWidget {
     required this.onSelectTab,
     this.preferJoin = false,
   });
-  final bool signedIn;
+  final bool signedIn, member;
   final String name;
   final Widget login, create, join;
   final Widget? verification;
@@ -715,16 +717,10 @@ class LobbyLayout extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
+              MemberAvatar(
+                name: signedIn ? name : '',
+                member: member,
                 radius: 17,
-                backgroundColor: FrameColors.of(context).elevated,
-                foregroundColor: FrameColors.of(context).text,
-                child: signedIn
-                    ? Text(
-                        name.isEmpty ? 'S' : name.characters.first,
-                        style: const TextStyle(fontSize: 12),
-                      )
-                    : const Icon(Icons.person_outline_rounded, size: 19),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -739,7 +735,7 @@ class LobbyLayout extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      signedIn ? '个人空间' : '共享每一个好故事',
+                      signedIn ? (member ? 'PLUS 尊享会员' : '个人空间') : '共享每一个好故事',
                       style: TextStyle(
                         fontSize: 10,
                         color: FrameColors.of(context).muted,

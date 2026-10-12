@@ -200,6 +200,9 @@ class _Store implements SessionStore {
 
 class _Api extends ApiClient {
   @override
+  Future<MembershipStatus> membership(Session session) async =>
+      const MembershipStatus(active: false, vipExpiresAt: 0);
+  @override
   Future<List<UserDevice>> listDevices(Session session) async => [];
   @override
   Future<List<AppAnnouncement>> announcements() async => [];

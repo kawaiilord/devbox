@@ -173,12 +173,13 @@ func (s *Server) checkInStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
-	status, err := s.repo.GetCheckInStatus(r.Context(), user.ID, utcDate(time.Now()), s.options.PointsPerCheckIn, s.options.PointsPerVIPDay)
+	now := time.Now()
+	status, err := s.repo.GetCheckInStatus(r.Context(), user.ID, utcDate(now), s.options.PointsPerCheckIn, s.options.PointsPerVIPDay)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: status, Msg: "ok"})
+	writeJSON(w, http.StatusOK, apiResponse{Code: 0, Data: withMembershipReward(status, now), Msg: "ok"})
 }
 
 func (s *Server) dailyCheckIn(w http.ResponseWriter, r *http.Request) {
@@ -187,13 +188,19 @@ func (s *Server) dailyCheckIn(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
-	status, err := s.repo.DailyCheckIn(r.Context(), user.ID, utcDate(time.Now()), s.options.PointsPerCheckIn)
+	now := time.Now()
+	responseCode := http.StatusCreated
+	status, err := s.repo.DailyCheckIn(r.Context(), user.ID, utcDate(now), s.options.PointsPerCheckIn)
+	if errors.Is(err, ErrAlreadyCheckedIn) {
+		responseCode = http.StatusOK
+		status, err = s.repo.GetCheckInStatus(r.Context(), user.ID, utcDate(now), s.options.PointsPerCheckIn, s.options.PointsPerVIPDay)
+	}
 	if err != nil {
 		writeStoreError(w, err)
 		return
 	}
 	status.PointsPerVIPDay = s.options.PointsPerVIPDay
-	writeJSON(w, http.StatusCreated, apiResponse{Code: 0, Data: status, Msg: "checked in"})
+	writeJSON(w, responseCode, apiResponse{Code: 0, Data: withMembershipReward(status, now), Msg: "checked in"})
 }
 
 func (s *Server) redeemPoints(w http.ResponseWriter, r *http.Request) {

@@ -182,7 +182,7 @@ func (r *PostgresRepository) RedeemActivationCode(ctx context.Context, userID, c
 }
 
 func (r *PostgresRepository) DailyCheckIn(ctx context.Context, userID, date string, points int) (CheckInStatus, error) {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return CheckInStatus{}, err
 	}
@@ -255,21 +255,21 @@ func (r *PostgresRepository) RedeemPointsForVIP(ctx context.Context, userID stri
 		return 0, errors.New("invalid redemption days")
 	}
 	cost := int64(days * pointsPerDay)
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return 0, err
 	}
 	defer tx.Rollback(ctx)
+	var current int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE((extract(epoch FROM vip_expires_at)*1000)::bigint,0) FROM users WHERE id=$1 FOR UPDATE`, userID).Scan(&current); err != nil {
+		return 0, err
+	}
 	var balance int64
 	err = tx.QueryRow(ctx, `UPDATE points_accounts SET balance=balance-$2,total_spent=total_spent+$2,updated_at=now() WHERE user_id=$1 AND balance>=$2 RETURNING balance`, userID, cost).Scan(&balance)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrInsufficientPoints
 	}
 	if err != nil {
-		return 0, err
-	}
-	var current int64
-	if err := tx.QueryRow(ctx, `SELECT COALESCE((extract(epoch FROM vip_expires_at)*1000)::bigint,0) FROM users WHERE id=$1 FOR UPDATE`, userID).Scan(&current); err != nil {
 		return 0, err
 	}
 	expires := extendedVIPExpiry(current, days, false, time.Now())

@@ -149,6 +149,7 @@ type MetadataResult struct {
 }
 
 type ChatMessage struct {
+	IsVIP       bool   `json:"is_vip"`
 	ID          int64  `json:"id"`
 	RoomCode    string `json:"room_code"`
 	UserID      string `json:"user_id"`
@@ -165,6 +166,7 @@ type PrivacySettings struct {
 }
 
 type SocialProfile struct {
+	IsVIP          bool   `json:"is_vip"`
 	ID             string `json:"id"`
 	DisplayName    string `json:"display_name"`
 	Signature      string `json:"signature,omitempty"`
@@ -318,15 +320,18 @@ type CheckIn struct {
 }
 
 type CheckInStatus struct {
-	AvailablePoints  int64     `json:"available_points"`
-	TotalPoints      int64     `json:"total_points"`
-	UsedPoints       int64     `json:"used_points"`
-	CheckedInToday   bool      `json:"checked_in_today"`
-	PointsPerCheckIn int       `json:"points_per_check_in"`
-	PointsPerVIPDay  int       `json:"points_per_vip_day"`
-	TotalCheckIns    int       `json:"total_check_ins"`
-	ConsecutiveDays  int       `json:"consecutive_days"`
-	RecentCheckIns   []CheckIn `json:"recent_check_ins"`
+	MonthlyReward    *MembershipReward `json:"monthly_reward,omitempty"`
+	CheckInDate      string            `json:"check_in_date"`
+	NextCheckInAt    int64             `json:"next_check_in_at"`
+	AvailablePoints  int64             `json:"available_points"`
+	TotalPoints      int64             `json:"total_points"`
+	UsedPoints       int64             `json:"used_points"`
+	CheckedInToday   bool              `json:"checked_in_today"`
+	PointsPerCheckIn int               `json:"points_per_check_in"`
+	PointsPerVIPDay  int               `json:"points_per_vip_day"`
+	TotalCheckIns    int               `json:"total_check_ins"`
+	ConsecutiveDays  int               `json:"consecutive_days"`
+	RecentCheckIns   []CheckIn         `json:"recent_check_ins"`
 }
 
 type PointsTransaction struct {
@@ -486,6 +491,7 @@ type Session struct {
 }
 
 type Member struct {
+	IsVIP       bool   `json:"is_vip"`
 	Role        string `json:"role,omitempty"`
 	UserID      string `json:"user_id"`
 	DisplayName string `json:"display_name"`

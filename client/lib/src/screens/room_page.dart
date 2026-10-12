@@ -12,6 +12,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
+import '../membership_visuals.dart';
 import '../room_controller.dart';
 import '../player/room_timeline.dart';
 import 'playlist_dialog.dart';
@@ -111,8 +112,18 @@ class _RoomPageState extends State<RoomPage> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Text(
-                                      message.displayName,
+                                    child: MemberName(
+                                      name: message.displayName,
+                                      member:
+                                          controller.room.members
+                                              .where(
+                                                (member) =>
+                                                    member.userId ==
+                                                    message.userId,
+                                              )
+                                              .firstOrNull
+                                              ?.isVip ??
+                                          message.isVip,
                                       style: Theme.of(context)
                                           .textTheme
                                           .labelSmall,
@@ -580,7 +591,10 @@ class _RoomPageState extends State<RoomPage> {
               children: [
                 for (final member in controller.room.members)
                   ListTile(
-                    title: Text(member.displayName),
+                    title: MemberName(
+                      name: member.displayName,
+                      member: member.isVip,
+                    ),
                     subtitle: Text(
                       member.role == 'owner'
                           ? '房主'
@@ -1411,12 +1425,11 @@ class _MembersPanel extends StatelessWidget {
           for (final member in controller.room.members)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: FrameColors.of(context).elevated,
-                foregroundColor: FrameColors.of(context).text,
-                child: Text(member.displayName.characters.first.toUpperCase()),
+              leading: MemberAvatar(
+                name: member.displayName,
+                member: member.isVip,
               ),
-              title: Text(member.displayName),
+              title: MemberName(name: member.displayName, member: member.isVip),
               subtitle: Text(
                 member.userId == controller.session.user.id
                     ? '当前设备'

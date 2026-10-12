@@ -68,6 +68,9 @@ var providerSourcesMigration string
 //go:embed migrations/018_admin_management.sql
 var adminManagementMigration string
 
+//go:embed migrations/020_membership_rewards.sql
+var membershipRewardsMigration string
+
 //go:embed migrations/019_platform_services.sql
 var platformServicesMigration string
 
@@ -111,6 +114,7 @@ func (r *PostgresRepository) Migrate(ctx context.Context) error {
 		providerSourcesMigration,
 		adminManagementMigration,
 		platformServicesMigration,
+		membershipRewardsMigration,
 	} {
 		if _, err := r.pool.Exec(ctx, migration); err != nil {
 			return err
@@ -889,6 +893,12 @@ func (r *PostgresRepository) AddRoomMessage(
 		message.DisplayName,
 		message.Body,
 	).Scan(&message.ID, &message.CreatedAt)
+	if err == nil {
+		memberships, e := r.ActiveMemberships(ctx, []string{message.UserID})
+		if e == nil {
+			message.IsVIP = memberships[message.UserID]
+		}
+	}
 	return message, err
 }
 
@@ -901,16 +911,16 @@ func (r *PostgresRepository) ListRoomMessages(
 ) ([]ChatMessage, error) {
 	rows, err := r.pool.Query(
 		ctx,
-		`SELECT id, room_code, user_id, display_name, body,
-		 (extract(epoch FROM created_at) * 1000)::bigint
-		 FROM room_messages m
-		 WHERE room_code = $1 AND ($3::bigint = 0 OR id < $3)
+		`SELECT m.id, m.room_code, m.user_id, m.display_name, m.body,
+		 (extract(epoch FROM m.created_at) * 1000)::bigint, COALESCE(u.vip_expires_at>now(),false)
+		 FROM room_messages m LEFT JOIN users u ON u.id=m.user_id
+		 WHERE room_code = $1 AND ($3::bigint = 0 OR m.id < $3)
 		   AND NOT EXISTS (
 		     SELECT 1 FROM user_blocks b
 		     WHERE (b.blocker_id = $2 AND b.blocked_id = m.user_id)
 		        OR (b.blocker_id = m.user_id AND b.blocked_id = $2)
 		   )
-		 ORDER BY id DESC LIMIT $4`,
+		 ORDER BY m.id DESC LIMIT $4`,
 		roomCode,
 		viewerID,
 		before,
@@ -930,6 +940,7 @@ func (r *PostgresRepository) ListRoomMessages(
 			&message.DisplayName,
 			&message.Body,
 			&message.CreatedAt,
+			&message.IsVIP,
 		); err != nil {
 			return nil, err
 		}

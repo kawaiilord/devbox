@@ -82,6 +82,10 @@ class MembershipStatus {
   const MembershipStatus({required this.active, required this.vipExpiresAt});
   final bool active;
   final int vipExpiresAt;
+  bool get isCurrent =>
+      active && vipExpiresAt > DateTime.now().millisecondsSinceEpoch;
+  bool get isLifetime =>
+      DateTime.fromMillisecondsSinceEpoch(vipExpiresAt).year >= 9999;
   factory MembershipStatus.fromJson(Map<String, dynamic> json) =>
       MembershipStatus(
         active: json['active'] as bool,
@@ -124,6 +128,10 @@ class CheckInStatus {
     required this.pointsPerVipDay,
     required this.totalCheckIns,
     required this.consecutiveDays,
+    this.monthlyReward,
+    this.checkInDate = '',
+    this.nextCheckInAt = 0,
+    this.recentCheckIns = const [],
   });
   final int availablePoints;
   final int totalPoints;
@@ -133,6 +141,10 @@ class CheckInStatus {
   final int pointsPerVipDay;
   final int totalCheckIns;
   final int consecutiveDays;
+  final MembershipReward? monthlyReward;
+  final String checkInDate;
+  final int nextCheckInAt;
+  final List<String> recentCheckIns;
   factory CheckInStatus.fromJson(Map<String, dynamic> json) => CheckInStatus(
     availablePoints: (json['available_points'] as num).toInt(),
     totalPoints: (json['total_points'] as num).toInt(),
@@ -142,7 +154,58 @@ class CheckInStatus {
     pointsPerVipDay: (json['points_per_vip_day'] as num).toInt(),
     totalCheckIns: (json['total_check_ins'] as num).toInt(),
     consecutiveDays: (json['consecutive_days'] as num).toInt(),
+    monthlyReward: json['monthly_reward'] is Map<String, dynamic>
+        ? MembershipReward.fromJson(
+            json['monthly_reward'] as Map<String, dynamic>,
+          )
+        : null,
+    checkInDate: json['check_in_date']?.toString() ?? '',
+    nextCheckInAt: (json['next_check_in_at'] as num?)?.toInt() ?? 0,
+    recentCheckIns: (json['recent_check_ins'] as List<dynamic>? ?? [])
+        .map((entry) => (entry as Map<String, dynamic>)['date'].toString())
+        .toList(),
   );
+}
+
+class MembershipReward {
+  const MembershipReward({
+    required this.id,
+    required this.title,
+    required this.points,
+    required this.days,
+  });
+  final String id, title;
+  final int points, days;
+  factory MembershipReward.fromJson(Map<String, dynamic> json) =>
+      MembershipReward(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        points: (json['points'] as num).toInt(),
+        days: (json['days'] as num).toInt(),
+      );
+}
+
+class MembershipRedemption {
+  const MembershipRedemption({
+    required this.requestId,
+    required this.pointsCost,
+    required this.durationDays,
+    required this.balanceAfter,
+    required this.vipExpiresAt,
+    required this.replayed,
+  });
+  final String requestId;
+  final int pointsCost, durationDays, balanceAfter, vipExpiresAt;
+  final bool replayed;
+  factory MembershipRedemption.fromJson(Map<String, dynamic> json) =>
+      MembershipRedemption(
+        requestId: json['request_id'] as String,
+        pointsCost: (json['points_cost'] as num).toInt(),
+        durationDays: (json['duration_days'] as num).toInt(),
+        balanceAfter: (json['balance_after'] as num).toInt(),
+        vipExpiresAt: (json['vip_expires_at'] as num).toInt(),
+        replayed: json['replayed'] == true,
+      );
 }
 
 class PointsTransaction {
@@ -152,11 +215,13 @@ class PointsTransaction {
     required this.balanceAfter,
     required this.type,
     required this.createdAt,
+    this.refId = '',
   });
   final int id;
   final int change;
   final int balanceAfter;
   final String type;
+  final String refId;
   final int createdAt;
   factory PointsTransaction.fromJson(Map<String, dynamic> json) =>
       PointsTransaction(
@@ -164,6 +229,7 @@ class PointsTransaction {
         change: (json['change'] as num).toInt(),
         balanceAfter: (json['balance_after'] as num).toInt(),
         type: json['type'] as String,
+        refId: json['ref_id']?.toString() ?? '',
         createdAt: (json['created_at'] as num).toInt(),
       );
 }
@@ -559,6 +625,7 @@ class SocialProfile {
   const SocialProfile({
     required this.id,
     required this.displayName,
+    this.isVip = false,
     required this.signature,
     required this.following,
     required this.followsViewer,
@@ -567,6 +634,7 @@ class SocialProfile {
   });
   final String id;
   final String displayName;
+  final bool isVip;
   final String signature;
   final bool following;
   final bool followsViewer;
@@ -575,6 +643,7 @@ class SocialProfile {
   factory SocialProfile.fromJson(Map<String, dynamic> json) => SocialProfile(
     id: json['id'] as String,
     displayName: json['display_name'] as String,
+    isVip: json['is_vip'] == true,
     signature: json['signature']?.toString() ?? '',
     following: json['following'] as bool? ?? false,
     followsViewer: json['follows_viewer'] as bool? ?? false,
@@ -717,6 +786,7 @@ class ChatMessage {
     required this.roomCode,
     required this.userId,
     required this.displayName,
+    this.isVip = false,
     required this.body,
     required this.createdAt,
   });
@@ -725,6 +795,7 @@ class ChatMessage {
   final String roomCode;
   final String userId;
   final String displayName;
+  final bool isVip;
   final String body;
   final int createdAt;
 
@@ -733,6 +804,7 @@ class ChatMessage {
     roomCode: json['room_code'] as String,
     userId: json['user_id'] as String,
     displayName: json['display_name'] as String,
+    isVip: json['is_vip'] == true,
     body: json['body'] as String,
     createdAt: (json['created_at'] as num).toInt(),
   );
@@ -788,18 +860,21 @@ class RoomMember {
   const RoomMember({
     required this.userId,
     required this.displayName,
+    this.isVip = false,
     required this.joinedAt,
     this.role = 'member',
   });
 
   final String userId;
   final String displayName;
+  final bool isVip;
   final int joinedAt;
   final String role;
 
   factory RoomMember.fromJson(Map<String, dynamic> json) => RoomMember(
     userId: json['user_id'] as String,
     displayName: json['display_name'] as String,
+    isVip: json['is_vip'] == true,
     joinedAt: (json['joined_at'] as num).toInt(),
     role: json['role']?.toString() ?? 'member',
   );

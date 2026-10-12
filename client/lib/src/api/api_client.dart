@@ -669,6 +669,18 @@ class ApiClient {
         await _request('POST', '/api/v1/check-ins', session: session),
       );
 
+  Future<MembershipRedemption> redeemMonthlyMembership(
+    Session session,
+    String requestId,
+  ) async => MembershipRedemption.fromJson(
+    await _request(
+      'POST',
+      '/api/v1/points/redeem-month',
+      session: session,
+      body: {'request_id': requestId},
+    ),
+  );
+
   Future<int> redeemPoints(Session session, int days) async {
     final data = await _request(
       'POST',

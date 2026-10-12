@@ -5,22 +5,32 @@ import 'package:flutter/material.dart';
 import 'workspace_section.dart';
 
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
+import '../membership_visuals.dart';
 
 class MembershipPage extends StatefulWidget {
-  const MembershipPage({super.key, required this.api, required this.session});
+  const MembershipPage({
+    super.key,
+    required this.api,
+    required this.session,
+    this.onMembershipChanged,
+  });
   final ApiClient api;
   final Session session;
+  final ValueChanged<MembershipStatus>? onMembershipChanged;
   @override
   State<MembershipPage> createState() => _MembershipPageState();
 }
 
 class _MembershipPageState extends State<MembershipPage> {
   final _code = TextEditingController();
-  final _days = TextEditingController(text: '1');
+  String? _redemptionRequestId;
+  String? _notice;
+  int _loadGeneration = 0;
   VipInfo? _info;
   MembershipStatus? _membership;
   CheckInStatus? _status;
@@ -40,11 +50,11 @@ class _MembershipPageState extends State<MembershipPage> {
   void dispose() {
     _poll?.cancel();
     _code.dispose();
-    _days.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     try {
       final values = await Future.wait<Object>([
         widget.api.vipInfo(),
@@ -53,7 +63,7 @@ class _MembershipPageState extends State<MembershipPage> {
         widget.api.orders(widget.session),
         widget.api.pointsTransactions(widget.session),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _info = values[0] as VipInfo;
         _membership = values[1] as MembershipStatus;
@@ -62,8 +72,10 @@ class _MembershipPageState extends State<MembershipPage> {
         _transactions = values[4] as List<PointsTransaction>;
         _error = null;
       });
+      widget.onMembershipChanged?.call(_membership!);
     } catch (exception) {
-      if (mounted) setState(() => _error = exception.toString());
+      if (mounted && generation == _loadGeneration)
+        setState(() => _error = exception.toString());
     }
   }
 
@@ -71,6 +83,7 @@ class _MembershipPageState extends State<MembershipPage> {
     setState(() {
       _busy = true;
       _error = null;
+      _notice = null;
     });
     try {
       await action();
@@ -84,6 +97,7 @@ class _MembershipPageState extends State<MembershipPage> {
 
   Future<void> _buy(VipPlan plan) => _run(() async {
     final order = await widget.api.createOrder(widget.session, plan.id);
+    if (!mounted) return;
     if (order.checkoutUrl.isNotEmpty) {
       await launchUrl(
         Uri.parse(order.checkoutUrl),
@@ -92,28 +106,67 @@ class _MembershipPageState extends State<MembershipPage> {
     }
     _poll?.cancel();
     _poll = Timer.periodic(const Duration(seconds: 3), (_) async {
-      if (!mounted) return;
-      final current = await widget.api.order(widget.session, order.orderNo);
-      if (current.status == 'activated' ||
-          current.status == 'expired' ||
-          current.status == 'cancelled') {
+      if (!mounted) {
         _poll?.cancel();
+        return;
       }
-      await _load();
+      try {
+        final current = await widget.api.order(widget.session, order.orderNo);
+        if (current.status == 'activated' ||
+            current.status == 'expired' ||
+            current.status == 'cancelled') {
+          _poll?.cancel();
+        }
+        if (mounted) await _load();
+      } catch (_) {
+        _poll?.cancel();
+        if (mounted) setState(() => _error = '订单状态暂未同步，请点击刷新重试。');
+      }
     });
   });
 
   String _money(int minor) => '¥${(minor / 100).toStringAsFixed(2)}';
 
   Future<void> _redeem() async {
-    final days = int.tryParse(_days.text);
-    if (days == null || days < 1) {
-      setState(() => _error = '请输入有效的兑换天数');
-      return;
-    }
+    final reward = _status?.monthlyReward;
+    if (_busy || reward == null || (_membership?.isLifetime ?? false)) return;
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('兑换 PLUS 会员月卡'),
+        content: Text(
+          '本次消耗 ${reward.points} 积分，获得 ${reward.days} 天会员。'
+          '${_membership?.isCurrent == true ? '有效期将从当前到期时间延长。' : '兑换成功后立即生效。'}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('确认兑换 · ${reward.points} 积分'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || accepted != true) return;
+    _redemptionRequestId ??= const Uuid().v4();
     await _run(() async {
-      await widget.api.redeemPoints(widget.session, days);
+      final receipt = await widget.api.redeemMonthlyMembership(
+        widget.session,
+        _redemptionRequestId!,
+      );
+      _redemptionRequestId = null;
+      if (mounted) {
+        setState(() => _notice = '兑换成功，${receipt.durationDays} 天 PLUS 会员已到账。');
+      }
     });
+  }
+
+  String _date(int milliseconds) {
+    final d = DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
   }
 
   String _orderStatus(String value) => switch (value) {
@@ -288,71 +341,73 @@ class _MembershipPageState extends State<MembershipPage> {
     ),
   );
 
-  Widget _pointsSection(CheckInStatus status) => FrameSection(
-    title: '每天来，攒一点期待',
-    subtitle: '签到积累积分，兑换更多相聚时光。',
+  Widget _checkInCard(CheckInStatus status) => FrameSection(
+    title: '每日签到',
+    subtitle: '每次签到 +${status.pointsPerCheckIn} 积分，北京时间每天 08:00 刷新。',
     icon: Icons.calendar_today_outlined,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
               '${status.availablePoints}',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                color: FrameColors.of(context).accent,
+              style: const TextStyle(
+                fontSize: 42,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -1.5,
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              '可用积分',
-              style: TextStyle(
-                color: FrameColors.of(context).muted,
-                fontSize: 12,
-              ),
-            ),
-            const Spacer(),
-            FramePill(
-              '连续 ${status.consecutiveDays} 天',
-              icon: Icons.local_fire_department_outlined,
+            const Padding(
+              padding: EdgeInsets.only(left: 8, bottom: 8),
+              child: Text('可用积分'),
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
+        Text(
+          '累计获得 ${status.totalPoints} · 已使用 ${status.usedPoints}',
+          style: TextStyle(fontSize: 12, color: FrameColors.of(context).muted),
+        ),
+        const SizedBox(height: 20),
+        _checkInWeek(status),
+        const SizedBox(height: 18),
         Wrap(
           spacing: 12,
-          runSpacing: 12,
+          runSpacing: 10,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             FilledButton.icon(
               onPressed: _busy || status.checkedInToday
                   ? null
                   : () => _run(() async {
-                      await widget.api.dailyCheckIn(widget.session);
+                      final result = await widget.api.dailyCheckIn(
+                        widget.session,
+                      );
+                      if (mounted)
+                        setState(() {
+                          _status = result;
+                          _notice = '签到成功，今日积分已领取。';
+                        });
                     }),
-              icon: const Icon(Icons.check_circle_outline, size: 18),
+              icon: Icon(
+                status.checkedInToday
+                    ? Icons.check_circle_rounded
+                    : Icons.add_rounded,
+                size: 18,
+              ),
               label: Text(
                 status.checkedInToday
                     ? '今日已签到'
-                    : '签到 +${status.pointsPerCheckIn}',
+                    : '签到领取 ${status.pointsPerCheckIn} 积分',
               ),
             ),
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: _days,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '兑换天数'),
-              ),
-            ),
-            TextButton(
-              onPressed: _busy || status.pointsPerVipDay <= 0 ? null : _redeem,
-              child: Text(
-                status.pointsPerVipDay <= 0
-                    ? '兑换暂未开放'
-                    : '${status.pointsPerVipDay} 积分 / 天',
+            Text(
+              '连续 ${status.consecutiveDays} 天',
+              style: TextStyle(
+                color: FrameColors.of(context).muted,
+                fontSize: 12,
               ),
             ),
           ],
@@ -361,11 +416,229 @@ class _MembershipPageState extends State<MembershipPage> {
     ),
   );
 
+  Widget _checkInWeek(CheckInStatus status) {
+    final today =
+        DateTime.tryParse('${status.checkInDate}T00:00:00Z') ??
+        DateTime.now().toUtc();
+    final colors = FrameColors.of(context);
+    return Row(
+      children: [
+        for (var i = 6; i >= 0; i--) ...[
+          if (i < 6) const SizedBox(width: 5),
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                final date = today.subtract(Duration(days: i));
+                final key =
+                    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                final checked =
+                    status.recentCheckIns.contains(key) ||
+                    (i == 0 && status.checkedInToday);
+                return Column(
+                  children: [
+                    Container(
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: checked ? colors.text : colors.elevated,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: checked
+                          ? Icon(
+                              Icons.check_rounded,
+                              color: colors.background,
+                              size: 17,
+                            )
+                          : Text(
+                              '${date.day}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colors.muted,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      i == 0 ? '今天' : '${date.month}/${date.day}',
+                      style: TextStyle(fontSize: 9, color: colors.muted),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _rewardCard(CheckInStatus status) {
+    final reward = status.monthlyReward;
+    final cost = reward?.points ?? 30;
+    final missing = (cost - status.availablePoints).clamp(0, cost);
+    final lifetime = _membership?.isLifetime ?? false;
+    return FrameSection(
+      title: '会员月卡',
+      subtitle: '每张月卡增加 ${reward?.days ?? 30} 天，有效会员可累加续期。',
+      icon: Icons.workspace_premium_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$cost',
+                style: const TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -1.5,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 8, bottom: 8),
+                child: Text('积分 / 月'),
+              ),
+              const Spacer(),
+              const MemberBadge(),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: (status.availablePoints / cost).clamp(0, 1).toDouble(),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            lifetime
+                ? '你已享有长期会员，无需兑换月卡。'
+                : missing == 0
+                ? '积分已足够，可以兑换会员月卡。'
+                : '还差 $missing 积分即可兑换。',
+            style: TextStyle(
+              color: FrameColors.of(context).muted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _busy || reward == null || missing > 0 || lifetime
+                  ? null
+                  : _redeem,
+              icon: const Icon(Icons.diamond_outlined, size: 18),
+              label: Text(
+                lifetime
+                    ? '已享长期会员'
+                    : reward == null
+                    ? '兑换服务暂不可用'
+                    : '兑换月卡 · $cost 积分',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pointsSection(CheckInStatus status) => LayoutBuilder(
+    builder: (context, box) {
+      final items = [_checkInCard(status), _rewardCard(status)];
+      return box.maxWidth < 760
+          ? Column(children: [items[0], const SizedBox(height: 16), items[1]])
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: items[0]),
+                const SizedBox(width: 20),
+                Expanded(child: items[1]),
+              ],
+            );
+    },
+  );
+
+  Widget _benefits() => FrameSection(
+    title: '你的 PLUS 身份',
+    icon: Icons.diamond_outlined,
+    child: Column(
+      children: const [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.workspace_premium_outlined),
+          title: Text('铂金会员标识'),
+          subtitle: Text('账号、好友列表与房间中展示专属身份。'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.account_circle_outlined),
+          title: Text('专属头像边框'),
+          subtitle: Text('铂金描边与 PLUS 铭牌，让你的身份清晰可见。'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.meeting_room_outlined),
+          title: Text('更长的房间有效期'),
+          subtitle: Text('会员期间新建的房间按会员有效期保留。'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _purchaseOptions(VipInfo info) => Card(
+    child: ExpansionTile(
+      title: const Text('其他开通方式'),
+      subtitle: const Text('会员套餐与激活码'),
+      childrenPadding: const EdgeInsets.all(16),
+      children: [
+        if (info.paymentMethod != 'disabled') ...[
+          LayoutBuilder(
+            builder: (context, box) => box.maxWidth < 760
+                ? Column(
+                    children: [
+                      for (final plan in info.plans)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _planCard(plan),
+                        ),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final plan in info.plans)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: _planCard(plan),
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        _codeSection(),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final info = _info;
-    final status = _status;
     final membership = _membership;
+    final active = membership?.isCurrent ?? false;
+    final detail = membership == null
+        ? '正在同步会员状态'
+        : membership.isLifetime
+        ? '长期有效'
+        : active
+        ? '有效期至 ${_date(membership.vipExpiresAt)}'
+        : membership.vipExpiresAt > 0
+        ? '会员已到期 · 可使用积分续期'
+        : '普通账号 · 从今天开始积攒';
     return WorkspaceSection(
       title: const Text('会员中心'),
       actions: [
@@ -374,7 +647,6 @@ class _MembershipPageState extends State<MembershipPage> {
           tooltip: '刷新',
           icon: const Icon(Icons.refresh_rounded),
         ),
-        const SizedBox(width: 16),
       ],
       body: RefreshIndicator(
         onRefresh: _load,
@@ -385,78 +657,33 @@ class _MembershipPageState extends State<MembershipPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1100),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(30),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: FrameColors.of(context).silver
-                            .withValues(alpha: .22),
-                      ),
-                      gradient: LinearGradient(
-                        colors: [
-                          FrameColors.of(context).elevated,
-                          FrameColors.of(context).surface,
-                        ],
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FramePill(
-                          'SAMEFRAME PLUS',
-                          color: FrameColors.of(context).silver,
-                          icon: Icons.workspace_premium_outlined,
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          '让每一次相聚，\n都有更多可能。',
-                          style: Theme.of(context).textTheme.headlineLarge,
-                        ),
-                        const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            FramePill(
-                              membership == null
-                                  ? '正在加载会员状态'
-                                  : membership.active
-                                  ? '会员有效'
-                                  : '当前为免费账号',
-                              color: membership?.active == true
-                                  ? FrameColors.of(context).silver
-                                  : FrameColors.of(context).muted,
-                            ),
-                            if (membership != null && membership.active)
-                              Text(
-                                '有效期至 ${DateTime.fromMillisecondsSinceEpoch(membership.vipExpiresAt).toLocal().toString().split(' ').first}',
-                                style: TextStyle(
-                                  color: FrameColors.of(context).muted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            if (info != null && info.announcement.isNotEmpty)
-                              Text(
-                                info.announcement,
-                                style: TextStyle(
-                                  color: FrameColors.of(context).silver,
-                                  fontSize: 13,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  MembershipCard(
+                    name: widget.session.user.displayName,
+                    active: active,
+                    detail: detail,
                   ),
-                  if (_busy || info == null && _error == null)
+                  if (_busy || _status == null && _error == null)
                     const Padding(
                       padding: EdgeInsets.only(top: 16),
                       child: LinearProgressIndicator(),
+                    ),
+                  if (_notice != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_outline_rounded),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(_notice!)),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   if (_error != null)
                     Padding(
@@ -468,102 +695,10 @@ class _MembershipPageState extends State<MembershipPage> {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 32),
-                  Text(
-                    '选择适合你的相聚方式',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '套餐与价格以当前服务为准，开通后权益同步至你的账号。',
-                    style: TextStyle(
-                      color: FrameColors.of(context).muted,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  if (info != null)
-                    LayoutBuilder(
-                      builder: (context, box) {
-                        int rank(VipPlan plan) => plan.lifetime
-                            ? 2
-                            : plan.popular
-                            ? 1
-                            : 0;
-                        final ordered = [...info.plans]
-                          ..sort((a, b) => rank(a).compareTo(rank(b)));
-                        final cards = ordered.map(_planCard).toList();
-                        if (box.maxWidth < 760) {
-                          return Column(
-                            children: [
-                              for (final card in cards)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: card,
-                                ),
-                            ],
-                          );
-                        }
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            for (var i = 0; i < cards.length; i++) ...[
-                              if (i > 0) const SizedBox(width: 18),
-                              Expanded(child: cards[i]),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
                   const SizedBox(height: 24),
-                  LayoutBuilder(
-                    builder: (context, box) {
-                      if (status == null) return _codeSection();
-                      return box.maxWidth < 760
-                          ? Column(
-                              children: [
-                                _pointsSection(status),
-                                const SizedBox(height: 16),
-                                _codeSection(),
-                              ],
-                            )
-                          : Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 6,
-                                  child: _pointsSection(status),
-                                ),
-                                const SizedBox(width: 20),
-                                Expanded(flex: 5, child: _codeSection()),
-                              ],
-                            );
-                    },
-                  ),
+                  if (_status != null) _pointsSection(_status!),
                   const SizedBox(height: 24),
-                  FrameSection(
-                    title: '我的订单',
-                    icon: Icons.receipt_long_outlined,
-                    child: _orders.isEmpty
-                        ? const FrameEmpty(
-                            icon: Icons.receipt_long_outlined,
-                            title: '还没有订单',
-                            detail: '你的会员订单会显示在这里',
-                          )
-                        : Column(
-                            children: [
-                              for (final order in _orders)
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(order.planTitle),
-                                  subtitle: Text(order.orderNo),
-                                  trailing: Text(
-                                    '${_money(order.amountMinor)} · ${_orderStatus(order.status)}',
-                                  ),
-                                ),
-                            ],
-                          ),
-                  ),
+                  _benefits(),
                   const SizedBox(height: 20),
                   FrameSection(
                     title: '积分记录',
@@ -572,27 +707,58 @@ class _MembershipPageState extends State<MembershipPage> {
                         ? const FrameEmpty(
                             icon: Icons.toll_outlined,
                             title: '从第一次签到开始',
-                            detail: '每一份积分，都有迹可循',
+                            detail: '积分领取与兑换记录会显示在这里。',
                           )
                         : Column(
                             children: [
                               for (final item in _transactions)
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    item.change > 0
+                                        ? Icons.add_circle_outline
+                                        : Icons.workspace_premium_outlined,
+                                  ),
                                   title: Text(_transactionType(item.type)),
-                                  subtitle: Text('余额 ${item.balanceAfter}'),
+                                  subtitle: Text(
+                                    '${_date(item.createdAt)} · 余额 ${item.balanceAfter}${item.refId.startsWith('monthly:') ? ' · 月卡 30 天' : ''}',
+                                  ),
                                   trailing: Text(
                                     item.change > 0
                                         ? '+${item.change}'
                                         : '${item.change}',
-                                    style: TextStyle(
-                                      color: FrameColors.of(context).accent,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
                             ],
                           ),
                   ),
+                  if (_info != null) ...[
+                    const SizedBox(height: 20),
+                    _purchaseOptions(_info!),
+                  ],
+                  if (_orders.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    FrameSection(
+                      title: '我的订单',
+                      icon: Icons.receipt_long_outlined,
+                      child: Column(
+                        children: [
+                          for (final order in _orders)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(order.planTitle),
+                              subtitle: Text(order.orderNo),
+                              trailing: Text(
+                                '${_money(order.amountMinor)} · ${_orderStatus(order.status)}',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

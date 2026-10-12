@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -68,6 +70,9 @@ class _LobbyPageState extends State<LobbyPage> {
   final _roomCode = TextEditingController();
   final _verificationToken = TextEditingController();
   Session? _session;
+  MembershipStatus? _membership;
+  Timer? _membershipRefresh;
+  bool _refreshingMembership = false;
   int _mobileTab = 0;
   _WorkspacePanel? _workspacePanel;
   bool _securityBusy = false;
@@ -101,6 +106,7 @@ class _LobbyPageState extends State<LobbyPage> {
         _session = session;
         _verifiedOverride = session.user.emailVerified;
       });
+      await _refreshMembership();
       await _showStartupAnnouncement();
     } catch (_) {
       await widget.sessionStore.clear();
@@ -109,6 +115,7 @@ class _LobbyPageState extends State<LobbyPage> {
 
   @override
   void dispose() {
+    _membershipRefresh?.cancel();
     _name.dispose();
     _email.dispose();
     _password.dispose();
@@ -170,6 +177,7 @@ class _LobbyPageState extends State<LobbyPage> {
     });
     _password.clear();
     await widget.sessionStore.write(session);
+    await _refreshMembership();
     await _showStartupAnnouncement();
   }
 
@@ -194,6 +202,45 @@ class _LobbyPageState extends State<LobbyPage> {
       );
       if (session != null) await _acceptSession(session);
     });
+  }
+
+  void _setMembership(MembershipStatus status) {
+    if (!mounted || _session == null) return;
+    setState(() => _membership = status);
+    _membershipRefresh?.cancel();
+    if (!status.isCurrent) return;
+    final remaining =
+        status.vipExpiresAt - DateTime.now().millisecondsSinceEpoch;
+    final delay = status.isCurrent && remaining < 60000
+        ? remaining + 100
+        : 60000;
+    _membershipRefresh = Timer(
+      Duration(milliseconds: delay),
+      _refreshMembership,
+    );
+  }
+
+  Future<void> _refreshMembership() async {
+    final session = _session;
+    if (session == null || _refreshingMembership) return;
+    _refreshingMembership = true;
+    try {
+      final status = await widget.api.membership(session);
+      if (mounted && identical(_session, session)) _setMembership(status);
+    } catch (_) {
+      if (mounted && identical(_session, session)) {
+        setState(() {});
+        _membershipRefresh?.cancel();
+        if (_membership?.isCurrent == true) {
+          _membershipRefresh = Timer(
+            const Duration(minutes: 1),
+            _refreshMembership,
+          );
+        }
+      }
+    } finally {
+      _refreshingMembership = false;
+    }
   }
 
   void _showAccountSecurity() => _showPanel(_WorkspacePanel.security);
@@ -315,6 +362,8 @@ class _LobbyPageState extends State<LobbyPage> {
       if (mounted) {
         setState(() {
           _session = null;
+          _membership = null;
+          _membershipRefresh?.cancel();
           _workspacePanel = null;
           _mobileTab = 0;
           _returnTabAfterLogin = null;
@@ -363,6 +412,7 @@ class _LobbyPageState extends State<LobbyPage> {
       _workspaceNavigator.currentState?.popUntil((route) => route.isFirst);
     }
     setState(() => _workspacePanel = panel);
+    unawaited(_refreshMembership());
   }
 
   void _closeWorkspacePanel() {
@@ -539,6 +589,7 @@ class _LobbyPageState extends State<LobbyPage> {
       _WorkspacePanel.membership => MembershipPage(
         api: widget.api,
         session: session!,
+        onMembershipChanged: _setMembership,
       ),
       _WorkspacePanel.updates =>
         kIsWeb ? const SizedBox.shrink() : const UpdatePage(),
@@ -721,6 +772,7 @@ class _LobbyPageState extends State<LobbyPage> {
       _workspacePanel = _panelForTab(tab);
       _mobileTab = tab;
     });
+    unawaited(_refreshMembership());
   }
 
   void _requestLogin(int returnTab) {
@@ -750,6 +802,7 @@ class _LobbyPageState extends State<LobbyPage> {
       name: session?.user.displayName ?? '',
       email: session?.user.email ?? '',
       signedIn: session != null,
+      member: _membership?.isCurrent ?? false,
       onLogin: () => _requestLogin(3),
       onLogout: _logout,
       verification: session == null || _verifiedOverride
@@ -841,6 +894,7 @@ class _LobbyPageState extends State<LobbyPage> {
     onHome: () => _selectMobileTab(0),
     preferJoin: _preferJoin,
     signedIn: _session != null,
+    member: _membership?.isCurrent ?? false,
     name: _session?.user.displayName ?? '',
     error: _error,
     onSearch: _showMetadataSearch,

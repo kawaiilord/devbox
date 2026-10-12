@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'workspace_section.dart';
 
 import '../design.dart';
+import '../membership_visuals.dart';
 
 class MobileProfile extends StatelessWidget {
   const MobileProfile({
@@ -10,13 +11,14 @@ class MobileProfile extends StatelessWidget {
     required this.name,
     required this.email,
     required this.signedIn,
+    this.member = false,
     required this.onLogin,
     required this.onLogout,
     required this.items,
     this.verification,
   });
   final String name, email;
-  final bool signedIn;
+  final bool signedIn, member;
   final VoidCallback onLogin, onLogout;
   final Widget? verification;
   final List<({IconData icon, String label, VoidCallback? onTap})> items;
@@ -38,19 +40,10 @@ class MobileProfile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
+                      MemberAvatar(
+                        name: signedIn ? name : '',
+                        member: member,
                         radius: 28,
-                        backgroundColor: colors.elevated,
-                        foregroundColor: colors.text,
-                        child: signedIn
-                            ? Text(
-                                name.isEmpty ? 'S' : name.characters.first,
-                                style: const TextStyle(fontSize: 22),
-                              )
-                            : const Icon(
-                                Icons.person_outline_rounded,
-                                size: 28,
-                              ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -66,6 +59,10 @@ class MobileProfile extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (member) ...[
+                              const SizedBox(height: 8),
+                              const MemberBadge(),
+                            ],
                             const SizedBox(height: 6),
                             Text(
                               signedIn ? email : '登录后管理你的观影空间',

@@ -156,6 +156,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("GET /api/v1/check-ins/status", s.checkInStatus)
 	mux.HandleFunc("POST /api/v1/check-ins", s.dailyCheckIn)
 	mux.HandleFunc("POST /api/v1/points/redeem-vip", s.redeemPoints)
+	mux.HandleFunc("POST /api/v1/points/redeem-month", s.redeemMonthlyMembership)
 	mux.HandleFunc("GET /api/v1/points/transactions", s.pointsTransactions)
 	mux.HandleFunc("GET /api/v1/points/leaderboard", s.pointsLeaderboard)
 	mux.HandleFunc("POST /api/v1/admin/activation-codes", s.adminCreateActivationCodes)

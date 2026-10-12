@@ -12,7 +12,7 @@ func (r *PostgresRepository) SearchSocialProfiles(
 	ctx context.Context, viewerID, query string, limit int,
 ) ([]SocialProfile, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT u.id, u.display_name, u.signature,
+		SELECT u.id, u.display_name, u.signature, COALESCE(u.vip_expires_at>now(),false),
 		 EXISTS(SELECT 1 FROM user_follows f WHERE f.follower_id=$1 AND f.followed_id=u.id),
 		 EXISTS(SELECT 1 FROM user_follows f WHERE f.follower_id=u.id AND f.followed_id=$1),
 		 (SELECT count(*) FROM user_follows f WHERE f.followed_id=u.id),
@@ -30,7 +30,7 @@ func (r *PostgresRepository) SearchSocialProfiles(
 	result := make([]SocialProfile, 0, limit)
 	for rows.Next() {
 		var profile SocialProfile
-		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Signature,
+		if err := rows.Scan(&profile.ID, &profile.DisplayName, &profile.Signature, &profile.IsVIP,
 			&profile.Following, &profile.FollowsViewer, &profile.FollowerCount, &profile.FollowingCount); err != nil {
 			return nil, err
 		}
@@ -42,7 +42,7 @@ func (r *PostgresRepository) SearchSocialProfiles(
 func (r *PostgresRepository) GetSocialProfile(ctx context.Context, viewerID, targetID string) (SocialProfile, error) {
 	var profile SocialProfile
 	err := r.pool.QueryRow(ctx, `
-		SELECT u.id, u.display_name, u.signature,
+		SELECT u.id, u.display_name, u.signature, COALESCE(u.vip_expires_at>now(),false),
 		 EXISTS(SELECT 1 FROM user_follows f WHERE f.follower_id=$1 AND f.followed_id=u.id),
 		 EXISTS(SELECT 1 FROM user_follows f WHERE f.follower_id=u.id AND f.followed_id=$1),
 		 (SELECT count(*) FROM user_follows f WHERE f.followed_id=u.id),
@@ -50,7 +50,7 @@ func (r *PostgresRepository) GetSocialProfile(ctx context.Context, viewerID, tar
 		FROM users u WHERE u.id=$2
 		 AND NOT EXISTS (SELECT 1 FROM user_blocks b
 		   WHERE (b.blocker_id=$1 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$1))`,
-		viewerID, targetID).Scan(&profile.ID, &profile.DisplayName, &profile.Signature,
+		viewerID, targetID).Scan(&profile.ID, &profile.DisplayName, &profile.Signature, &profile.IsVIP,
 		&profile.Following, &profile.FollowsViewer, &profile.FollowerCount, &profile.FollowingCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SocialProfile{}, ErrNotFound

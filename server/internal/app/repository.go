@@ -124,6 +124,8 @@ type Repository interface {
 	DailyCheckIn(context.Context, string, string, int) (CheckInStatus, error)
 	GetCheckInStatus(context.Context, string, string, int, int) (CheckInStatus, error)
 	RedeemPointsForVIP(context.Context, string, int, int) (int64, error)
+	RedeemMonthlyMembership(context.Context, string, string) (MembershipRedemption, error)
+	ActiveMemberships(context.Context, []string) (map[string]bool, error)
 	ListPointsTransactions(context.Context, string, int64, int) ([]PointsTransaction, error)
 	PointsLeaderboard(context.Context, string, int) ([]PointsLeaderboardEntry, error)
 	GetRuntimeConfig(context.Context) (RuntimeConfig, error)
@@ -247,6 +249,7 @@ type MemoryRepository struct {
 	pointsAccounts         map[string]memoryPointsAccount
 	pointsTransactions     map[string][]PointsTransaction
 	nextPointsTransaction  int64
+	membershipRedemptions  map[string]MembershipRedemption
 	runtimeConfig          RuntimeConfig
 	announcements          []Announcement
 	nextAnnouncement       int64
@@ -803,6 +806,7 @@ func (r *MemoryRepository) AddRoomMessage(_ context.Context, message ChatMessage
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	message.ID = r.nextMessageID
+	message.IsVIP = r.usersByID[message.UserID].VIPExpiresAt > time.Now().UnixMilli()
 	r.nextMessageID++
 	if message.CreatedAt == 0 {
 		message.CreatedAt = time.Now().UnixMilli()
@@ -827,6 +831,7 @@ func (r *MemoryRepository) ListRoomMessages(
 		blockedBy := r.blocks[message.UserID] != nil && r.blocks[message.UserID][viewerID].IsZero() == false
 		if message.RoomCode == roomCode && !blocked && !blockedBy &&
 			(before == 0 || message.ID < before) {
+			message.IsVIP = r.usersByID[message.UserID].VIPExpiresAt > time.Now().UnixMilli()
 			result = append(result, message)
 		}
 	}
@@ -1272,6 +1277,7 @@ func (r *MemoryRepository) socialProfileLocked(viewerID, targetID string) Social
 	account := r.usersByID[targetID]
 	profile := SocialProfile{
 		ID: targetID, DisplayName: account.DisplayName, Signature: account.Signature,
+		IsVIP: account.VIPExpiresAt > time.Now().UnixMilli(),
 	}
 	_, profile.Following = r.follows[viewerID][targetID]
 	_, profile.FollowsViewer = r.follows[targetID][viewerID]
