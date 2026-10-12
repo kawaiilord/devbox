@@ -1,0 +1,8 @@
+$ORIGIN sameframe.top.
+$TTL 300
+; Import into the sameframe.top zone; mail must be DNS-only.
+mail 300 IN A 38.76.190.179
+@ 300 IN MX 10 mail.sameframe.top.
+@ 300 IN TXT "v=spf1 ip4:38.76.190.179 -all"
+sf202610._domainkey 300 IN TXT "v=DKIM1; h=sha256; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtEE3RHABRB4cjXgn0iJbkFge+kPdWkUGnd3Ulk84fYMr9DZftI/PpIJHox8QTLWT+d75KKBe/A2ETgShi8ZdHFLgDkcEiWZNaSfK4sf8XSoYDQVnGFfMJwYy5EDVRzZY" "d7OcRwD9Hvn70zfPi0sjU7iVbsmeArmVObxeoNWw1LJdxPVvP0LEXbAaPnmj+3T+5a9gjWYHNcIv9HJLafUGLC5MwIDWqnYqKV/2c//PbWe1Luqq2kVRC3zLXi4zE1MZAFWgORg9ufi0ZKs7aEOxNaxfbgmaEQKFsotRj1hRGwLzyuKX7rjWyCSHPKdk+PsJdUC+cwtu" "6CaJfujx8RzG7wIDAQAB"
+_dmarc 300 IN TXT "v=DMARC1; p=none; adkim=s; aspf=s"

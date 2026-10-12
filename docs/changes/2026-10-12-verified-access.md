@@ -1,6 +1,6 @@
 # 登录边界、注册邮箱验证码与单按钮主题
 
-状态：开发及验证中，尚未发布。前一版官网已部署于 sameframe.top。
+状态：已于 2026-10-12 12:58:50 UTC 发布至 sameframe.top，版本 `4bbf313`。
 
 ## 新增
 
@@ -32,5 +32,13 @@
 - 完整回滚会恢复上一版的游客及无需前置验证码规则；不会撤销新账号已经验证的邮箱状态。
 - 服务端默认启用 `SAMEFRAME_REQUIRE_ACCOUNT` 与 `SAMEFRAME_REQUIRE_REGISTRATION_CODE`。
 - 旧客户端不提交注册验证码将被拒绝，需要使用新版网页。
-- 发布、测试、资源哈希和回滚命令待实测后填写。
+- [CI 38249855961](https://github.com/kawaiilord/devbox/actions/runs/38249855961)：全部五项任务通过，包括服务端 race/PostgreSQL 验证、Flutter 分析测试与 Web/Windows/Linux 构建。
+- 线上实测：匿名房间列表、房间详情、聊天接口返回 401；访客加入返回 403；无注册验证码返回 400；已有管理员账号登录及带认证的房间列表返回 200。
+- 浏览器实测：首页单按钮图标及浅深色切换、820/390/320 宽度通过。完整注册浏览器用例在定位验证码输入元素时超时，因此该项未记为通过；注册验证码后端生命周期已在 CI 内存和 PostgreSQL 测试中通过。
+- 备份：`/opt/sameframe/backups/verified-access-20261012-125750`（原网页、二进制、PostgreSQL dump）。
+- 清单：`/opt/sameframe/releases/verified-access-4bbf313/deployment.json`。
+- 回滚：`python3 /opt/sameframe/releases/verified-access-4bbf313/release.py --rollback`；`--check-rollback` 已通过。
+- JS SHA-256：`d78e1b9a4ba782b85cabe688f5fc1d33cff965829f951df2a4e0623bb2347f26`。
+- 服务端 SHA-256：`a8580f006cda022be9c4239e6fa4f73dcbc25173e9fa0472ec47ae5a9279a870`。
+- 首页 SHA-256：`c4f1f7284c235801a1dabfc7ecfc9529db4f5021b2be1c0496ee10c880fb8988`。
 - SMTP 按用户要求稍后配置；在此之前新用户无法完成注册，已有账号仍可登录。
