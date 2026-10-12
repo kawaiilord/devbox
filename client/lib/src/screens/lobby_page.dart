@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'approvals_page.dart';
 import 'devices_page.dart';
 import 'workspace_navigation.dart';
+import 'workspace_section.dart';
 import 'browser_login_dialog.dart';
 import 'remote_source_dialog.dart';
 
@@ -15,7 +16,6 @@ import 'media_source_browser.dart';
 import 'media_center.dart';
 import 'account_security_panel.dart';
 import 'library_connection_dialog.dart';
-import '../appearance.dart';
 import 'quark_source_dialog.dart';
 import 'provider_source_dialog.dart';
 import 'public_rooms_page.dart';
@@ -395,7 +395,7 @@ class _LobbyPageState extends State<LobbyPage> {
   String? get _workspaceTitle => switch (_workspacePanel) {
     _WorkspacePanel.discover => '发现房间',
     _WorkspacePanel.library => '收藏与历史',
-    _WorkspacePanel.profile => '我的',
+    _WorkspacePanel.profile => '我的账号',
     _WorkspacePanel.media => '我的媒体源',
     _WorkspacePanel.security => '账号与安全',
     _WorkspacePanel.approvals => '我的申请',
@@ -407,6 +407,23 @@ class _LobbyPageState extends State<LobbyPage> {
     _WorkspacePanel.membership => '会员中心',
     _WorkspacePanel.updates => '安全更新',
     null => null,
+  };
+
+  (String, String) get _sectionInfo => switch (_workspacePanel) {
+    _WorkspacePanel.discover => ('DISCOVER', '找到正在放映的房间，和大家一起看。'),
+    _WorkspacePanel.library => ('LIBRARY', '收藏喜欢的影片，继续上次的观看进度。'),
+    _WorkspacePanel.profile => ('MY ACCOUNT', '管理你的账号与观影空间。'),
+    _WorkspacePanel.media => ('MEDIA SOURCES', '连接网盘、视频平台和私人媒体库。'),
+    _WorkspacePanel.security => ('SECURITY', '管理登录方式，保护你的账号。'),
+    _WorkspacePanel.approvals => ('APPLICATIONS', '查看注册、建房和加入房间申请的进度。'),
+    _WorkspacePanel.devices => ('DEVICES', '查看登录设备，管理设备访问。'),
+    _WorkspacePanel.privacy => ('PRIVACY', '设置聊天、资料和观看活动的可见范围。'),
+    _WorkspacePanel.search => ('SEARCH', '查找影片资料，分享你的观影感受。'),
+    _WorkspacePanel.social => ('FRIENDS', '找到朋友，分享每一个观影时刻。'),
+    _WorkspacePanel.couple => ('TOGETHER', '珍藏属于你们的共同观影时光。'),
+    _WorkspacePanel.membership => ('MEMBERSHIP', '查看会员权益、积分与订单。'),
+    _WorkspacePanel.updates => ('UPDATES', '检查版本更新，保持应用最新。'),
+    null => ('HOME', '开启一场共同放映。'),
   };
 
   Future<bool> _connectMediaKind(String kind) {
@@ -487,23 +504,13 @@ class _LobbyPageState extends State<LobbyPage> {
             ? MobileLibrarySignIn(onLogin: () => _requestLogin(2))
             : LibraryPage(api: widget.api, session: session, embedded: mobile),
       _WorkspacePanel.profile => _profile(),
-      _WorkspacePanel.media || _WorkspacePanel.security => Builder(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: Text(title!),
-            actions: mobile ? const [FrameThemeMenu()] : null,
-          ),
-          body: SingleChildScrollView(
-            key: PageStorageKey(_workspacePanel),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.all(mobile ? 16 : 32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1180),
-                child: panelContent,
-              ),
-            ),
-          ),
+      _WorkspacePanel.media || _WorkspacePanel.security => WorkspaceSection(
+        title: Text(title!),
+        body: SingleChildScrollView(
+          key: PageStorageKey(_workspacePanel),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.all(mobile ? 16 : 20),
+          child: panelContent,
         ),
       ),
       _WorkspacePanel.approvals => ApprovalsPage(
@@ -532,21 +539,26 @@ class _LobbyPageState extends State<LobbyPage> {
     };
     // A route's modal barrier must not hide the shell's navigation from
     // accessibility tools. Keep its semantics inside the content region.
-    return Semantics(
-      container: true,
-      explicitChildNodes: true,
-      child: Navigator(
-        key: _workspaceNavigator,
-        observers: [_workspaceObserver],
-        pages: [
-          MaterialPage<void>(
-            key: ValueKey(
-              '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
+    final (eyebrow, description) = _sectionInfo;
+    return WorkspaceSectionInfo(
+      eyebrow: eyebrow,
+      description: description,
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        child: Navigator(
+          key: _workspaceNavigator,
+          observers: [_workspaceObserver],
+          pages: [
+            WorkspacePage(
+              key: ValueKey(
+                '${session?.user.id}:${_workspacePanel?.name ?? 'home'}',
+              ),
+              child: page,
             ),
-            child: page,
-          ),
-        ],
-        onDidRemovePage: (_) {},
+          ],
+          onDidRemovePage: (_) {},
+        ),
       ),
     );
   }
@@ -793,100 +805,31 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final mobile = MediaQuery.sizeOf(context).width < 700;
-    final colors = FrameColors.of(context);
-    return PopScope(
-      canPop:
-          !_securityBusy &&
-          !_workspaceCanPop &&
-          _workspacePanel == null &&
-          _mobileTab == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _backWorkspace();
-      },
-      child: !mobile
-          ? _buildLobby(workspaceBuilder: _workspace)
-          : Scaffold(
-              body: PrimaryScrollController.none(
-                child: _workspace(_buildLobby(mobileTabs: true)),
-              ),
-              bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
-                  ? null
-                  : DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border(top: BorderSide(color: colors.border)),
-                      ),
-                      child: NavigationBarTheme(
-                        data: NavigationBarThemeData(
-                          backgroundColor: colors.surface,
-                          surfaceTintColor: Colors.transparent,
-                          indicatorColor: Colors.transparent,
-                          labelTextStyle: WidgetStateProperty.resolveWith(
-                            (states) => TextStyle(
-                              fontSize: 11,
-                              fontWeight: states.contains(WidgetState.selected)
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: states.contains(WidgetState.selected)
-                                  ? colors.accent
-                                  : colors.muted,
-                            ),
-                          ),
-                          iconTheme: WidgetStateProperty.resolveWith(
-                            (states) => IconThemeData(
-                              size: 24,
-                              color: states.contains(WidgetState.selected)
-                                  ? colors.accent
-                                  : colors.muted,
-                            ),
-                          ),
-                        ),
-                        child: NavigationBar(
-                          height: 72,
-                          elevation: 0,
-                          selectedIndex: _mobileTab,
-                          onDestinationSelected: _securityBusy
-                              ? null
-                              : _selectMobileTab,
-                          labelBehavior:
-                              NavigationDestinationLabelBehavior.alwaysShow,
-                          destinations: const [
-                            NavigationDestination(
-                              icon: Icon(Icons.meeting_room_outlined),
-                              selectedIcon: Icon(Icons.meeting_room_rounded),
-                              label: '房间',
-                            ),
-                            NavigationDestination(
-                              icon: Icon(Icons.explore_outlined),
-                              selectedIcon: Icon(Icons.explore_rounded),
-                              label: '发现',
-                            ),
-                            NavigationDestination(
-                              icon: Icon(Icons.video_library_outlined),
-                              selectedIcon: Icon(Icons.video_library_rounded),
-                              label: '片库',
-                            ),
-                            NavigationDestination(
-                              icon: Icon(Icons.person_outline_rounded),
-                              selectedIcon: Icon(Icons.person_rounded),
-                              label: '我的',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-            ),
-    );
-  }
+  Widget build(BuildContext context) => PopScope(
+    canPop:
+        !_securityBusy &&
+        !_workspaceCanPop &&
+        _workspacePanel == null &&
+        _mobileTab == 0,
+    onPopInvokedWithResult: (didPop, result) {
+      if (!didPop) _backWorkspace();
+    },
+    child: _buildLobby(),
+  );
 
-  Widget _buildLobby({
-    bool mobileTabs = false,
-    Widget Function(Widget)? workspaceBuilder,
-  }) => LobbyLayout(
-    mobileTabs: mobileTabs,
+  int get _dockIndex => switch (_workspacePanel) {
+    null => 0,
+    _WorkspacePanel.discover => 1,
+    _WorkspacePanel.library => 2,
+    _WorkspacePanel.profile => 3,
+    _ => 4,
+  };
+
+  Widget _buildLobby() => LobbyLayout(
+    selectedTab: _dockIndex,
+    onSelectTab: _selectMobileTab,
     navigationLocked: _securityBusy,
-    workspaceBuilder: workspaceBuilder,
+    workspaceBuilder: _workspace,
     activeDestination: _workspaceTitle,
     onHome: () => _selectMobileTab(0),
     preferJoin: _preferJoin,
@@ -908,6 +851,17 @@ class _LobbyPageState extends State<LobbyPage> {
       LobbyDestination(Icons.fact_check_outlined, '我的申请', _showApprovals),
       LobbyDestination(Icons.devices_rounded, '设备管理', _showDevices),
       LobbyDestination(Icons.shield_outlined, '隐私与屏蔽', _showPrivacy),
+      LobbyDestination(
+        Icons.person_outline_rounded,
+        '我的账号',
+        () => _selectMobileTab(3),
+      ),
+      LobbyDestination(Icons.search_rounded, '影视搜索', _showMetadataSearch),
+      LobbyDestination(
+        Icons.workspace_premium_outlined,
+        '会员中心',
+        _showMembership,
+      ),
     ],
     login: _LoginCard(
       name: _name,

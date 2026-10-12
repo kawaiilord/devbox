@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'workspace_section.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
@@ -364,18 +366,16 @@ class _MembershipPageState extends State<MembershipPage> {
     final info = _info;
     final status = _status;
     final membership = _membership;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('会员中心'),
-        actions: [
-          IconButton(
-            onPressed: _busy ? null : _load,
-            tooltip: '刷新',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-          const SizedBox(width: 16),
-        ],
-      ),
+    return WorkspaceSection(
+      title: const Text('会员中心'),
+      actions: [
+        IconButton(
+          onPressed: _busy ? null : _load,
+          tooltip: '刷新',
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+        const SizedBox(width: 16),
+      ],
       body: RefreshIndicator(
         onRefresh: _load,
         child: SingleChildScrollView(

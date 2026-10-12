@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'workspace_section.dart';
+
 import '../api/api_client.dart';
 import '../models.dart';
 
@@ -118,17 +120,15 @@ class _ApprovalsPageState extends State<ApprovalsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(widget.roomCode == null ? '我的申请' : '加房审批'),
-      actions: [
-        IconButton(
-          tooltip: '刷新',
-          onPressed: _busy ? null : () => _load(reset: true),
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => WorkspaceSection(
+    title: Text(widget.roomCode == null ? '我的申请' : '加房审批'),
+    actions: [
+      IconButton(
+        tooltip: '刷新',
+        onPressed: _busy ? null : () => _load(reset: true),
+        icon: const Icon(Icons.refresh),
+      ),
+    ],
     body: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),

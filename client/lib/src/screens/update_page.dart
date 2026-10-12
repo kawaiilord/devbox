@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'workspace_section.dart';
+
 import '../update_service.dart';
 
 class UpdatePage extends StatefulWidget {
@@ -59,8 +61,8 @@ class _UpdatePageState extends State<UpdatePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('安全更新')),
+  Widget build(BuildContext context) => WorkspaceSection(
+    title: const Text('安全更新'),
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [

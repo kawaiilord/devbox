@@ -32,7 +32,8 @@ class LobbyLayout extends StatelessWidget {
     this.activeDestination,
     this.onHome,
     this.navigationLocked = false,
-    this.mobileTabs = false,
+    required this.selectedTab,
+    required this.onSelectTab,
     this.preferJoin = false,
   });
   final bool signedIn;
@@ -47,7 +48,9 @@ class LobbyLayout extends StatelessWidget {
   final String? activeDestination;
   final VoidCallback? onHome;
   final bool navigationLocked;
-  final bool mobileTabs, preferJoin;
+  final bool preferJoin;
+  final int selectedTab;
+  final ValueChanged<int> onSelectTab;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -57,9 +60,24 @@ class LobbyLayout extends StatelessWidget {
         appBar: desktop
             ? null
             : AppBar(
-                automaticallyImplyLeading: !mobileTabs,
+                automaticallyImplyLeading: constraints.maxWidth >= 700,
                 toolbarHeight: constraints.maxWidth < 700 ? 60 : 68,
-                title: FrameBrand(compact: constraints.maxWidth < 420),
+                title: activeDestination == null
+                    ? FrameBrand(compact: constraints.maxWidth < 420)
+                    : Row(
+                        children: [
+                          const FrameMark(size: 28),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              activeDestination!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
                 actions: [
                   const FrameThemeMenu(),
                   IconButton(
@@ -75,12 +93,17 @@ class LobbyLayout extends StatelessWidget {
                   ),
                 ],
               ),
-        drawer: desktop || mobileTabs
+        drawer: desktop
             ? null
             : Drawer(
                 backgroundColor: FrameColors.of(context).sidebar,
                 child: SafeArea(child: _navigation(context, closeDrawer: true)),
               ),
+        bottomNavigationBar:
+            constraints.maxWidth < 700 &&
+                MediaQuery.viewInsetsOf(context).bottom == 0
+            ? _dock(context)
+            : null,
         body: SafeArea(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -90,7 +113,11 @@ class LobbyLayout extends StatelessWidget {
                 child: Column(
                   children: [
                     if (desktop) _toolbar(context),
-                    Expanded(child: _content(context, constraints, desktop)),
+                    Expanded(
+                      child: PrimaryScrollController.none(
+                        child: _content(context, constraints, desktop),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -136,7 +163,93 @@ class LobbyLayout extends StatelessWidget {
     );
     // Feature pages own their scrolling and need bounded height (not a child
     // of the lobby's scroll view). The same navigator survives viewport changes.
-    return workspaceBuilder?.call(home) ?? home;
+    final content = workspaceBuilder?.call(home) ?? home;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1280),
+        child: content,
+      ),
+    );
+  }
+
+  Widget _dock(BuildContext context) {
+    final colors = FrameColors.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.border)),
+      ),
+      child: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          backgroundColor: colors.surface,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: colors.elevated,
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => TextStyle(
+              fontSize: 11,
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.w600
+                  : FontWeight.w400,
+              color: states.contains(WidgetState.selected)
+                  ? colors.text
+                  : colors.muted,
+            ),
+          ),
+          iconTheme: WidgetStateProperty.resolveWith(
+            (states) => IconThemeData(
+              size: 22,
+              color: states.contains(WidgetState.selected)
+                  ? colors.text
+                  : colors.muted,
+            ),
+          ),
+        ),
+        child: Builder(
+          builder: (context) => NavigationBar(
+            height: 72,
+            elevation: 0,
+            selectedIndex: selectedTab,
+            onDestinationSelected: navigationLocked
+                ? null
+                : (tab) {
+                    if (tab == 4) {
+                      FocusScope.of(context).unfocus();
+                      Scaffold.of(context).openDrawer();
+                    } else {
+                      onSelectTab(tab);
+                    }
+                  },
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.meeting_room_outlined),
+                selectedIcon: Icon(Icons.meeting_room_rounded),
+                label: '房间',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.explore_outlined),
+                selectedIcon: Icon(Icons.explore_rounded),
+                label: '发现',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.video_library_outlined),
+                selectedIcon: Icon(Icons.video_library_rounded),
+                label: '片库',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: '我的',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.grid_view_outlined),
+                selectedIcon: Icon(Icons.grid_view_rounded),
+                label: '全部',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _mobileWelcome(BuildContext context) => Column(
@@ -448,9 +561,35 @@ class LobbyLayout extends StatelessWidget {
     ),
     child: Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(22, 27, 22, 28),
-          child: FrameBrand(compact: true),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 16, 22),
+          child: Row(
+            children: [
+              const Expanded(child: FrameBrand(compact: true)),
+              if (closeDrawer)
+                IconButton(
+                  tooltip: '关闭导航',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                ),
+            ],
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: FrameColors.of(context).surface,
+            border: Border.all(color: FrameColors.of(context).border),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.layers_outlined, size: 18),
+              SizedBox(width: 9),
+              Text('个人工作空间', style: TextStyle(fontSize: 12)),
+            ],
+          ),
         ),
         Expanded(
           child: ListView(
@@ -636,7 +775,7 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 2),
     child: Material(
-      color: selected ? FrameColors.of(context).elevated : Colors.transparent,
+      color: selected ? FrameColors.of(context).text : Colors.transparent,
       borderRadius: BorderRadius.circular(9),
       child: ListTile(
         enabled: onTap != null || selected,
@@ -649,14 +788,16 @@ class _NavItem extends StatelessWidget {
           icon,
           size: 19,
           color: selected
-              ? FrameColors.of(context).text
+              ? FrameColors.of(context).background
               : FrameColors.of(context).muted,
         ),
         title: Text(
           label,
           style: TextStyle(
             fontSize: 13,
-            color: selected || onTap != null
+            color: selected
+                ? FrameColors.of(context).background
+                : onTap != null
                 ? FrameColors.of(context).text
                 : FrameColors.of(context).muted,
           ),
@@ -666,7 +807,7 @@ class _NavItem extends StatelessWidget {
                 width: 4,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: FrameColors.of(context).accent,
+                  color: FrameColors.of(context).background,
                   shape: BoxShape.circle,
                 ),
               )

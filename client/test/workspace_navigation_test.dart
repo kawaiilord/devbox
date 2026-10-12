@@ -16,6 +16,8 @@ void main() {
       await _open(tester, signedIn: true, size: const Size(1440, 1000));
       expect(find.bySemanticsLabel('我的媒体源'), findsOneWidget);
       await tester.tap(find.text('搜索电影 / 剧集'));
+      await tester.pump();
+      expect(find.text('今晚，一起看点什么？'), findsNothing);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '共同的电影');
       await tester.tap(find.text('搜索'));
@@ -63,13 +65,68 @@ void main() {
     }
   });
 
+  testWidgets('all menu switches sections within the same mobile shell', (
+    tester,
+  ) async {
+    await _open(tester, signedIn: true, size: const Size(390, 844));
+    final shell = tester.state<ScaffoldState>(find.byType(Scaffold));
+    final topbar = tester.element(find.byType(AppBar));
+    await tester.tap(find.text('全部'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('安全更新'),
+      180,
+      scrollable: find.byType(Drawer).evaluate().isNotEmpty
+          ? find
+                .descendant(
+                  of: find.byType(Drawer),
+                  matching: find.byType(Scrollable),
+                )
+                .first
+          : find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('安全更新'));
+    await tester.pumpAndSettle();
+    expect(tester.state<ScaffoldState>(find.byType(Scaffold)), same(shell));
+    expect(tester.element(find.byType(AppBar)), same(topbar));
+    expect(find.text('检查更新'), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      4,
+    );
+
+    // The full menu is available from the section itself; no profile detour.
+    await tester.tap(find.text('全部'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('设备管理'));
+    await tester.tap(find.text('设备管理'));
+    await tester.pumpAndSettle();
+    expect(find.text('登录设备'), findsOneWidget);
+    expect(find.text('检查更新'), findsNothing);
+    expect(find.byType(BackButton), findsNothing);
+    expect(tester.state<ScaffoldState>(find.byType(Scaffold)), same(shell));
+    expect(tester.element(find.byType(AppBar)), same(topbar));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'signed-out sections switch through bottom tabs without a back button',
     (tester) async {
       await _open(tester, signedIn: false, size: const Size(390, 844));
       await tester.tap(find.text('我的'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('安全更新'));
+      await tester.scrollUntilVisible(
+        find.text('安全更新'),
+        180,
+        scrollable: find.byType(Drawer).evaluate().isNotEmpty
+            ? find
+                  .descendant(
+                    of: find.byType(Drawer),
+                    matching: find.byType(Scrollable),
+                  )
+                  .first
+            : find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('安全更新'));
       await tester.pumpAndSettle();
       expect(find.text('检查更新'), findsOneWidget);

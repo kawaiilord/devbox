@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'workspace_section.dart';
+
 import '../api/api_client.dart';
 import '../models.dart';
 import '../design.dart';
-import '../appearance.dart';
 import 'room_join_dialog.dart';
 
 class PublicRoomsPage extends StatefulWidget {
@@ -102,20 +103,15 @@ class _PublicRoomsPageState extends State<PublicRoomsPage> {
   @override
   Widget build(BuildContext context) {
     final mobile = MediaQuery.sizeOf(context).width < 700;
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.embedded,
-        title: const Text('发现一起看的房间'),
-        toolbarHeight: mobile ? 60 : 68,
-        actions: [
-          const FrameThemeMenu(),
-          IconButton(
-            tooltip: '刷新',
-            onPressed: _loading ? null : () => _load(),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
+    return WorkspaceSection(
+      title: const Text('发现一起看的房间'),
+      actions: [
+        IconButton(
+          tooltip: '刷新',
+          onPressed: _loading ? null : () => _load(),
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1080),

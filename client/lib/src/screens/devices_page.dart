@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'workspace_section.dart';
+
 import '../api/api_client.dart';
 import '../models.dart';
 
@@ -73,17 +75,15 @@ class _DevicesPageState extends State<DevicesPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('设备管理'),
-      actions: [
-        IconButton(
-          tooltip: '刷新',
-          onPressed: _busy ? null : _load,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => WorkspaceSection(
+    title: const Text('设备管理'),
+    actions: [
+      IconButton(
+        tooltip: '刷新',
+        onPressed: _busy ? null : _load,
+        icon: const Icon(Icons.refresh_rounded),
+      ),
+    ],
     body: Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1180),

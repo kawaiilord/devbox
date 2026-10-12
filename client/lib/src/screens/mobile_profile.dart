@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../appearance.dart';
+import 'workspace_section.dart';
+
 import '../design.dart';
 
 class MobileProfile extends StatelessWidget {
@@ -23,13 +24,8 @@ class MobileProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = FrameColors.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        toolbarHeight: 60,
-        title: const Text('我的'),
-        actions: const [FrameThemeMenu()],
-      ),
+    return WorkspaceSection(
+      title: const Text('我的账号'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -169,13 +165,8 @@ class MobileLibrarySignIn extends StatelessWidget {
   const MobileLibrarySignIn({super.key, required this.onLogin});
   final VoidCallback onLogin;
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      automaticallyImplyLeading: false,
-      toolbarHeight: 60,
-      title: const Text('片库'),
-      actions: const [FrameThemeMenu()],
-    ),
+  Widget build(BuildContext context) => WorkspaceSection(
+    title: const Text('片库'),
     body: Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
