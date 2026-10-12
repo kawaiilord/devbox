@@ -12,6 +12,9 @@ import '../design.dart';
 import 'lobby_layout.dart';
 import 'mobile_profile.dart';
 import 'media_source_browser.dart';
+import 'media_center.dart';
+import 'library_connection_dialog.dart';
+import '../appearance.dart';
 import 'quark_source_dialog.dart';
 import 'provider_source_dialog.dart';
 import 'public_rooms_page.dart';
@@ -48,6 +51,7 @@ class _LobbyPageState extends State<LobbyPage> {
   final _verificationToken = TextEditingController();
   Session? _session;
   int _mobileTab = 0;
+  bool _mediaCenterOpen = false;
   int? _returnTabAfterLogin;
   bool _preferJoin = false;
   final _visitedTabs = <int>{0};
@@ -271,7 +275,11 @@ class _LobbyPageState extends State<LobbyPage> {
     return source != null;
   }
 
-  Future<bool> _promptAddProvider({MediaSource? source}) async {
+  Future<bool> _promptAddProvider({
+    MediaSource? source,
+    String? initialProvider,
+    Set<String>? allowedProviders,
+  }) async {
     final session = _session;
     if (session == null) {
       return false;
@@ -283,6 +291,8 @@ class _LobbyPageState extends State<LobbyPage> {
         api: widget.api,
         session: session,
         source: source,
+        initialProvider: initialProvider,
+        allowedProviders: allowedProviders,
       ),
     );
     return result != null;
@@ -297,6 +307,7 @@ class _LobbyPageState extends State<LobbyPage> {
       if (mounted) {
         setState(() {
           _session = null;
+          _mediaCenterOpen = false;
           _mobileTab = 0;
           _visitedTabs
             ..clear()
@@ -459,178 +470,88 @@ class _LobbyPageState extends State<LobbyPage> {
         .push(MaterialPageRoute<void>(builder: (_) => const UpdatePage()));
   }
 
-  Future<void> _showMediaSources() async {
-    final session = _session;
-    if (session == null) return;
-    var sources = <MediaSource>[];
-    String? loadError;
-    try {
-      sources = await widget.api.listMediaSources(session);
-    } catch (_) {
-      loadError = '媒体源加载失败，请重试。';
-    }
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          Future<void> reload() async {
-            try {
-              final next = await widget.api.listMediaSources(session);
-              if (!dialogContext.mounted) return;
-              setDialogState(() {
-                sources = next;
-                loadError = null;
-              });
-            } catch (_) {
-              if (dialogContext.mounted) {
-                setDialogState(() => loadError = '媒体源加载失败，请重试。');
-              }
-            }
-          }
-
-          return AlertDialog(
-            title: const Text('我的媒体源'),
-            content: SizedBox(
-              width: 560,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 400),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (loadError != null) ...[
-                        Text(loadError!),
-                        TextButton(onPressed: reload, child: const Text('重试')),
-                      ],
-                      if (sources.isEmpty && loadError == null)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Text('连接你的网盘或媒体库，选一部影片，和好友一起看。'),
-                        ),
-                      for (final source in sources)
-                        ListTile(
-                          leading: Icon(
-                            source.type == 'emby'
-                                ? Icons.dns_rounded
-                                : Icons.cloud_rounded,
-                          ),
-                          title: Text(source.name),
-                          subtitle: Text(mediaSourceLabel(source.type)),
-                          onTap: () async {
-                            final selected = await _browseMediaSource(source);
-                            if (selected && dialogContext.mounted) {
-                              Navigator.of(dialogContext).pop();
-                            }
-                          },
-                          trailing: PopupMenuButton<String>(
-                            tooltip: '媒体源操作',
-                            itemBuilder: (_) => [
-                              if (source.type == 'quark' ||
-                                  platformSourceTypes.contains(source.type) ||
-                                  nasSourceTypes.contains(source.type))
-                                const PopupMenuItem(
-                                  value: 'login',
-                                  child: Text('更新登录'),
-                                ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('移除媒体源'),
-                              ),
-                            ],
-                            onSelected: (action) async {
-                              if (action == 'login') {
-                                if (source.type == 'quark') {
-                                  await _promptAddQuark(source: source);
-                                } else {
-                                  await _promptAddProvider(source: source);
-                                }
-                              } else {
-                                try {
-                                  await widget.api.deleteMediaSource(
-                                    session,
-                                    source.id,
-                                  );
-                                  if (mounted &&
-                                      _selectedMediaSourceId == source.id) {
-                                    setState(() {
-                                      _selectedMediaSourceId = '';
-                                      _selectedMediaPath = '';
-                                      _source.clear();
-                                    });
-                                  }
-                                } catch (_) {
-                                  if (dialogContext.mounted) {
-                                    setDialogState(
-                                      () => loadError = '移除失败，请重试。',
-                                    );
-                                  }
-                                  return;
-                                }
-                              }
-                              if (dialogContext.mounted) await reload();
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () async {
-                  if (await _promptAddProvider() && dialogContext.mounted) {
-                    await reload();
-                  }
-                },
-                icon: const Icon(Icons.live_tv_rounded),
-                label: const Text('添加平台 / NAS'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  if (await _promptAddRemote() && dialogContext.mounted) {
-                    await reload();
-                  }
-                },
-                icon: const Icon(Icons.dns_outlined),
-                label: const Text('远程 Provider'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('关闭'),
-              ),
-              OutlinedButton(
-                onPressed: () async {
-                  if (await _promptAddEmby() && dialogContext.mounted) {
-                    await reload();
-                  }
-                },
-                child: const Text('添加 Emby'),
-              ),
-              OutlinedButton(
-                onPressed: () async {
-                  if (await _promptAddWebDAV() && dialogContext.mounted) {
-                    await reload();
-                  }
-                },
-                child: const Text('添加 WebDAV'),
-              ),
-              FilledButton.icon(
-                onPressed: () async {
-                  if (await _promptAddQuark() && dialogContext.mounted) {
-                    await reload();
-                  }
-                },
-                icon: const Icon(Icons.cloud_outlined),
-                label: const Text('添加夸克'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+  void _showMediaSources() {
+    if (_session == null) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _mediaCenterOpen = true);
   }
+
+  void _closeMediaCenter() => setState(() => _mediaCenterOpen = false);
+
+  Future<bool> _connectMediaKind(String kind) {
+    switch (kind) {
+      case 'quark':
+        return _promptAddQuark();
+      case 'emby':
+        return _promptAddLibrary(emby: true);
+      case 'webdav':
+        return _promptAddLibrary(emby: false);
+      case 'remote':
+        return _promptAddRemote();
+      case 'more-platforms':
+        return _promptAddProvider(
+          initialProvider: 'twitch',
+          allowedProviders: const {
+            'tiktok',
+            'twitch',
+            'huya',
+            'douyu',
+            'acfun',
+            'cctv',
+          },
+        );
+      case 'more-nas':
+        return _promptAddProvider(
+          initialProvider: 'nextcloud',
+          allowedProviders: const {'nextcloud', 'seafile', 'truenas'},
+        );
+      default:
+        return _promptAddProvider(
+          initialProvider: kind,
+          allowedProviders: {kind},
+        );
+    }
+  }
+
+  Widget _mediaCenter() => MediaCenter(
+    key: ValueKey('media-center-${_session!.user.id}'),
+    api: widget.api,
+    session: _session!,
+    onConnect: _connectMediaKind,
+    onReconnect: (source) => source.type == 'quark'
+        ? _promptAddQuark(source: source)
+        : _promptAddProvider(source: source),
+    onBrowse: _browseMediaSource,
+    onRemoved: (source) {
+      if (_selectedMediaSourceId == source.id) {
+        setState(() {
+          _selectedMediaSourceId = '';
+          _selectedMediaPath = '';
+          _source.clear();
+        });
+      }
+    },
+  );
+
+  Widget _mobileMediaCenter() => Scaffold(
+    appBar: AppBar(
+      title: const Text('我的媒体源'),
+      leading: IconButton(
+        tooltip: '返回',
+        onPressed: _closeMediaCenter,
+        icon: const Icon(Icons.arrow_back_rounded),
+      ),
+      actions: const [FrameThemeMenu()],
+    ),
+    body: SafeArea(
+      child: SingleChildScrollView(
+        key: const PageStorageKey('mobile-media-center'),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+        child: _mediaCenter(),
+      ),
+    ),
+  );
 
   Future<bool> _promptAddQuark({MediaSource? source}) async {
     final session = _session;
@@ -644,150 +565,19 @@ class _LobbyPageState extends State<LobbyPage> {
     return result != null;
   }
 
-  Future<bool> _promptAddWebDAV() async {
+  Future<bool> _promptAddLibrary({required bool emby}) async {
     final session = _session;
     if (session == null) return false;
-    final name = TextEditingController();
-    final baseUrl = TextEditingController();
-    final username = TextEditingController();
-    final password = TextEditingController();
-    var created = false;
-    await showDialog<void>(
+    final result = await showDialog<MediaSource>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('添加 WebDAV'),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: '名称'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: baseUrl,
-                decoration: const InputDecoration(labelText: 'HTTPS WebDAV 地址'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: username,
-                decoration: const InputDecoration(labelText: '用户名'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: password,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: '密码'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await widget.api.createWebDAVSource(
-                session: session,
-                name: name.text,
-                baseUrl: baseUrl.text,
-                username: username.text,
-                password: password.text,
-              );
-              created = true;
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            },
-            child: const Text('保存'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (_) => LibraryConnectionDialog(
+        api: widget.api,
+        session: session,
+        emby: emby,
       ),
     );
-    name.dispose();
-    baseUrl.dispose();
-    username.dispose();
-    password.dispose();
-    return created;
-  }
-
-  Future<bool> _promptAddEmby() async {
-    final session = _session;
-    if (session == null) return false;
-    final name = TextEditingController();
-    final baseUrl = TextEditingController();
-    final username = TextEditingController();
-    final password = TextEditingController();
-    var created = false;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('添加 Emby'),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: '名称'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: baseUrl,
-                decoration: const InputDecoration(
-                  labelText: 'HTTPS Emby API 地址',
-                  hintText: 'https://emby.example.com/emby/',
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: username,
-                decoration: const InputDecoration(labelText: 'Emby 用户名'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: password,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Emby 密码'),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '密码仅用于本次登录；服务端只加密保存 Emby 会话令牌。',
-                style: TextStyle(color: FrameColors.of(context).muted),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await widget.api.createEmbySource(
-                session: session,
-                name: name.text,
-                baseUrl: baseUrl.text,
-                username: username.text,
-                password: password.text,
-              );
-              created = true;
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            },
-            child: const Text('登录并保存'),
-          ),
-        ],
-      ),
-    );
-    name.dispose();
-    baseUrl.dispose();
-    username.dispose();
-    password.dispose();
-    return created;
+    return result != null;
   }
 
   Future<bool> _browseMediaSource(MediaSource source) async {
@@ -800,6 +590,9 @@ class _LobbyPageState extends State<LobbyPage> {
     );
     if (file == null || !mounted) return false;
     setState(() {
+      _mediaCenterOpen = false;
+      _mobileTab = 0;
+      _visitedTabs.add(0);
       _selectedMediaSourceId = source.id;
       _selectedMediaPath = file.path;
       _source.text =
@@ -905,6 +698,7 @@ class _LobbyPageState extends State<LobbyPage> {
   void _selectMobileTab(int tab) {
     FocusScope.of(context).unfocus();
     setState(() {
+      _mediaCenterOpen = false;
       _mobileTab = tab;
       _visitedTabs.add(tab);
     });
@@ -931,103 +725,125 @@ class _LobbyPageState extends State<LobbyPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width >= 700) return _buildLobby();
+    if (MediaQuery.sizeOf(context).width >= 700) {
+      return PopScope(
+        canPop: !_mediaCenterOpen,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) _closeMediaCenter();
+        },
+        child: _buildLobby(),
+      );
+    }
     final colors = FrameColors.of(context);
     final session = _session;
     return PopScope(
-      canPop: _mobileTab == 0,
+      canPop: _mobileTab == 0 && !_mediaCenterOpen,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _selectMobileTab(0);
+        if (!didPop) {
+          if (_mediaCenterOpen) {
+            _closeMediaCenter();
+          } else {
+            _selectMobileTab(0);
+          }
+        }
       },
       child: Scaffold(
         body: PrimaryScrollController.none(
-          child: IndexedStack(
-            index: _mobileTab,
+          child: Stack(
             children: [
-              _buildLobby(mobileTabs: true),
-              if (_visitedTabs.contains(1))
-                PublicRoomsPage(
-                  api: widget.api,
-                  session: session,
-                  embedded: true,
-                  onJoined: _openRoom,
-                  onLoginRequired: _loginForRoom,
-                )
-              else
-                const SizedBox.shrink(),
-              if (!_visitedTabs.contains(2))
-                const SizedBox.shrink()
-              else if (session != null)
-                LibraryPage(
-                  key: ValueKey(session.user.id),
-                  api: widget.api,
-                  session: session,
-                  embedded: true,
-                )
-              else
-                MobileLibrarySignIn(onLogin: () => _requestLogin(2)),
-              MobileProfile(
-                name: session?.user.displayName ?? '',
-                email: session?.user.email ?? '',
-                signedIn: session != null,
-                onLogin: () => _requestLogin(3),
-                onLogout: _logout,
-                verification: session == null || _verifiedOverride
-                    ? null
-                    : _VerificationCard(
-                        token: _verificationToken,
-                        busy: _busy,
-                        onRequest: _requestVerification,
-                        onVerify: _verifyEmail,
-                      ),
-                items: [
-                  (
-                    icon: Icons.folder_open_rounded,
-                    label: '我的媒体源',
-                    onTap: session == null ? null : _showMediaSources,
-                  ),
-                  (
-                    icon: Icons.people_outline_rounded,
-                    label: '好友与私聊',
-                    onTap: session == null ? null : _showSocial,
-                  ),
-                  (
-                    icon: Icons.favorite_border_rounded,
-                    label: '情侣空间',
-                    onTap: session == null ? null : _showCouple,
-                  ),
-                  (
-                    icon: Icons.security_outlined,
-                    label: '账号安全',
-                    onTap: session == null ? null : _showAccountSecurity,
-                  ),
-                  (
-                    icon: Icons.fact_check_outlined,
-                    label: '我的申请',
-                    onTap: session == null ? null : _showApprovals,
-                  ),
-                  (
-                    icon: Icons.devices_rounded,
-                    label: '设备管理',
-                    onTap: session == null ? null : _showDevices,
-                  ),
-                  (
-                    icon: Icons.shield_outlined,
-                    label: '隐私与屏蔽',
-                    onTap: session == null ? null : _showPrivacy,
-                  ),
-                  (
-                    icon: Icons.workspace_premium_outlined,
-                    label: '会员中心',
-                    onTap: session == null ? null : _showMembership,
-                  ),
-                  (
-                    icon: Icons.system_update_alt_rounded,
-                    label: '安全更新',
-                    onTap: _showUpdates,
-                  ),
-                ],
+              Offstage(
+                offstage: _mediaCenterOpen,
+                child: IndexedStack(
+                  index: _mobileTab,
+                  children: [
+                    _buildLobby(mobileTabs: true),
+                    if (_visitedTabs.contains(1))
+                      PublicRoomsPage(
+                        api: widget.api,
+                        session: session,
+                        embedded: true,
+                        onJoined: _openRoom,
+                        onLoginRequired: _loginForRoom,
+                      )
+                    else
+                      const SizedBox.shrink(),
+                    if (!_visitedTabs.contains(2))
+                      const SizedBox.shrink()
+                    else if (session != null)
+                      LibraryPage(
+                        key: ValueKey(session.user.id),
+                        api: widget.api,
+                        session: session,
+                        embedded: true,
+                      )
+                    else
+                      MobileLibrarySignIn(onLogin: () => _requestLogin(2)),
+                    MobileProfile(
+                      name: session?.user.displayName ?? '',
+                      email: session?.user.email ?? '',
+                      signedIn: session != null,
+                      onLogin: () => _requestLogin(3),
+                      onLogout: _logout,
+                      verification: session == null || _verifiedOverride
+                          ? null
+                          : _VerificationCard(
+                              token: _verificationToken,
+                              busy: _busy,
+                              onRequest: _requestVerification,
+                              onVerify: _verifyEmail,
+                            ),
+                      items: [
+                        (
+                          icon: Icons.folder_open_rounded,
+                          label: '我的媒体源',
+                          onTap: session == null ? null : _showMediaSources,
+                        ),
+                        (
+                          icon: Icons.people_outline_rounded,
+                          label: '好友与私聊',
+                          onTap: session == null ? null : _showSocial,
+                        ),
+                        (
+                          icon: Icons.favorite_border_rounded,
+                          label: '情侣空间',
+                          onTap: session == null ? null : _showCouple,
+                        ),
+                        (
+                          icon: Icons.security_outlined,
+                          label: '账号安全',
+                          onTap: session == null ? null : _showAccountSecurity,
+                        ),
+                        (
+                          icon: Icons.fact_check_outlined,
+                          label: '我的申请',
+                          onTap: session == null ? null : _showApprovals,
+                        ),
+                        (
+                          icon: Icons.devices_rounded,
+                          label: '设备管理',
+                          onTap: session == null ? null : _showDevices,
+                        ),
+                        (
+                          icon: Icons.shield_outlined,
+                          label: '隐私与屏蔽',
+                          onTap: session == null ? null : _showPrivacy,
+                        ),
+                        (
+                          icon: Icons.workspace_premium_outlined,
+                          label: '会员中心',
+                          onTap: session == null ? null : _showMembership,
+                        ),
+                        (
+                          icon: Icons.system_update_alt_rounded,
+                          label: '安全更新',
+                          onTap: _showUpdates,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+              if (_mediaCenterOpen && session != null) _mobileMediaCenter(),
             ],
           ),
         ),
@@ -1100,6 +916,11 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Widget _buildLobby({bool mobileTabs = false}) => LobbyLayout(
     mobileTabs: mobileTabs,
+    content: _mediaCenterOpen && _session != null && !mobileTabs
+        ? _mediaCenter()
+        : null,
+    activeDestination: _mediaCenterOpen ? '我的媒体源' : null,
+    onHome: _closeMediaCenter,
     preferJoin: _preferJoin,
     signedIn: _session != null,
     name: _session?.user.displayName ?? '',

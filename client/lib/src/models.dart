@@ -263,6 +263,10 @@ String mediaSourceLabel(String type) => switch (type) {
   'quark' => '夸克网盘',
   'emby' => 'Emby',
   'webdav' => 'WebDAV',
+  'remote-alist' => '远程 Alist',
+  'remote-emby' => '远程 Emby',
+  'remote-bilibili' => '远程哔哩哔哩',
+  'rtmp' => '房间直播',
   _ => '媒体源',
 };
 
@@ -272,8 +276,10 @@ class MediaSource {
     required this.type,
     required this.name,
     required this.baseUrl,
+    this.disabled = false,
   });
 
+  final bool disabled;
   final String id;
   final String type;
   final String name;
@@ -284,6 +290,7 @@ class MediaSource {
     type: json['type'] as String,
     name: json['name'] as String,
     baseUrl: json['base_url'] as String,
+    disabled: json['disabled'] == true,
   );
 }
 

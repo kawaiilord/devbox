@@ -9,10 +9,14 @@ class ProviderSourceDialog extends StatefulWidget {
     required this.api,
     required this.session,
     this.source,
+    this.initialProvider,
+    this.allowedProviders,
   });
   final ApiClient api;
   final Session session;
   final MediaSource? source;
+  final String? initialProvider;
+  final Set<String>? allowedProviders;
   @override
   State<ProviderSourceDialog> createState() => _ProviderSourceDialogState();
 }
@@ -34,7 +38,7 @@ class _ProviderSourceDialogState extends State<ProviderSourceDialog> {
   @override
   void initState() {
     super.initState();
-    _provider = widget.source?.type ?? 'bilibili';
+    _provider = widget.source?.type ?? widget.initialProvider ?? 'bilibili';
     _name.text = widget.source?.name ?? mediaSourceLabel(_provider);
     _base.text = widget.source?.baseUrl ?? '';
     _load();
@@ -47,7 +51,13 @@ class _ProviderSourceDialogState extends State<ProviderSourceDialog> {
         return;
       }
       setState(() {
-        _providers = providers;
+        _providers = providers
+            .where(
+              (p) =>
+                  widget.allowedProviders == null ||
+                  widget.allowedProviders!.contains(p.id),
+            )
+            .toList();
         _loading = false;
       });
     } catch (_) {

@@ -28,6 +28,9 @@ class LobbyLayout extends StatelessWidget {
     required this.onUpdates,
     required this.onLogout,
     this.error,
+    this.content,
+    this.activeDestination,
+    this.onHome,
     this.mobileTabs = false,
     this.preferJoin = false,
   });
@@ -39,6 +42,9 @@ class LobbyLayout extends StatelessWidget {
   final VoidCallback onSearch, onMembership, onUpdates, onLogout;
   final VoidCallback onDiscover, onGuestJoin;
   final String? error;
+  final Widget? content;
+  final String? activeDestination;
+  final VoidCallback? onHome;
   final bool mobileTabs, preferJoin;
 
   @override
@@ -51,7 +57,16 @@ class LobbyLayout extends StatelessWidget {
             : AppBar(
                 automaticallyImplyLeading: !mobileTabs,
                 toolbarHeight: constraints.maxWidth < 700 ? 60 : 68,
-                title: FrameBrand(compact: constraints.maxWidth < 420),
+                leading: content != null
+                    ? IconButton(
+                        tooltip: '返回观影大厅',
+                        onPressed: onHome,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      )
+                    : null,
+                title: content != null
+                    ? const Text('我的媒体源')
+                    : FrameBrand(compact: constraints.maxWidth < 420),
                 actions: [
                   const FrameThemeMenu(),
                   IconButton(
@@ -82,6 +97,7 @@ class LobbyLayout extends StatelessWidget {
                     if (desktop) _toolbar(context),
                     Expanded(
                       child: SingleChildScrollView(
+                        key: ValueKey(activeDestination ?? 'lobby'),
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         padding: EdgeInsets.fromLTRB(
@@ -93,19 +109,21 @@ class LobbyLayout extends StatelessWidget {
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1180),
-                            child: constraints.maxWidth < 700
-                                ? signedIn
-                                      ? MobileHome(
-                                          name: name,
-                                          create: create,
-                                          join: join,
-                                          error: error,
-                                          initiallyJoining: preferJoin,
-                                        )
-                                      : _mobileWelcome(context)
-                                : signedIn
-                                ? _workspace(context)
-                                : _welcome(context),
+                            child:
+                                content ??
+                                (constraints.maxWidth < 700
+                                    ? signedIn
+                                          ? MobileHome(
+                                              name: name,
+                                              create: create,
+                                              join: join,
+                                              error: error,
+                                              initiallyJoining: preferJoin,
+                                            )
+                                          : _mobileWelcome(context)
+                                    : signedIn
+                                    ? _workspace(context)
+                                    : _welcome(context)),
                           ),
                         ),
                       ),
@@ -191,7 +209,10 @@ class LobbyLayout extends StatelessWidget {
             style: TextStyle(color: FrameColors.of(context).border),
           ),
         ),
-        Text(signedIn ? '观影大厅' : '欢迎', style: const TextStyle(fontSize: 13)),
+        Text(
+          activeDestination ?? (signedIn ? '观影大厅' : '欢迎'),
+          style: const TextStyle(fontSize: 13),
+        ),
         const Spacer(),
         TextButton.icon(
           onPressed: onDiscover,
@@ -436,8 +457,11 @@ class LobbyLayout extends StatelessWidget {
               _NavItem(
                 icon: Icons.space_dashboard_outlined,
                 label: '观影大厅',
-                selected: true,
-                onTap: closeDrawer ? () => Navigator.of(context).pop() : null,
+                selected: activeDestination == null,
+                onTap: () {
+                  if (closeDrawer) Navigator.of(context).pop();
+                  onHome?.call();
+                },
               ),
               const SizedBox(height: 5),
               _NavItem(
@@ -463,6 +487,7 @@ class LobbyLayout extends StatelessWidget {
                 _NavItem(
                   icon: destinations[i].icon,
                   label: destinations[i].label,
+                  selected: activeDestination == destinations[i].label,
                   onTap: signedIn
                       ? () => _navigate(
                           context,
