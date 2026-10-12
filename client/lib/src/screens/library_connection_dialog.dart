@@ -61,11 +61,12 @@ class _LibraryConnectionDialogState extends State<LibraryConnectionDialog> {
             );
       if (mounted) Navigator.pop(context, source);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e is ApiException ? e.message : '连接失败，请检查服务地址和账号。';
           _busy = false;
         });
+      }
     }
   }
 

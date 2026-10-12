@@ -140,7 +140,7 @@ class _MediaCenterState extends State<MediaCenter> {
         )
         .where((group) => group.tools.isNotEmpty)
         .toList();
-    final toolCount = _mediaGroups.fold<int>(
+    final toolCount = groups.fold<int>(
       0,
       (count, group) => count + group.tools.length,
     );
@@ -180,7 +180,7 @@ class _MediaCenterState extends State<MediaCenter> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '$toolCount 个入口 · ${_mediaGroups.length} 个分类',
+                      '$toolCount 个入口 · ${groups.length} 个分类',
                       style: TextStyle(color: colors.muted, fontSize: 13),
                     ),
                   ],
@@ -611,7 +611,7 @@ const _mediaGroups = [
     ),
   ]),
   _MediaGroup('扩展服务', [
-    _MediaTool('remote', '远程媒体服务', '使用管理员配置的 Provider', Icons.hub_outlined, [
+    _MediaTool('remote', '远程媒体服务', '连接远端的网盘与媒体库', Icons.hub_outlined, [
       'remote-alist',
       'remote-emby',
       'remote-bilibili',
