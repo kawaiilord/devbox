@@ -38,7 +38,7 @@ func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecor
 	if review {
 		status = "pending"
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO users(id,email,display_name,password_hash,created_at,is_admin,admin_role,account_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, a.ID, a.Email, a.DisplayName, a.PasswordHash, a.CreatedAt, a.IsAdmin, a.AdminRole, status)
+	_, err = tx.Exec(ctx, `INSERT INTO users(id,email,display_name,password_hash,created_at,is_admin,admin_role,account_status,email_verified_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9 THEN now() ELSE NULL END)`, a.ID, a.Email, a.DisplayName, a.PasswordHash, a.CreatedAt, a.IsAdmin, a.AdminRole, status, a.EmailVerified)
 	if err != nil {
 		var p *pgconn.PgError
 		if errors.As(err, &p) && p.Code == "23505" {

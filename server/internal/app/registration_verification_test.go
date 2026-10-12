@@ -12,7 +12,27 @@ import (
 )
 
 func TestVerifiedRegistrationAndAccountBoundary(t *testing.T) {
-	repo := NewMemoryRepository()
+	testVerifiedRegistrationAndAccountBoundary(t, NewMemoryRepository())
+}
+
+func TestPostgresVerifiedRegistrationAndAccountBoundary(t *testing.T) {
+	ctx := context.Background()
+	repo, err := OpenPostgres(ctx, testDatabaseURL(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	if err := repo.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.pool.Exec(ctx, "TRUNCATE users,admin_documents,auth_challenges CASCADE"); err != nil {
+		t.Fatal(err)
+	}
+	defer repo.pool.Exec(ctx, "TRUNCATE users,admin_documents,auth_challenges CASCADE")
+	testVerifiedRegistrationAndAccountBoundary(t, repo)
+}
+
+func testVerifiedRegistrationAndAccountBoundary(t *testing.T, repo Repository) {
 	tokens, _ := NewTokenManager("registration-test-secret-at-least-32-bytes", "verified-registration")
 	mailer := &MemoryMailer{}
 	server := NewServer(Options{Repository: repo, Auth: NewAuthService(repo, tokens, mailer), RequireAccount: true, RequireRegistrationCode: true, AllowDemoAuth: true})
@@ -59,6 +79,10 @@ func TestVerifiedRegistrationAndAccountBoundary(t *testing.T) {
 	json.Unmarshal(raw, &registered)
 	if registered.Data.AccessToken == "" || !registered.Data.User.EmailVerified {
 		t.Fatal("verified registration did not issue a verified account")
+	}
+	stored, err := repo.UserByEmail(context.Background(), email)
+	if err != nil || !stored.EmailVerified {
+		t.Fatal("email verification was not persisted with the account")
 	}
 	if got := requestStatusDevice(t, "GET", httpServer.URL+"/api/v1/public/rooms", registered.Data.AccessToken, nil, device); got != 200 {
 		t.Fatalf("authenticated discovery: %d", got)
