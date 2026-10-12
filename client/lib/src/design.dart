@@ -342,26 +342,32 @@ class FrameBrand extends StatelessWidget {
     children: [
       const FrameMark(),
       const SizedBox(width: 11),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            compact ? 'SameFrame' : 'SameFrame · 同帧',
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -.5,
-            ),
-          ),
-          if (compact)
+      Flexible(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              '同帧 / 共享此刻',
-              style: TextStyle(
-                fontSize: 10,
-                color: FrameColors.of(context).muted,
+              compact ? 'SameFrame' : 'SameFrame · 同帧',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -.5,
               ),
             ),
-        ],
+            if (compact)
+              Text(
+                '同帧 / 共享此刻',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: FrameColors.of(context).muted,
+                ),
+              ),
+          ],
+        ),
       ),
     ],
   );

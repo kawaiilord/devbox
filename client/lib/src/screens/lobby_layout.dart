@@ -518,13 +518,17 @@ class LobbyLayout extends StatelessWidget {
                         children: [
                           const Row(
                             children: [
-                              Text(
-                                'SameFrame',
-                                style: TextStyle(fontWeight: FontWeight.w500),
+                              Expanded(
+                                child: Text(
+                                  'SameFrame',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
                               ),
                               SizedBox(width: 6),
                               FramePill('PLUS'),
-                              Spacer(),
+                              SizedBox(width: 6),
                               Icon(Icons.arrow_outward_rounded, size: 15),
                             ],
                           ),
