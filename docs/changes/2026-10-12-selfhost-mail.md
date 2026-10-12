@@ -32,6 +32,7 @@
 ## 基线与回滚
 
 - 应用版本：`4bbf313`，本次仅增加部署配置和运维脚本，不替换应用二进制或网页资源。
+- 运维脚本提交：`598d12c`（仅部署脚本及记录，未触发应用重构建）。
 - 基线标签：`rollback/pre-selfhost-mail-20261012`。
 - 私有状态：`/opt/sameframe/mail/`；清单 `deployment.json`。
 - 备份：`/opt/sameframe/mail/backup-20261012-151939`，原配置与 PostgreSQL dump 已逐项校验 SHA-256。
