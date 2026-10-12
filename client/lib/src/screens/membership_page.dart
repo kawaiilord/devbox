@@ -6,6 +6,7 @@ import 'workspace_section.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
 import '../models.dart';
@@ -39,6 +40,8 @@ class _MembershipPageState extends State<MembershipPage> {
   bool _busy = false;
   String? _error;
   Timer? _poll;
+  String get _redemptionStorageKey =>
+      'membership.pending-redemption.${widget.session.user.id}';
 
   @override
   void initState() {
@@ -56,6 +59,7 @@ class _MembershipPageState extends State<MembershipPage> {
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     try {
+      final preferences = await SharedPreferences.getInstance();
       final values = await Future.wait<Object>([
         widget.api.vipInfo(),
         widget.api.membership(widget.session),
@@ -70,6 +74,7 @@ class _MembershipPageState extends State<MembershipPage> {
         _status = values[2] as CheckInStatus;
         _orders = values[3] as List<VipOrder>;
         _transactions = values[4] as List<PointsTransaction>;
+        _redemptionRequestId = preferences.getString(_redemptionStorageKey);
         _error = null;
       });
       widget.onMembershipChanged?.call(_membership!);
@@ -90,7 +95,10 @@ class _MembershipPageState extends State<MembershipPage> {
       await action();
       await _load();
     } catch (exception) {
-      if (mounted) setState(() => _error = exception.toString());
+      if (mounted) {
+        await _load();
+        if (mounted) setState(() => _error = exception.toString());
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -130,12 +138,16 @@ class _MembershipPageState extends State<MembershipPage> {
 
   Future<void> _redeem() async {
     final reward = _status?.monthlyReward;
-    if (_busy || reward == null || (_membership?.isLifetime ?? false)) return;
+    if (_busy ||
+        reward == null ||
+        (_redemptionRequestId == null && (_membership?.isLifetime ?? false)))
+      return;
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('兑换 PLUS 会员月卡'),
         content: Text(
+          '${_redemptionRequestId != null ? '将核对上次兑换，已成功的请求不会重复扣分。' : ''}'
           '本次消耗 ${reward.points} 积分，获得 ${reward.days} 天会员。'
           '${_membership?.isCurrent == true ? '有效期将从当前到期时间延长。' : '兑换成功后立即生效。'}',
         ),
@@ -154,10 +166,27 @@ class _MembershipPageState extends State<MembershipPage> {
     if (!mounted || accepted != true) return;
     _redemptionRequestId ??= const Uuid().v4();
     await _run(() async {
-      final receipt = await widget.api.redeemMonthlyMembership(
-        widget.session,
+      final preferences = await SharedPreferences.getInstance();
+      if (!await preferences.setString(
+        _redemptionStorageKey,
         _redemptionRequestId!,
-      );
+      )) {
+        throw const ApiException('未能保存兑换请求，请稍后重试。');
+      }
+      MembershipRedemption receipt;
+      try {
+        receipt = await widget.api.redeemMonthlyMembership(
+          widget.session,
+          _redemptionRequestId!,
+        );
+      } on ApiException catch (error) {
+        if (error.data['redemption_rejected'] == true) {
+          await preferences.remove(_redemptionStorageKey);
+          _redemptionRequestId = null;
+        }
+        rethrow;
+      }
+      await preferences.remove(_redemptionStorageKey);
       _redemptionRequestId = null;
       if (mounted) {
         setState(() => _notice = '兑换成功，${receipt.durationDays} 天 PLUS 会员已到账。');
@@ -479,6 +508,7 @@ class _MembershipPageState extends State<MembershipPage> {
     final cost = reward?.points ?? 30;
     final missing = (cost - status.availablePoints).clamp(0, cost);
     final lifetime = _membership?.isLifetime ?? false;
+    final pending = _redemptionRequestId != null;
     return FrameSection(
       title: '会员月卡',
       subtitle: '每张月卡增加 ${reward?.days ?? 30} 天，有效会员可累加续期。',
@@ -515,7 +545,9 @@ class _MembershipPageState extends State<MembershipPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            lifetime
+            pending
+                ? '上次兑换结果待确认，核对不会重复扣分。'
+                : lifetime
                 ? '你已享有长期会员，无需兑换月卡。'
                 : missing == 0
                 ? '积分已足够，可以兑换会员月卡。'
@@ -529,12 +561,17 @@ class _MembershipPageState extends State<MembershipPage> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _busy || reward == null || missing > 0 || lifetime
+              onPressed:
+                  _busy ||
+                      reward == null ||
+                      (!pending && (missing > 0 || lifetime))
                   ? null
                   : _redeem,
               icon: const Icon(Icons.diamond_outlined, size: 18),
               label: Text(
-                lifetime
+                pending
+                    ? '确认上次兑换'
+                    : lifetime
                     ? '已享长期会员'
                     : reward == null
                     ? '兑换服务暂不可用'

@@ -79,7 +79,9 @@ by `GET /api/v1/check-ins/status`: **30 points for 30 days**. To redeem, send:
 ```
 
 to `POST /api/v1/points/redeem-month`. Keep the same request identifier when
-retrying an uncertain response. The server fixes the cost and duration, locks the
+retrying an uncertain response. The client persists pending request IDs across
+page reloads and offers a result-recovery action even when the balance has already
+been debited. Definite business rejections clear the pending request. The server fixes the cost and duration, locks the
 user before the points account, and atomically writes the debit, membership expiry,
 ledger and receipt. Receipts are scoped to the user. Insufficient points and
 lifetime membership do not debit the balance. An active membership extends from its

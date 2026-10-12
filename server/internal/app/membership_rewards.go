@@ -17,6 +17,8 @@ func isLifetimeMembership(expiry int64) bool {
 	return expiry >= time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
 }
 
+var errLifetimeMembership = errors.New("当前为长期会员，无需兑换月卡")
+
 var redemptionRequestPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16,80}$`)
 
 type MembershipReward struct {
@@ -62,8 +64,12 @@ func (s *Server) redeemMonthlyMembership(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	receipt, err := s.repo.RedeemMonthlyMembership(r.Context(), user.ID, request.RequestID)
-	if errors.Is(err, ErrInsufficientPoints) {
-		writeError(w, http.StatusBadRequest, errors.New("积分不足，兑换月卡需要 30 积分"))
+	if errors.Is(err, ErrInsufficientPoints) || errors.Is(err, errLifetimeMembership) {
+		message := "积分不足，兑换月卡需要 30 积分"
+		if errors.Is(err, errLifetimeMembership) {
+			message = err.Error()
+		}
+		writeJSON(w, http.StatusBadRequest, apiResponse{Code: http.StatusBadRequest, Data: map[string]bool{"redemption_rejected": true}, Msg: message})
 		return
 	}
 	if err != nil {
@@ -86,7 +92,7 @@ func (r *MemoryRepository) RedeemMonthlyMembership(_ context.Context, userID, re
 		return MembershipRedemption{}, ErrNotFound
 	}
 	if isLifetimeMembership(user.VIPExpiresAt) {
-		return MembershipRedemption{}, errors.New("当前为长期会员，无需兑换月卡")
+		return MembershipRedemption{}, errLifetimeMembership
 	}
 	points := r.pointsAccounts[userID]
 	if points.balance < monthlyMembershipPoints {
@@ -133,7 +139,7 @@ func (r *PostgresRepository) RedeemMonthlyMembership(ctx context.Context, userID
 		return MembershipRedemption{}, err
 	}
 	if isLifetimeMembership(current) {
-		return MembershipRedemption{}, errors.New("当前为长期会员，无需兑换月卡")
+		return MembershipRedemption{}, errLifetimeMembership
 	}
 	var balance int64
 	err = tx.QueryRow(ctx, `UPDATE points_accounts SET balance=balance-$2,total_spent=total_spent+$2,updated_at=now() WHERE user_id=$1 AND balance>=$2 RETURNING balance`, userID, monthlyMembershipPoints).Scan(&balance)
