@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+var ErrRegistrationEmailVerification = errors.New("请先完成邮箱验证码验证")
+
 type registrationVerification struct {
 	Email      string `json:"email"`
 	DeviceHash string `json:"device_hash"`
@@ -21,13 +23,13 @@ type registrationVerification struct {
 }
 
 func (s *Server) requestRegistrationCode(w http.ResponseWriter, r *http.Request) {
-	if !s.options.RequireRegistrationCode {
-		writeError(w, 403, errors.New("注册邮箱验证码暂未启用"))
-		return
-	}
 	policy, _, err := s.sitePolicy(r.Context())
 	if err != nil {
 		writeError(w, 503, errors.New("注册服务暂不可用"))
+		return
+	}
+	if !policy.RegistrationRequiresEmailCode {
+		writeError(w, 403, errors.New("注册邮箱验证码暂未启用"))
 		return
 	}
 	if !policy.RegistrationEnabled {

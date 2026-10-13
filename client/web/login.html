@@ -1,62 +1,38 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="/">
-
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="同帧 SameFrame — 同步观影，共享此刻。">
   <meta name="theme-color" content="#fafafa">
   <meta name="color-scheme" content="light dark">
-  <style>
-    html, body { margin: 0; background: var(--frame-background, #fafafa); color: var(--frame-foreground, #18181b); }
-  </style>
-  <script src="appearance.js"></script>
-
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="SameFrame">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png?v=transparent-2">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png?v=transparent-2"/>
-
-  <title>登录 · 同帧</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=transparent-2">
-  <link rel="manifest" href="manifest.json">
+  <meta name="description" content="同帧 SameFrame · 和你想见的人，共享每一个好瞬间。">
+  <title>登录同帧 · 同帧</title>
+  <link rel="icon" href="/favicon.svg?v=transparent-2" type="image/svg+xml">
+  <link rel="canonical" href="https://sameframe.top/login">
+  <link rel="stylesheet" href="/site/account.css">
+  <script src="/appearance.js"></script>
+  <script src="/site/device.js" defer></script>
+  <script src="/site/account.js" defer></script>
 </head>
-<body>
-  <div id="entryLoading" role="status" style="min-height:100vh;display:grid;place-content:center;text-align:center;font:13px system-ui;color:var(--frame-foreground,#18181b)">
-    <p>同帧 SAMEFRAME</p><p style="opacity:.55">正在准备你的观影空间…</p>
-  </div>
-  <script src="site/entry-loading.js"></script>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="vendor/shaka-player.compiled.js"></script>
-  <script src="vendor/mpegts.js"></script>
-  <script src="adaptive-media.js"></script>
-  <script src="security-bridge.js"></script>
-  <script src="flutter_bootstrap.js" async></script>
+<body data-account-mode="login">
+  <header class="entry-header"><a class="brand" href="/" aria-label="同帧官网"><img src="/icons/frame-mark.svg" width="38" height="38" alt=""><span><strong>同帧</strong><small>SAMEFRAME</small></span></a><button class="theme-toggle" id="themeToggle" type="button" aria-label="切换为深色" title="切换为深色"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></header>
+  <main class="entry-main">
+    <section class="entry-story" aria-label="同帧，一起看"><p class="eyebrow">SAMEFRAME / A SHARED MOMENT</p><h2>好故事，<br><span>值得一起看。</span></h2><p class="story-description">一个放映室，一部好电影。<br>和你想见的人，共享每一个好瞬间。</p><div class="entry-art" aria-hidden="true"><div class="art-frame art-back"></div><div class="art-frame art-front"><svg viewBox="0 0 24 24"><path d="m8 4 13 8-13 8Z"/></svg></div></div><p class="story-signature">ONE FRAME. TOGETHER.</p></section>
+    <section class="account-card" aria-labelledby="accountTitle">
+      <div class="card-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg></div>
+      <h1 id="accountTitle">登录同帧</h1><p class="form-intro" id="accountIntro">欢迎回来，继续你们的故事。</p>
+      <form id="accountForm" class="account-form" method="post" action="/api/v1/auth/login">
+        <div class="field"><label for="email">邮箱</label><input id="email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required></div><div class="field"><div class="label-row"><label for="password">密码</label><a href="/forgot-password">忘记密码？</a></div><div class="password-input"><input id="password" name="password" type="password" autocomplete="current-password"  maxlength="128" placeholder="输入你的密码" required><button type="button" id="passwordToggle" class="password-toggle" aria-label="显示密码" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+        <div id="formMessage" class="form-message" role="alert" tabindex="-1" hidden></div>
+        <button class="primary" id="submitAccount" type="submit" ><span>登录</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button>
+      </form>
+      <form id="mfaForm" class="mfa-form" hidden><div class="field"><label for="mfaCode">动态验证码或恢复码</label><input id="mfaCode" name="mfa_code" autocomplete="one-time-code" maxlength="128" required></div><p id="mfaMessage" class="form-message error" role="alert" hidden></p><button id="submitMfa" class="primary" type="submit"><span>验证并登录</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button><p class="form-switch"><button id="cancelMfa" class="text-button" type="button">使用其他账号</button></p></form>
+      <p id="registrationStatus" class="rules-status" hidden><span id="rulesText">正在读取注册设置…</span><button id="retryRules" class="text-button" type="button" hidden>重试</button></p>
+      <p class="form-switch" id="formSwitch"><span>还没有账号？</span><a href="/register">创建账号</a></p>
+      <noscript><p class="noscript">请启用 JavaScript 后提交账号信息。</p></noscript>
+    </section>
+  </main>
+  <footer class="entry-footer">同帧 · 让每一幕，都有共鸣。</footer>
 </body>
 </html>

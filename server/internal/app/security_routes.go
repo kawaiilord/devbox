@@ -3,6 +3,8 @@ package app
 import "net/http"
 
 func (s *Server) registerSecurityRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /api/v1/auth/web-session", s.webEntryStart)
+	mux.HandleFunc("POST /api/v1/auth/web-session/exchange", s.webEntryExchange)
 	mux.HandleFunc("GET /api/v1/admin/smtp", s.adminSMTP)
 	mux.HandleFunc("PUT /api/v1/admin/smtp", s.adminSMTP)
 	mux.HandleFunc("POST /api/v1/admin/smtp/test", s.adminSMTPTest)

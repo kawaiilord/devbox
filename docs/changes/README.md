@@ -14,3 +14,5 @@
 - [自建邮件服务与待完成的 DNS/PTR](2026-10-12-selfhost-mail.md)
 
 - [注册邀请码与暂停邮箱验证码](2026-10-12-registration-invites.md)
+
+- [邮箱验证开关与轻量账号页](2026-10-13-fast-auth.md)

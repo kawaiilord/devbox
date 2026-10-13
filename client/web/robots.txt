@@ -5,4 +5,8 @@ Disallow: /api/
 Disallow: /app.html
 Disallow: /login.html
 Disallow: /register.html
+Disallow: /app
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
 Sitemap: https://sameframe.top/sitemap.xml

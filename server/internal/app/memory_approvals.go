@@ -36,6 +36,9 @@ func (r *MemoryRepository) RegisterAccount(_ context.Context, account AccountRec
 	if !policy.RegistrationEnabled {
 		return ApprovalRequest{}, ErrForbidden
 	}
+	if policy.RegistrationRequiresEmailCode && !account.EmailVerified {
+		return ApprovalRequest{}, ErrRegistrationEmailVerification
+	}
 	hash := ""
 	var invite RegistrationInvite
 	if policy.RegistrationRequiresInvite {

@@ -2,7 +2,7 @@
 (() => {
   // Existing installed shortcuts may still start at '/'. Keep them in the app.
   if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-    location.replace(new URL('app.html', location.href));
+    location.replace(new URL('app', location.href));
     return;
   }
   const menu = document.getElementById('mobileMenu');

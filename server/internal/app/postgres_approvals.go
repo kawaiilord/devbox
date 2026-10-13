@@ -48,6 +48,9 @@ func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecor
 	if !policy.RegistrationEnabled {
 		return ApprovalRequest{}, ErrForbidden
 	}
+	if policy.RegistrationRequiresEmailCode && !a.EmailVerified {
+		return ApprovalRequest{}, ErrRegistrationEmailVerification
+	}
 	hash := ""
 	inviteID := ""
 	if policy.RegistrationRequiresInvite {

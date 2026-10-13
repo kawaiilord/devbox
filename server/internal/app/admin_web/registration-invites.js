@@ -6,8 +6,8 @@ pages.registration_invites = async function registrationInvites(view) {
   const filters = filtersFor('registration_invites');
   const statuses = {active:'可使用',used:'已使用',expired:'已过期',revoked:'已撤销'};
   view.innerHTML = `<section class="panel form-panel">${panelHeader('注册访问','为新用户设置注册门槛。已有账号登录不受影响。','shield')}
-    <form id="invitePolicyForm">${toggleField('registration_requires_invite','注册必须填写邀请码',settings.policy.registration_requires_invite,'开启后需要有效邀请码；关闭后注册页不显示邀请码输入框。')}
-    <div class="form-actions"><button type="submit">保存邀请码设置</button><span class="muted">每个邀请码仅可注册一个账号</span></div></form></section>
+    <form id="invitePolicyForm">${toggleField('registration_requires_email_code','注册邮箱验证',settings.policy.registration_requires_email_code,'开启后需要邮箱验证码，关闭后前台隐藏验证码。开启前请先配置可用的邮件服务。')}${toggleField('registration_requires_invite','注册必须填写邀请码',settings.policy.registration_requires_invite,'开启后需要有效邀请码；关闭后注册页不显示邀请码输入框。')}
+    <div class="form-actions"><button type="submit">保存注册设置</button><span class="muted">每个邀请码仅可注册一个账号</span></div></form></section>
     <section class="panel form-panel">${panelHeader('批量创建邀请码','生成后可复制或下载。完整邀请码仅在生成时显示一次。','codes')}
     <form id="registrationInviteForm" class="form-grid">${textField('label','批次备注','','text','maxlength="80" placeholder="例如：首批体验用户"')}${textField('count','生成数量',10,'number','required min="1" max="100" step="1"')}${textField('expires_days','有效天数',30,'number','required min="0" max="365" step="1"')}
     <p class="hint">每批最多 100 个；有效天数设为 0 表示长期有效。邀请码用于注册，不兑换会员。</p><button type="submit">批量创建邀请码</button></form>
@@ -30,10 +30,11 @@ pages.registration_invites = async function registrationInvites(view) {
   }
   bindForm(view,'#invitePolicyForm',async()=>{
     const toggle=view.querySelector('[name="registration_requires_invite"]');
+    const emailToggle=view.querySelector('[name="registration_requires_email_code"]');
     try {
-      settings=await api('/api/v1/admin/site-policy',{method:'PUT',headers:{'X-Confirm-Dangerous':'update-site-policy'},body:JSON.stringify({version:settings.version,policy:{...settings.policy,registration_requires_invite:toggle.checked}})});
-      notify(settings.policy.registration_requires_invite?'已开启邀请码注册':'已关闭邀请码要求');
-    } catch(error) { toggle.checked=settings.policy.registration_requires_invite;throw error; }
+      settings=await api('/api/v1/admin/site-policy',{method:'PUT',headers:{'X-Confirm-Dangerous':'update-site-policy'},body:JSON.stringify({version:settings.version,policy:{...settings.policy,registration_requires_invite:toggle.checked,registration_requires_email_code:emailToggle.checked}})});
+      notify('注册设置已保存，前台按新规则生效');
+    } catch(error) { toggle.checked=settings.policy.registration_requires_invite;emailToggle.checked=settings.policy.registration_requires_email_code;throw error; }
   });
   bindForm(view,'#registrationInviteForm',async()=>{
     const form=new FormData(view.querySelector('#registrationInviteForm'));

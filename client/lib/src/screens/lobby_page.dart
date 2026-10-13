@@ -111,8 +111,9 @@ class _LobbyPageState extends State<LobbyPage> {
     if (kIsWeb) {
       final entry = Uri.base.path.split('/').last;
       _publicAuthEntry = true;
-      _registerMode = entry == 'register.html';
-      if (entry == 'app.html' && Uri.base.queryParameters['discover'] == '1') {
+      _registerMode = entry == 'register.html' || entry == 'register';
+      if ((entry == 'app.html' || entry == 'app') &&
+          Uri.base.queryParameters['discover'] == '1') {
         _workspacePanel = _WorkspacePanel.discover;
         _mobileTab = 1;
       }
@@ -151,11 +152,16 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Future<void> _restoreSession() async {
     try {
-      final session = await widget.sessionStore.read();
+      Session? session;
+      if (kIsWeb) {
+        session = await widget.api.claimWebEntry();
+        if (session != null) await widget.sessionStore.write(session);
+      }
+      session ??= await widget.sessionStore.read();
       if (!mounted) return;
       if (session == null || session.user.isGuest) {
         if (session != null) await widget.sessionStore.clear();
-        if (kIsWeb) setBrowserEntry(_registerMode ? 'register' : 'login');
+        if (kIsWeb) openAccountEntry(_registerMode ? 'register' : 'login');
         return;
       }
       await widget.api.listDevices(session);
@@ -169,6 +175,7 @@ class _LobbyPageState extends State<LobbyPage> {
       await _showStartupAnnouncement();
     } catch (_) {
       await widget.sessionStore.clear();
+      if (kIsWeb) openAccountEntry('login');
     } finally {
       if (mounted) setState(() => _restoringSession = false);
     }
@@ -471,7 +478,7 @@ class _LobbyPageState extends State<LobbyPage> {
       await widget.api.logout(session);
       await widget.sessionStore.clear();
       if (mounted) {
-        if (kIsWeb) setBrowserEntry('login');
+        if (kIsWeb) openAccountEntry('login');
         setState(() {
           _session = null;
           _publicAuthEntry = kIsWeb;
@@ -985,7 +992,18 @@ class _LobbyPageState extends State<LobbyPage> {
   }
 
   @override
-  Widget build(BuildContext context) => _session == null
+  Widget build(BuildContext context) =>
+      kIsWeb && _restoringSession && _session == null
+      ? const Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        )
+      : _session == null
       ? PublicAuthPage(
           registerMode: _registerMode,
           restoring: _restoringSession,

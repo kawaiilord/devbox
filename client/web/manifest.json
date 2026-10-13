@@ -1,7 +1,7 @@
 {
     "name": "SameFrame",
     "short_name": "SameFrame",
-    "start_url": "/app.html",
+    "start_url": "/app",
     "display": "standalone",
     "background_color": "#fafafa",
     "theme_color": "#fafafa",

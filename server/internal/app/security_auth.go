@@ -465,7 +465,7 @@ func (s *Server) publicLoginOptions(w http.ResponseWriter, r *http.Request) {
 			providers = append(providers, map[string]string{"id": p.ID, "name": p.Name, "kind": p.Kind})
 		}
 	}
-	writeJSON(w, 200, apiResponse{Code: 0, Data: map[string]any{"password_login": c.PasswordLogin, "email_login": c.EmailLogin, "passkeys": c.Passkeys, "providers": providers, "registration_enabled": policy.RegistrationEnabled, "registration_invite_required": policy.RegistrationRequiresInvite, "registration_email_code_required": s.options.RequireRegistrationCode}})
+	writeJSON(w, 200, apiResponse{Code: 0, Data: map[string]any{"password_login": c.PasswordLogin, "email_login": c.EmailLogin, "passkeys": c.Passkeys, "providers": providers, "registration_enabled": policy.RegistrationEnabled, "registration_invite_required": policy.RegistrationRequiresInvite, "registration_email_code_required": policy.RegistrationRequiresEmailCode}})
 }
 func (s *Server) adminLoginConfig(w http.ResponseWriter, r *http.Request) {
 	actor, ok := s.requirePermission(w, r, "config.write")

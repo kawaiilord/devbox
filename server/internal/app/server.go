@@ -467,7 +467,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		!s.enforceRateLimit(w, r, "register-device", device.ID, 5, time.Hour) {
 		return
 	}
-	if s.options.RequireRegistrationCode {
+	if policy.RegistrationRequiresEmailCode {
 		if _, err := validateCredentials(request.Email, request.DisplayName, request.Password); err != nil {
 			writeError(w, 400, err)
 			return
@@ -478,7 +478,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	session, err := s.auth.registerWithOptions(
-		r.Context(), request.Email, request.DisplayName, request.Password, accountRegistrationOptions{Verified: s.options.RequireRegistrationCode, InviteCode: request.InviteCode}, device,
+		r.Context(), request.Email, request.DisplayName, request.Password, accountRegistrationOptions{Verified: policy.RegistrationRequiresEmailCode, InviteCode: request.InviteCode}, device,
 	)
 	if writeLoginChallenge(w, err) || writeApprovalPending(w, err) {
 		return

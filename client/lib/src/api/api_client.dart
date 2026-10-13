@@ -35,6 +35,16 @@ class ApiClient {
     return Session.fromJson(data);
   }
 
+  Future<Session?> claimWebEntry() async {
+    final data = await _request(
+      'POST',
+      '/api/v1/auth/web-session/exchange',
+      body: {},
+    );
+    if (data['access_token'] == null) return null;
+    return Session.fromJson(data);
+  }
+
   Future<Map<String, dynamic>> requestRegistrationCode(String email) =>
       _request('POST', '/api/v1/auth/register/code', body: {'email': email});
 

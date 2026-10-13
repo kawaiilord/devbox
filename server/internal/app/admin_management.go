@@ -227,7 +227,22 @@ func (s *Server) invalidateLiveUser(ctx context.Context, id string) {
 	s.emitEnvelope(ctx, Envelope{Type: "admin.user.invalidated", From: "server", Payload: payload})
 }
 func (s *Server) sitePolicy(ctx context.Context) (SitePolicy, AdminDocument, error) {
-	return loadSitePolicy(ctx, s.repo)
+	policy, document, err := loadSitePolicy(ctx, s.repo)
+	if err != nil {
+		return policy, document, err
+	}
+	var explicit struct {
+		EmailCode *bool `json:"registration_requires_email_code"`
+	}
+	if len(document.Data) > 0 {
+		if err = json.Unmarshal(document.Data, &explicit); err != nil {
+			return policy, document, err
+		}
+	}
+	if explicit.EmailCode == nil {
+		policy.RegistrationRequiresEmailCode = s.options.RequireRegistrationCode
+	}
+	return policy, document, nil
 }
 func loadSitePolicy(ctx context.Context, repo Repository) (SitePolicy, AdminDocument, error) {
 	d, err := repo.GetAdminDocument(ctx, "site_policy")
