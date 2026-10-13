@@ -52,15 +52,20 @@ class RoomSocket {
 
   void send(String type, int sequence, Map<String, dynamic> payload) {
     final channel = _channel;
-    if (channel == null) return;
-    channel.sink.add(
-      jsonEncode({
-        'type': type,
-        'seq': sequence,
-        'ts': DateTime.now().millisecondsSinceEpoch,
-        'payload': payload,
-      }),
-    );
+    if (_closed || channel == null) return;
+    try {
+      channel.sink.add(
+        jsonEncode({
+          'type': type,
+          'seq': sequence,
+          'ts': DateTime.now().millisecondsSinceEpoch,
+          'payload': payload,
+        }),
+      );
+    } on StateError {
+      // A transport can close before its onDone callback is delivered.
+      _scheduleReconnect();
+    }
   }
 
   void _onMessage(dynamic message) {
@@ -81,10 +86,15 @@ class RoomSocket {
   }
 
   Future<void> close() async {
+    if (_closed) return;
     _closed = true;
     _retryTimer?.cancel();
-    await _subscription?.cancel();
-    await _channel?.sink.close();
+    final subscription = _subscription;
+    final channel = _channel;
+    _subscription = null;
+    _channel = null;
+    await subscription?.cancel();
+    await channel?.sink.close();
     await _events.close();
     await _connection.close();
   }
