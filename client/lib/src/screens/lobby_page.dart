@@ -152,12 +152,12 @@ class _LobbyPageState extends State<LobbyPage> {
 
   Future<void> _restoreSession() async {
     try {
-      Session? session;
+      Session? transferred;
       if (kIsWeb) {
-        session = await widget.api.claimWebEntry();
-        if (session != null) await widget.sessionStore.write(session);
+        transferred = await widget.api.claimWebEntry();
+        if (transferred != null) await widget.sessionStore.write(transferred);
       }
-      session ??= await widget.sessionStore.read();
+      final session = transferred ?? await widget.sessionStore.read();
       if (!mounted) return;
       if (session == null || session.user.isGuest) {
         if (session != null) await widget.sessionStore.clear();
