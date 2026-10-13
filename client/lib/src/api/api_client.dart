@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../device_identity.dart';
 import '../models.dart';
 import '../discovery_models.dart';
+import '../catalog_models.dart';
 
 class ApiClient {
   ApiClient({
@@ -1050,6 +1051,7 @@ class ApiClient {
     String mediaPath = '',
     double startPosition = 0,
     Map<String, dynamic>? settings,
+    Map<String, dynamic>? catalog,
   }) async {
     final data = await _request(
       'POST',
@@ -1063,10 +1065,79 @@ class ApiClient {
         'max_members': 8,
         'start_position': startPosition,
         'settings': ?settings,
+        'catalog': ?catalog,
       },
     );
     return _roomFromJson(data);
   }
+
+  Future<List<CatalogSource>> catalogSources(Session session) async {
+    final data = await _request(
+      'GET',
+      '/api/v1/catalog/sources',
+      session: session,
+    );
+    return (data['sources'] as List)
+        .map((j) => CatalogSource.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CatalogSearch> searchCatalog(
+    Session session,
+    String sourceId,
+    String query, {
+    int page = 1,
+  }) async => CatalogSearch.fromJson(
+    await _request(
+      'GET',
+      '/api/v1/catalog/search?${Uri(queryParameters: {'source_id': sourceId, 'q': query, 'page': '$page'}).query}',
+      session: session,
+    ),
+  );
+
+  Future<CatalogFilm> catalogDetail(
+    Session session,
+    CatalogFilm film,
+  ) async => CatalogFilm.fromJson(
+    await _request(
+      'GET',
+      '/api/v1/catalog/detail?${Uri(queryParameters: {'source_id': film.sourceId, 'id': film.id}).query}',
+      session: session,
+    ),
+  );
+
+  Future<List<PlaylistEntry>> catalogPlaylist(
+    Session session,
+    Map<String, dynamic> selection,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/catalog/playlist',
+      session: session,
+      body: selection,
+    );
+    return (data['items'] as List)
+        .map((j) => PlaylistEntry.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Room> recoverCatalogPlayback(
+    Session session,
+    Room room,
+    List<String> attempted,
+  ) async => _roomFromJson(
+    await _request(
+      'POST',
+      '/api/v1/rooms/${room.code}/playback/recover',
+      session: session,
+      body: {
+        'version': room.features?.version ?? 0,
+        'source_version': room.playback.sourceVersion,
+        'item_id': room.features?.activeItemId ?? '',
+        'attempted': attempted,
+      },
+    ),
+  );
 
   Future<Room> joinRoom({
     required Session session,

@@ -56,6 +56,7 @@ const tabs = [
   ['config', '运行配置', 'CONFIGURATION', '管理维护模式、全局公告与功能开关。', '系统'],
   ['policy', '站点策略', 'SITE POLICIES', '配置注册、建房、访客和聊天策略，即时生效。', '系统'],
   ['sources', '媒体服务', 'MEDIA SERVICES', '管理全站已绑定的媒体来源与连接状态。', '系统'],
+  ['catalog', '媒体订阅', 'MEDIA CATALOG', '管理订阅、批量导入、定期同步与片源健康。', '系统'],
   ['remote_providers', '远程 Provider', 'REMOTE PROVIDERS', '配置服务端点、TLS 和共享密钥，检测连接状态。', '系统'],
   ['slice_cache', '分片缓存', 'SLICE CACHE', '管理各节点容量、命中情况与清理任务。', '系统'],
   ['rtmp', '直播推流', 'LIVE STREAMS', '管理推流策略、活动连接和房间密钥。', '系统'],
@@ -73,8 +74,9 @@ icons.approvals = icons.check;
 icons.rooms = icons.room;
 icons.taxonomy = icons.layers;
 icons.sources = icons.layers;
+icons.catalog = icons.play;
 icons.policy = icons.config;
-const tabPermissions = {registration_invites:'config.write',slice_cache:'config.write',rtmp:'config.write',remote_providers:'config.write',smtp:'config.write',login_security:'config.write',approvals:'review.manage',dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
+const tabPermissions = {catalog:'source.manage',registration_invites:'config.write',slice_cache:'config.write',rtmp:'config.write',remote_providers:'config.write',smtp:'config.write',login_security:'config.write',approvals:'review.manage',dashboard:'observability.view', rooms:'room.view', users:'user.view', taxonomy:'taxonomy.manage', announcements:'announcement.manage', reports:'report.review', deletions:'compliance.review', complaints:'compliance.review', devices:'device.ban', orders:'order.view', plans:'config.write', codes:'activation_code.manage', config:'config.read', policy:'config.write', sources:'source.manage', bot:'bot.manage', audit:'audit.view'};
 const state = {
   permissions: [],
   filters: {},

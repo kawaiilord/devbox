@@ -31,6 +31,7 @@ type webDAVCredentials struct {
 }
 
 type MediaSourceManager struct {
+	catalog            *CatalogService
 	rtmp               *RTMPService
 	cache              *SliceCache
 	remote             *RemoteProviders
@@ -129,6 +130,8 @@ func (m *MediaSourceManager) Browse(
 		return nil, err
 	}
 	switch source.Type {
+	case "catalog":
+		return []MediaFile{}, nil
 	case "rtmp":
 		return []MediaFile{{Name: "房间直播", Path: "/live", ContentType: "application/vnd.apple.mpegurl"}}, nil
 	case "remote-alist", "remote-emby", "remote-bilibili":
@@ -236,6 +239,8 @@ func (m *MediaSourceManager) Open(
 }
 func (m *MediaSourceManager) openSource(ctx context.Context, source MediaSource, secret []byte, ticket MediaTicket, method, rangeHeader, ifRange string) (*http.Response, error) {
 	switch source.Type {
+	case "catalog":
+		return m.catalog.mediaRequest(ctx, ticket.StreamURL, method, rangeHeader, ifRange)
 	case "rtmp":
 		return m.openRTMP(ctx, source, secret, ticket, method, rangeHeader)
 	case "remote-alist", "remote-emby", "remote-bilibili":
@@ -297,6 +302,8 @@ func (m *MediaSourceManager) PrepareMediaTicket(
 		return MediaTicket{}, err
 	}
 	switch source.Type {
+	case "catalog":
+		return m.prepareCatalog(ctx, source, secret, requestedPath)
 	case "rtmp":
 		return m.prepareRTMP(ctx, source, secret)
 	case "remote-alist", "remote-emby", "remote-bilibili":
@@ -331,6 +338,9 @@ func (m *MediaSourceManager) Subtitles(
 		return nil, err
 	}
 	if _, ok := platformDefinitions[source.Type]; ok {
+		return []MediaFile{}, nil
+	}
+	if source.Type == "catalog" {
 		return []MediaFile{}, nil
 	}
 	switch source.Type {
@@ -421,6 +431,14 @@ func (m *MediaSourceManager) loadSourceSecret(
 	)
 	if err != nil {
 		return MediaSource{}, nil, err
+	}
+	if source.Type == "catalog" {
+		if m.catalog == nil {
+			return MediaSource{}, nil, errors.New("媒体订阅服务不可用")
+		}
+		if _, err := m.catalog.boundSource(ctx, plaintext); err != nil {
+			return MediaSource{}, nil, err
+		}
 	}
 	return source, plaintext, nil
 }

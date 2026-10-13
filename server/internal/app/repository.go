@@ -37,6 +37,7 @@ type ActionTokenRecord struct {
 }
 
 type Repository interface {
+	CatalogRepository
 	RegistrationInviteRepository
 	PlatformRepository
 	SecurityRepository

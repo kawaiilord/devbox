@@ -7,12 +7,15 @@ import '../design.dart';
 import '../discovery_models.dart';
 import '../models.dart';
 import 'workspace_section.dart';
+import 'catalog_browser.dart';
+import 'room_page.dart';
 
 const _sections = [
   ('movies', '热门电影'),
   ('series', '剧集分类'),
   ('top', '高分榜'),
   ('anime', '新番放送'),
+  ('catalog', '片源片库'),
 ];
 const _series = [
   ('all', '热门'),
@@ -119,7 +122,7 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
       _feed = null;
     });
     if (_scroll.hasClients) _scroll.jumpTo(0);
-    _load();
+    if (section != 'catalog') _load();
   }
 
   void _selectCategory(String category) {
@@ -148,7 +151,41 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
       ? ''
       : Uri.parse(widget.api.baseUrl).resolve(item.poster).toString();
 
+  void _openCatalogRoom(Room room) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RoomPage(
+          api: widget.api,
+          session: widget.session,
+          initialRoom: room,
+        ),
+      ),
+    );
+  }
+
   Future<void> _detail(DiscoveryItem item) async {
+    final room = await showModalBottomSheet<Room>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: FrameColors.of(context).surface,
+      constraints: const BoxConstraints(maxWidth: 820),
+      builder: (sheet) => SizedBox(
+        height: MediaQuery.sizeOf(sheet).height * .86,
+        child: CatalogBrowser(
+          api: widget.api,
+          session: widget.session,
+          initialQuery: item.title,
+          onMetadata: () => _metadataDetail(item),
+          onOpenRoom: (room) => Navigator.of(sheet).pop(room),
+        ),
+      ),
+    );
+    if (mounted && room != null) _openCatalogRoom(room);
+  }
+
+  Future<void> _metadataDetail(DiscoveryItem item) async {
     final source = _feed?.source ?? '';
     await showModalBottomSheet<void>(
       context: context,
@@ -315,6 +352,41 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
   @override
   Widget build(BuildContext context) {
     final colors = FrameColors.of(context);
+    if (_section == 'catalog') {
+      return WorkspaceSection(
+        title: const Text('影视发现'),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final (id, label) in _sections)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _DiscoveryTab(
+                          label: label,
+                          selected: _section == id,
+                          onTap: () => _selectSection(id),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: CatalogBrowser(
+                api: widget.api,
+                session: widget.session,
+                onOpenRoom: _openCatalogRoom,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final filters = switch (_section) {
       'movies' => [('all', '正在热门'), ('new', '最近新片')],
       'series' => _series,

@@ -37,6 +37,11 @@ class RoomController extends ChangeNotifier {
   Timer? _mediaRenewal;
   Timer? _watchProgress;
   bool _renewingMedia = false;
+  bool _recoveringCatalog = false;
+  int _catalogErrorSignal = 0;
+  String _catalogRecoveryItem = '';
+  final Map<int, int> _catalogRetries = {};
+  final Set<String> _catalogAttempted = {};
   bool _syncingWatchProgress = false;
   int _danmakuEpisode = -1;
   int _clientSequence = DateTime.now().microsecondsSinceEpoch;
@@ -715,9 +720,68 @@ class RoomController extends ChangeNotifier {
       PlaybackFailureKind.unknown => '播放失败：${failure.message}',
     };
     notifyListeners();
+    if (room.mediaSourceId.startsWith('cat_')) {
+      _catalogErrorSignal++;
+      unawaited(_recoverCatalog());
+      return;
+    }
     if (failure.kind == PlaybackFailureKind.ticketExpired &&
         room.mediaSourceId.isNotEmpty) {
       _renewMediaTicket();
+    }
+  }
+
+  Future<void> _recoverCatalog() async {
+    if (_disposed || _recoveringCatalog) return;
+    final features = room.features;
+    if (features == null) return;
+    if (_catalogRecoveryItem != features.activeItemId) {
+      _catalogRecoveryItem = features.activeItemId;
+      _catalogRetries.clear();
+      _catalogAttempted.clear();
+    }
+    final version = room.playback.sourceVersion;
+    final item = features.playlist
+        .where((v) => v.id == features.activeItemId)
+        .firstOrNull;
+    if (item == null) return;
+    final attempts = _catalogRetries[version] ?? 0;
+    if (attempts >= 3) return;
+    final signal = _catalogErrorSignal;
+    _recoveringCatalog = true;
+    try {
+      if (attempts < 2) {
+        _catalogRetries[version] = attempts + 1;
+        error = '线路连接中断，正在重试（${attempts + 1}/2）…';
+        notifyListeners();
+        await Future<void>.delayed(Duration(seconds: attempts + 1));
+        if (_disposed || version != room.playback.sourceVersion) return;
+        await _renewMediaTicket();
+      } else {
+        _catalogRetries[version] = 3;
+        if (!isOwner) {
+          error = '重试未成功，可手动重试，或等待房主切换线路。';
+          return;
+        }
+        _catalogAttempted.add(item.selectedSourceId);
+        error = '正在为房间切换同集备用线路…';
+        notifyListeners();
+        final fresh = await api.recoverCatalogPlayback(
+          session,
+          room,
+          _catalogAttempted.toList(),
+        );
+        if (!_disposed) await acceptRoom(fresh);
+      }
+    } catch (e) {
+      if (!_disposed)
+        error = e is ApiException ? e.message : '自动恢复未成功，请手动重试或选择线路。';
+    } finally {
+      _recoveringCatalog = false;
+      if (!_disposed) {
+        notifyListeners();
+        if (signal != _catalogErrorSignal) unawaited(_recoverCatalog());
+      }
     }
   }
 

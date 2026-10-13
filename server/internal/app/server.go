@@ -49,6 +49,7 @@ type Options struct {
 }
 
 type Server struct {
+	catalog        *CatalogService
 	roomMutationMu sync.Mutex
 	options        Options
 	store          *Store
@@ -97,7 +98,9 @@ func NewServer(options Options) *Server {
 		sources: options.Sources,
 	}
 	s.auth.mailer = NewRuntimeMailer(s.repo, options.Vault, s.auth.mailer)
+	s.catalog = NewCatalogService(s.repo, options.Vault)
 	if s.sources != nil {
+		s.sources.catalog = s.catalog
 		s.sources.rtmp = options.RTMP
 	}
 	s.metrics = NewMetrics(s)
@@ -105,6 +108,7 @@ func NewServer(options Options) *Server {
 		s.limiter = options.Redis.RateLimiter()
 	}
 	mux := http.NewServeMux()
+	s.registerCatalogRoutes(mux)
 	s.registerSecurityRoutes(mux)
 	mux.HandleFunc("GET /api/v1/discovery", s.discovery)
 	mux.HandleFunc("GET /api/v1/discovery/poster", s.discoveryPoster)
@@ -319,6 +323,7 @@ func (s *Server) StartBackground(ctx context.Context) {
 		go s.snapshotLoop(ctx)
 		go s.cacheHeartbeat(ctx)
 		go s.rtmpWatchdog(ctx)
+		go s.catalogLoop(ctx)
 		if s.redis != nil {
 			ready := make(chan struct{})
 			go s.consumeRedisEvents(ctx, ready)
@@ -1212,6 +1217,7 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 		MediaPath     string            `json:"media_path"`
 		MaxMembers    int               `json:"max_members"`
 		StartPosition float64           `json:"start_position"`
+		Catalog       *CatalogSelection `json:"catalog,omitempty"`
 	}
 	if err := decodeJSON(r, &request); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -1240,6 +1246,24 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	var room Room
 	var initialMediaTicket MediaTicket
+	var catalogItems []PlaylistEntry
+	var catalogActive int
+	if request.Catalog != nil {
+		if !hasRegisteredAccount(user) {
+			writeError(w, 401, ErrUnauthorized)
+			return
+		}
+		if !s.enforceRateLimit(w, r, "catalog-selection", user.ID, 20, time.Minute) {
+			return
+		}
+		catalogItems, catalogActive, err = s.catalog.playlist(r.Context(), user, *request.Catalog)
+		if err != nil {
+			writeError(w, 400, err)
+			return
+		}
+		selected := catalogItems[catalogActive].Sources[0]
+		request.MediaSourceID, request.MediaPath, request.SourceURL = selected.MediaSourceID, selected.MediaPath, ""
+	}
 	if request.MediaSourceID != "" {
 		if s.sources == nil {
 			writeError(w, http.StatusServiceUnavailable, errors.New("media sources unavailable"))
@@ -1288,6 +1312,11 @@ func (s *Server) createRoom(w http.ResponseWriter, r *http.Request) {
 	features.AutoNext = settingsCheck.AutoNext
 	features.Version = 1
 	features.Playlist[0].Sources[0].IsLive = initialMediaTicket.IsLive
+	if len(catalogItems) > 0 {
+		features.Playlist = catalogItems
+		features.ActiveItemID = catalogItems[catalogActive].ID
+		room.Playback.Episode = catalogActive
+	}
 	review := policy.RoomCreationRequiresReview && !permissionGranted(user, "room.manage")
 	if review {
 		room.Closed = true

@@ -40,7 +40,11 @@ func (s *Server) mediaTicketURL(raw string, ticket MediaTicket) string {
 }
 
 func (s *Server) platformAssetURL(raw, target string, manifest bool, allowedBase ...string) (string, error) {
-	if _, err := mediaRemoteURL(target); err != nil {
+	if len(allowedBase) > 0 && allowedBase[0] == "catalog-public" {
+		if _, err := catalogURL(target); err != nil {
+			return "", err
+		}
+	} else if _, err := mediaRemoteURL(target); err != nil {
 		u, e := assetRemoteURL(target)
 		if e != nil || len(allowedBase) == 0 {
 			return "", err
@@ -265,6 +269,8 @@ func (s *Server) proxyPlatformManifest(w http.ResponseWriter, r *http.Request, r
 	var allowedBase []string
 	if source, _, e := s.sources.loadSourceSecret(r.Context(), ticket.UserID, ticket.SourceID); e == nil && (source.Type == "rtmp" || strings.HasPrefix(source.Type, "remote-")) {
 		allowedBase = []string{ticket.StreamURL}
+	} else if e == nil && source.Type == "catalog" {
+		allowedBase = []string{"catalog-public"}
 	}
 	data, err = s.rewriteHLS(raw, base, data, allowedBase...)
 	if err != nil {
