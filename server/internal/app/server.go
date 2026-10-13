@@ -37,6 +37,7 @@ type Options struct {
 	Sources                 *MediaSourceManager
 	PublicBaseURL           string
 	Metadata                *MetadataClient
+	Discovery               *DiscoveryService
 	RTC                     *RTCConfigManager
 	Objects                 ObjectStore
 	Payment                 PaymentProvider
@@ -85,6 +86,9 @@ func NewServer(options Options) *Server {
 		tokens, _ := NewTokenManager("development-only-secret-change-me-now", "sameframe-test")
 		options.Auth = NewAuthService(options.Repository, tokens)
 	}
+	if options.Discovery == nil {
+		options.Discovery = NewDiscoveryService()
+	}
 	store := NewStore()
 	store.RestoreRooms(options.InitialRooms)
 	s := &Server{
@@ -102,6 +106,8 @@ func NewServer(options Options) *Server {
 	}
 	mux := http.NewServeMux()
 	s.registerSecurityRoutes(mux)
+	mux.HandleFunc("GET /api/v1/discovery", s.discovery)
+	mux.HandleFunc("GET /api/v1/discovery/poster", s.discoveryPoster)
 	mux.HandleFunc("POST /internal/rtmp/auth", s.rtmpAuth)
 	mux.HandleFunc("GET /api/v1/rooms/{code}/rtmp", s.roomRTMP)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/rtmp", s.roomRTMP)
@@ -379,6 +385,7 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 		"personal_library":   true,
 		"danmaku":            true,
 		"metadata_search":    s.options.Metadata != nil,
+		"film_discovery":     true,
 		"social_messaging":   true,
 		"couple_space":       true,
 		"reviews":            true,

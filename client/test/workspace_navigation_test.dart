@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sameframe_client/src/discovery_models.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/appearance.dart';
 import 'package:sameframe_client/src/design.dart';
@@ -8,6 +9,37 @@ import 'package:sameframe_client/src/screens/lobby_page.dart';
 import 'package:sameframe_client/src/secure_session_store.dart';
 
 void main() {
+  testWidgets(
+    'film discovery sits below lobby and keeps mobile workspace navigation',
+    (tester) async {
+      await _open(tester, signedIn: true, size: const Size(1440, 1000));
+      final before = tester.state<ScaffoldState>(find.byType(Scaffold));
+      final hall = find.text('观影大厅').first;
+      final films = find.text('影视发现');
+      expect(
+        tester.getTopLeft(films).dy,
+        greaterThan(tester.getTopLeft(hall).dy),
+      );
+      await tester.tap(films);
+      await tester.pumpAndSettle();
+      expect(find.text('热门电影'), findsOneWidget);
+      expect(find.byType(BackButton), findsNothing);
+      expect(tester.state<ScaffoldState>(find.byType(Scaffold)), same(before));
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      expect(find.byType(NavigationBar), findsOneWidget);
+      await tester.tap(find.text('全部'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('观影大厅'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('全部'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('影视发现'));
+      await tester.pumpAndSettle();
+      expect(find.text('热门电影'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('details stay in the workspace and survive viewport changes', (
     tester,
   ) async {
@@ -181,6 +213,19 @@ class _Store implements SessionStore {
 }
 
 class _Api extends ApiClient {
+  @override
+  Future<DiscoveryFeed> discoverFilms(
+    Session session, {
+    String section = 'movies',
+    String category = 'all',
+    int page = 1,
+    int weekday = 0,
+  }) async => DiscoveryFeed(
+    items: const [],
+    source: '豆瓣',
+    page: page,
+    fetchedAt: DateTime.utc(2026, 10, 13),
+  );
   @override
   Future<Map<String, dynamic>> loginOptions() async => {
     'registration_enabled': true,

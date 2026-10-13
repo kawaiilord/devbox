@@ -1,0 +1,31 @@
+name: deployment-reachability
+on:
+  push:
+    branches: [feature/film-discovery]
+permissions:
+  contents: read
+jobs:
+  connectivity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Check the authorized deployment host from an independent network
+        shell: python
+        run: |
+          import concurrent.futures, json, socket, time, urllib.request
+          def ssh():
+              start=time.monotonic()
+              try:
+                  with socket.create_connection(('38.76.190.179',22),timeout=8) as s:
+                      s.settimeout(8)
+                      s.sendall(b'SSH-2.0-SameFrame_reachability\r\n')
+                      line=s.recv(256).decode(errors='replace').strip()
+                      return {'ssh_banner':line,'ready':line.startswith('SSH-'),'seconds':round(time.monotonic()-start,2)}
+              except OSError as e: return {'ssh_error':str(e),'ready':False}
+          def https():
+              try:
+                  with urllib.request.urlopen('https://sameframe.top/readyz',timeout=12) as r:
+                      return {'https_status':r.status,'readiness':json.load(r).get('data',{}).get('status')}
+              except OSError as e: return {'https_error':str(e)}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+              for result in pool.map(lambda fn:fn(),[ssh,https]): print(json.dumps(result))

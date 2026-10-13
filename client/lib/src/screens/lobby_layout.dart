@@ -25,6 +25,7 @@ class LobbyLayout extends StatelessWidget {
     required this.destinations,
     required this.onSearch,
     required this.onDiscover,
+    required this.onFilmDiscovery,
     required this.onMembership,
     required this.onUpdates,
     required this.onLogout,
@@ -47,6 +48,7 @@ class LobbyLayout extends StatelessWidget {
   final VoidCallback? onUpdates;
   final VoidCallback? onOfficialSite;
   final VoidCallback onDiscover;
+  final VoidCallback onFilmDiscovery;
   final String? error;
   final Widget Function(Widget home)? workspaceBuilder;
   final String? activeDestination;
@@ -602,6 +604,15 @@ class LobbyLayout extends StatelessWidget {
                 onTap: navigationLocked || onHome == null
                     ? null
                     : () => _navigate(context, onHome!, closeDrawer),
+              ),
+              const SizedBox(height: 5),
+              _NavItem(
+                icon: Icons.local_movies_outlined,
+                label: '影视发现',
+                selected: activeDestination == '影视发现',
+                onTap: signedIn && !navigationLocked
+                    ? () => _navigate(context, onFilmDiscovery, closeDrawer)
+                    : null,
               ),
               const SizedBox(height: 5),
               _NavItem(

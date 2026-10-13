@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../device_identity.dart';
 import '../models.dart';
+import '../discovery_models.dart';
 
 class ApiClient {
   ApiClient({
@@ -33,6 +34,27 @@ class ApiClient {
       body: {'display_name': displayName},
     );
     return Session.fromJson(data);
+  }
+
+  Future<DiscoveryFeed> discoverFilms(
+    Session session, {
+    String section = 'movies',
+    String category = 'all',
+    int page = 1,
+    int weekday = 0,
+  }) async {
+    final uri = Uri(
+      path: '/api/v1/discovery',
+      queryParameters: {
+        'section': section,
+        'category': category,
+        'page': '$page',
+        'weekday': '$weekday',
+      },
+    );
+    return DiscoveryFeed.fromJson(
+      await _request('GET', uri.toString(), session: session),
+    );
   }
 
   Future<Session?> claimWebEntry() async {
