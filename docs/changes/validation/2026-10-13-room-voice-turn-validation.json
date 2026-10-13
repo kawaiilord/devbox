@@ -1,0 +1,50 @@
+[
+  {
+    "url": "turn:38.76.190.179:3478?transport=tcp",
+    "ok": true,
+    "reports": [
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tcp",
+        "bytesReceived": 819,
+        "packetsReceived": 10,
+        "audioEnergy": 0.004367872400691527
+      },
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tcp",
+        "bytesReceived": 552,
+        "packetsReceived": 7,
+        "audioEnergy": 0.0032340002900073357
+      }
+    ]
+  },
+  {
+    "url": "turns:sameframe.top:5349?transport=tcp",
+    "ok": true,
+    "reports": [
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tls",
+        "bytesReceived": 1527,
+        "packetsReceived": 19,
+        "audioEnergy": 0.01253385454058397
+      },
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tls",
+        "bytesReceived": 1267,
+        "packetsReceived": 16,
+        "audioEnergy": 0.011610731640176886
+      }
+    ]
+  }
+]

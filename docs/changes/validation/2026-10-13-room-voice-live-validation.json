@@ -1,0 +1,20 @@
+{
+  "base": "https://sameframe.top",
+  "checks": [
+    "Production room voice config supplies expiring TURN credentials and Join Voice starts microphone capture",
+    "Anonymous access cannot obtain room TURN credentials",
+    "Production hangup stops microphone capture",
+    "Closing the temporary private room stops voice capture; test room is closed"
+  ],
+  "errors": [],
+  "rtc": {
+    "urls": [
+      "turn:38.76.190.179:3478?transport=udp",
+      "turn:38.76.190.179:3478?transport=tcp",
+      "turns:sameframe.top:5349?transport=tcp"
+    ],
+    "expires_at": 1791864678000,
+    "has_expiring_credentials": true
+  },
+  "testRoomClosed": true
+}

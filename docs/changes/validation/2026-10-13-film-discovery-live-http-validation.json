@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "Service and nginx configuration unchanged; voice TURN retained",
+    "/api/v1/discovery anonymous 401",
+    "/api/v1/public/rooms anonymous 401",
+    "Film discovery and voice capabilities enabled",
+    "Registration settings preserved"
+  ],
+  "ready": {
+    "components": {
+      "redis": "ok",
+      "repository": "ok"
+    },
+    "status": "ready",
+    "timestamp": 1791869531020
+  },
+  "hashes": {
+    "bin/sameframe": "a3726c4fd7302fc221f8519db4775b18e9cf09986252d9bdb46f952726d97f26",
+    "web/main.dart.js": "9df1b39aacb99da72a0b2f1032e8028f3cea6431ec343fc67d349ed02958f249",
+    "web/index.html": "7dd1f14ec291649e6e4e0001ae48d50a390623c991afd08d90c6c38114fb3576",
+    "web/site/website.css": "239a223ab3f3dd3d71e82df7eb97b6169f563c0553253d95f86d5bbeb2608b99"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "base": "https://sameframe.top",
+  "checks": [
+    "Film discovery sits directly below lobby and renders real poster cards within the existing workspace",
+    "Poster opens film details with title, score, attribution and copy/source actions",
+    "series displays actual 豆瓣 data (24 items)",
+    "top displays actual 豆瓣 data (24 items)",
+    "anime displays actual Bangumi data (10 items)",
+    "Anonymous discovery and forged poster requests are rejected",
+    "Mobile section selection keeps the bottom dock and supports both themes"
+  ],
+  "errors": [],
+  "feeds": [
+    {
+      "query": "?section=movies&category=all&page=1&weekday=0",
+      "status": 200,
+      "source": "豆瓣",
+      "count": 24,
+      "stale": false,
+      "page": 1
+    },
+    {
+      "query": "?section=series&category=all&page=1&weekday=0",
+      "status": 200,
+      "source": "豆瓣",
+      "count": 24,
+      "stale": false,
+      "page": 1
+    },
+    {
+      "query": "?section=series&category=us&page=1&weekday=0",
+      "status": 200,
+      "source": "豆瓣",
+      "count": 24,
+      "stale": false,
+      "page": 1
+    },
+    {
+      "query": "?section=top&category=movie&page=1&weekday=0",
+      "status": 200,
+      "source": "豆瓣",
+      "count": 24,
+      "stale": false,
+      "page": 1
+    },
+    {
+      "query": "?section=anime&category=all&page=1&weekday=0",
+      "status": 200,
+      "source": "Bangumi",
+      "count": 10,
+      "stale": false,
+      "weekday": 2,
+      "page": 1
+    },
+    {
+      "query": "?section=anime&category=all&page=1&weekday=1",
+      "status": 200,
+      "source": "Bangumi",
+      "count": 11,
+      "stale": false,
+      "weekday": 1,
+      "page": 1
+    },
+    {
+      "query": "",
+      "status": 401
+    }
+  ],
+  "posterResponses": 62
+}

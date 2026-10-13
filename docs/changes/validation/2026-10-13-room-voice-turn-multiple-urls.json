@@ -1,0 +1,57 @@
+[
+  {
+    "url": [
+      "turn:38.76.190.179:3478?transport=udp",
+      "turn:38.76.190.179:3478?transport=tcp",
+      "turns:sameframe.top:5349?transport=tcp"
+    ],
+    "ok": true,
+    "reports": [
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tcp",
+        "bytesReceived": 1553,
+        "packetsReceived": 19,
+        "audioEnergy": 0.012204842301402445
+      },
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tcp",
+        "bytesReceived": 1272,
+        "packetsReceived": 16,
+        "audioEnergy": 0.012494350222164583
+      }
+    ]
+  },
+  {
+    "url": [
+      "turn:38.76.190.179:3478?transport=tcp",
+      "turns:sameframe.top:5349?transport=tcp"
+    ],
+    "ok": true,
+    "reports": [
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tcp",
+        "bytesReceived": 1527,
+        "packetsReceived": 19,
+        "audioEnergy": 0.012052376868685788
+      },
+      {
+        "state": "connected",
+        "localType": "relay",
+        "remoteType": "relay",
+        "relayProtocol": "tcp",
+        "bytesReceived": 1188,
+        "packetsReceived": 15,
+        "audioEnergy": 0.01207220705420645
+      }
+    ]
+  }
+]

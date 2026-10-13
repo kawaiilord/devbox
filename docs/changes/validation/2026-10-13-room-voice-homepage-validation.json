@@ -1,0 +1,11 @@
+{
+  "base": "https://sameframe.top",
+  "checks": [
+    "Both requested homepage entry links point directly to /login; timeline, timestamps, avatars, floating note and duplicate footer entry remain",
+    "Clicking the play image reaches the native login form directly",
+    "Clicking 登录观影空间 reaches the native login form directly",
+    "Mobile presentation is preserved and the play button opens /login",
+    "No application/Flutter/WASM downloads or unhandled browser exceptions during entry flow"
+  ],
+  "errors": []
+}

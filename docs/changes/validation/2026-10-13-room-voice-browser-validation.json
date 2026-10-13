@@ -1,0 +1,71 @@
+{
+  "base": "http://localhost:18883",
+  "checks": [
+    "Permission denied gives a clear retryable message without capturing audio",
+    "First user can join and wait; incoming signals do not start another microphone",
+    "Two real app sessions play remote audio in both directions through production TURN, with nonzero decoded audio energy",
+    "Mobile mute/unmute changes the actual captured audio track",
+    "Hangup stops microphone capture and removes the remote connection",
+    "Leaving and rejoining voice reconnects and resumes both audio outputs",
+    "Leaving the room releases microphone capture"
+  ],
+  "errors": [],
+  "initialAudio": {
+    "first": {
+      "peers": [
+        {
+          "state": "connected",
+          "gather": "complete",
+          "localType": "relay",
+          "remoteType": "relay",
+          "relayProtocol": "udp",
+          "bytes": 12208,
+          "energy": 0.13612190924521803
+        }
+      ],
+      "audio": [
+        {
+          "playing": true,
+          "muted": false,
+          "tracks": [
+            "live"
+          ]
+        }
+      ],
+      "tracks": [
+        {
+          "enabled": true,
+          "state": "live"
+        }
+      ]
+    },
+    "second": {
+      "peers": [
+        {
+          "state": "connected",
+          "gather": "complete",
+          "localType": "relay",
+          "remoteType": "relay",
+          "relayProtocol": "udp",
+          "bytes": 16672,
+          "energy": 0.19099700804699432
+        }
+      ],
+      "audio": [
+        {
+          "playing": true,
+          "muted": false,
+          "tracks": [
+            "live"
+          ]
+        }
+      ],
+      "tracks": [
+        {
+          "enabled": true,
+          "state": "live"
+        }
+      ]
+    }
+  }
+}

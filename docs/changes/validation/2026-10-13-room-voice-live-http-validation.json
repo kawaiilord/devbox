@@ -1,0 +1,21 @@
+{
+  "checks": [
+    "/ matches final build",
+    "/site/website.css matches final build",
+    "/main.dart.js matches final build",
+    "Production voice is enabled",
+    "PostgreSQL and Redis ready",
+    "/api/v1/public/rooms rejects anonymous access with 401",
+    "/api/v1/rooms/ABCDEF/rtc-config rejects anonymous access with 401",
+    "Invitation and email-verification settings preserved"
+  ],
+  "ready": {
+    "components": {
+      "redis": "ok",
+      "repository": "ok"
+    },
+    "status": "ready",
+    "timestamp": 1791859920754
+  },
+  "voice": true
+}
