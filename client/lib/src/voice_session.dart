@@ -204,8 +204,9 @@ class VoiceSession {
         peer.offered = true;
         final offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        if (identical(_peers[from], peer))
+        if (identical(_peers[from], peer)) {
           _send(from, 'offer', {'sdp': offer.sdp});
+        }
       }
     } else if (type == 'offer' || type == 'answer') {
       await pc.setRemoteDescription(
@@ -219,8 +220,9 @@ class VoiceSession {
       if (type == 'offer') {
         final answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        if (identical(_peers[from], peer))
+        if (identical(_peers[from], peer)) {
           _send(from, 'answer', {'sdp': answer.sdp});
+        }
       }
     } else if (type == 'candidate') {
       final candidate = RTCIceCandidate(

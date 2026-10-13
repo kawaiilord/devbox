@@ -10,7 +10,7 @@ extension type _AudioElement(JSObject _) implements JSObject {
 }
 
 Future<bool> resumeVoicePlayback(RTCVideoRenderer renderer) async {
-  final element = _elementById('audio_${renderer.viewType}');
+  final element = _elementById('audio_RTCVideoRenderer-${renderer.textureId}');
   if (element == null) return false;
   try {
     await _AudioElement(element)
