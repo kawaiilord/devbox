@@ -774,8 +774,9 @@ class RoomController extends ChangeNotifier {
         if (!_disposed) await acceptRoom(fresh);
       }
     } catch (e) {
-      if (!_disposed)
+      if (!_disposed) {
         error = e is ApiException ? e.message : '自动恢复未成功，请手动重试或选择线路。';
+      }
     } finally {
       _recoveringCatalog = false;
       if (!_disposed) {

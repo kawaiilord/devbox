@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/design.dart';
 import 'package:sameframe_client/src/discovery_models.dart';
+import 'package:sameframe_client/src/catalog_models.dart';
 import 'package:sameframe_client/src/models.dart';
 import 'package:sameframe_client/src/screens/film_discovery_page.dart';
 
@@ -39,6 +40,8 @@ DiscoveryFeed _feed(String title, {int page = 1, bool more = false}) =>
     );
 
 class _Api extends ApiClient {
+  @override
+  Future<List<CatalogSource>> catalogSources(Session session) async => [];
   final requests =
       <({String section, String category, int page, int weekday})>[];
   bool fail = false;
@@ -103,8 +106,13 @@ void main() {
       expect(find.text('movies/all/0'), findsOneWidget);
       await tester.tap(find.text('movies/all/0'));
       await tester.pumpAndSettle();
+      expect(find.text('片库等待上架'), findsOneWidget);
+      await tester.tap(find.byTooltip('影片资料'));
+      await tester.pumpAndSettle();
       expect(find.text('复制片名'), findsOneWidget);
       expect(find.text('查看资料'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       await tester.tap(find.text('剧集分类'));

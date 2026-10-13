@@ -1121,6 +1121,19 @@ class ApiClient {
         .toList();
   }
 
+  Future<Room> appendCatalogPlaylist(
+    Session session,
+    Room room,
+    Map<String, dynamic> selection,
+  ) async => _roomFromJson(
+    await _request(
+      'POST',
+      '/api/v1/rooms/${room.code}/catalog',
+      session: session,
+      body: {'version': room.features?.version ?? 0, 'selection': selection},
+    ),
+  );
+
   Future<Room> recoverCatalogPlayback(
     Session session,
     Room room,

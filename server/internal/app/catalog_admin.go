@@ -21,6 +21,7 @@ func (s *Server) registerCatalogRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/catalog/detail", s.catalogDetailHTTP)
 	mux.HandleFunc("GET /api/v1/catalog/poster", s.catalogPosterHTTP)
 	mux.HandleFunc("POST /api/v1/catalog/playlist", s.catalogPlaylistHTTP)
+	mux.HandleFunc("POST /api/v1/rooms/{code}/catalog", s.appendCatalogPlaylist)
 	mux.HandleFunc("POST /api/v1/rooms/{code}/playback/recover", s.recoverCatalogPlayback)
 }
 func catalogDecode(w http.ResponseWriter, r *http.Request, out any) error {

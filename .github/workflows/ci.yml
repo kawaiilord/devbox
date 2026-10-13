@@ -51,6 +51,11 @@ jobs:
       - run: CGO_ENABLED=0 go build -trimpath -o ../bin/sameframe ./cmd/sameframe
       - run: go build -trimpath -o ../bin/sign-update ./cmd/sign-update
       - run: CGO_ENABLED=0 go build -trimpath -o ../bin/rewards-fixture ./cmd/rewards-fixture
+      - run: CGO_ENABLED=0 go build -trimpath -o ../bin/catalog-fixture ./cmd/catalog-fixture
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sameframe-catalog-fixture-linux
+          path: bin/catalog-fixture
       - uses: actions/upload-artifact@v7
         with:
           name: sameframe-rewards-fixture-linux

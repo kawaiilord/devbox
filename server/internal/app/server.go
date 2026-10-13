@@ -38,6 +38,7 @@ type Options struct {
 	PublicBaseURL           string
 	Metadata                *MetadataClient
 	Discovery               *DiscoveryService
+	CatalogTransport        http.RoundTripper // Injected only by isolated fixtures/tests.
 	RTC                     *RTCConfigManager
 	Objects                 ObjectStore
 	Payment                 PaymentProvider
@@ -99,6 +100,9 @@ func NewServer(options Options) *Server {
 	}
 	s.auth.mailer = NewRuntimeMailer(s.repo, options.Vault, s.auth.mailer)
 	s.catalog = NewCatalogService(s.repo, options.Vault)
+	if options.CatalogTransport != nil {
+		s.catalog.client.Transport = options.CatalogTransport
+	}
 	if s.sources != nil {
 		s.sources.catalog = s.catalog
 		s.sources.rtmp = options.RTMP
@@ -391,6 +395,7 @@ func (s *Server) config(w http.ResponseWriter, r *http.Request) {
 		"danmaku":            true,
 		"metadata_search":    s.options.Metadata != nil,
 		"film_discovery":     true,
+		"media_catalog":      true,
 		"social_messaging":   true,
 		"couple_space":       true,
 		"reviews":            true,

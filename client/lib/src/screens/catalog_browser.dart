@@ -210,7 +210,6 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
       _busy = true;
       _error = null;
     });
-    var added = 0;
     try {
       Room room;
       if (existing) {
@@ -224,22 +223,11 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
           setState(() => _error = '你没有这个房间的片单编辑权限。');
           return;
         }
-        final items = await widget.api.catalogPlaylist(
+        room = await widget.api.appendCatalogPlaylist(
           widget.session,
+          room,
           _selection(),
         );
-        if ((room.features?.playlist.length ?? 0) + items.length > 500) {
-          setState(() => _error = '房间片单最多 500 集，请只加入当前集或先整理片单。');
-          return;
-        }
-        for (var i = 0; i < items.length; i += 10) {
-          room = await widget.api.addPlaylistItems(
-            widget.session,
-            room,
-            items.sublist(i, math.min(i + 10, items.length)),
-          );
-          added = math.min(i + 10, items.length);
-        }
       } else {
         room = await widget.api.createRoom(
           session: widget.session,
@@ -249,11 +237,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
       }
       if (mounted) widget.onOpenRoom(room);
     } catch (e) {
-      if (mounted)
-        setState(
-          () => _error =
-              '${added > 0 ? '已加入 $added 集，后续未完成：' : ''}${_message(e)}',
-        );
+      if (mounted) setState(() => _error = _message(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -597,6 +581,9 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
           if (_lines.isNotEmpty) ...[
             const SizedBox(height: 20),
             DropdownButtonFormField<int>(
+              key: ValueKey(
+                _lines.map((v) => '${v.$1.sourceId}:${v.$2.id}').join(','),
+              ),
               initialValue: _line,
               isExpanded: true,
               decoration: const InputDecoration(labelText: '播放线路'),

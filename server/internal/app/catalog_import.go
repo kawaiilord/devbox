@@ -286,7 +286,7 @@ func (c *CatalogService) parseImport(ctx context.Context, data []byte, base, nam
 			skipped = append(skipped, label+"：脚本、爬虫或非标准接口不支持")
 			continue
 		}
-		if tvbox && (m["ext"] != nil || m["jar"] != nil) && kind != "m3u" {
+		if tvbox && (mapText(m, "ext", "jar") != "") && kind != "m3u" {
 			skipped = append(skipped, label+"：需要额外解析规则，已跳过")
 			continue
 		}

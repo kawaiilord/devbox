@@ -311,6 +311,7 @@ class UserDevice {
 }
 
 String mediaSourceLabel(String type) => switch (type) {
+  'catalog' => '订阅影视',
   'synology' => '群晖 Synology',
   'fnos' => '飞牛 fnOS',
   'qnap' => 'QNAP',
