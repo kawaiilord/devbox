@@ -1,0 +1,11 @@
+{
+  "base": "https://sameframe.top",
+  "checks": [
+    "Production existing account: native password form -> same account in /app -> authenticated device request",
+    "Account handoff has no URL token or plaintext localStorage token",
+    "Production session restores after a full application reload",
+    "Application logout returns directly to the lightweight /login form",
+    "Unauthenticated /app navigation returns to /login"
+  ],
+  "errors": []
+}

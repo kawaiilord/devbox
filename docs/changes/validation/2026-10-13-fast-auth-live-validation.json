@@ -1,0 +1,10 @@
+{
+  "base": "https://sameframe.top",
+  "checks": [
+    "Admin exposes independent email-verification and invitation switches",
+    "Clean login URL, immediate native form, theme/password controls, mobile layout and no application assets",
+    "Registration hides verification when disabled and follows invitation rules",
+    "No unhandled browser exceptions"
+  ],
+  "errors": []
+}

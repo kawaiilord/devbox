@@ -1,0 +1,31 @@
+{
+  "base": "https://sameframe.top",
+  "checks": [
+    "login: legacy and slash aliases redirect once; clean HTML route and gzip succeed",
+    "register: legacy and slash aliases redirect once; clean HTML route and gzip succeed",
+    "forgot-password: legacy and slash aliases redirect once; clean HTML route and gzip succeed",
+    "app: legacy and slash aliases redirect once; clean HTML route and gzip succeed",
+    "Production account assets and application JS match final CI artifacts",
+    "Production registration enabled, email verification off, invitation required",
+    "Anonymous public-room listing denied with 401",
+    "Production readiness reports ready",
+    "Cross-origin session handoff denied with 403"
+  ],
+  "public_rules": {
+    "email_login": true,
+    "passkeys": false,
+    "password_login": true,
+    "providers": [],
+    "registration_email_code_required": false,
+    "registration_enabled": true,
+    "registration_invite_required": true
+  },
+  "readiness": {
+    "components": {
+      "redis": "ok",
+      "repository": "ok"
+    },
+    "status": "ready",
+    "timestamp": 1791852593408
+  }
+}

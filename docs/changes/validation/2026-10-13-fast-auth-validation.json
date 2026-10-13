@@ -1,0 +1,15 @@
+{
+  "base": "http://localhost:18883",
+  "checks": [
+    "Admin exposes independent email-verification and invitation switches",
+    "Clean login URL, immediate native form, theme/password controls, mobile layout and no application assets",
+    "Registration hides verification when disabled and follows invitation rules",
+    "Enabling email verification reveals code controls independently of invitation",
+    "Real email verification -> verified account -> device-bound application session, without URL or plaintext storage tokens",
+    "Existing encrypted session restores on application reload",
+    "Incorrect password stays on login with an inline error",
+    "Existing password account signs in through lightweight page and receives the same account in app",
+    "No unhandled browser exceptions"
+  ],
+  "errors": []
+}
