@@ -61,7 +61,7 @@ func (s *Server) discoveryPoster(w http.ResponseWriter, r *http.Request) {
 	}
 	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
-		writeError(w, 400, ErrInvalidControl)
+		writeError(w, 400, errors.New("无效的海报请求"))
 		return
 	}
 	target := normalizeDiscoveryPoster(string(decoded))
@@ -89,6 +89,12 @@ func (d *DiscoveryService) poster(ctx context.Context, target string) (discovery
 		return cached, nil
 	}
 	ch := d.flights.DoChan("poster:"+target, func() (any, error) {
+		d.mu.Lock()
+		latest, ready := d.posters[target]
+		d.mu.Unlock()
+		if ready && d.now().Sub(latest.at) < 6*time.Hour {
+			return latest, nil
+		}
 		requestCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		select {

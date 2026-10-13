@@ -92,18 +92,20 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
         _feed = feed;
       });
     } catch (error) {
-      if (mounted && request == _request)
+      if (mounted && request == _request) {
         setState(
           () => _error = error is ApiException
               ? error.message
               : '暂时无法加载影视资料，请稍后重试。',
         );
+      }
     } finally {
-      if (mounted && request == _request)
+      if (mounted && request == _request) {
         setState(() {
           _loading = false;
           _loadingMore = false;
         });
+      }
     }
   }
 
@@ -265,10 +267,11 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
                         await Clipboard.setData(
                           ClipboardData(text: item.title),
                         );
-                        if (sheet.mounted)
+                        if (sheet.mounted) {
                           ScaffoldMessenger.of(sheet).showSnackBar(
                             const SnackBar(content: Text('片名已复制')),
                           );
+                        }
                       },
                       icon: const Icon(Icons.copy_outlined, size: 16),
                       label: const Text('复制片名'),
@@ -282,10 +285,11 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
                           Uri.parse(item.url),
                           mode: LaunchMode.externalApplication,
                         );
-                        if (!opened && sheet.mounted)
+                        if (!opened && sheet.mounted) {
                           ScaffoldMessenger.of(sheet).showSnackBar(
                             const SnackBar(content: Text('暂时无法打开资料页')),
                           );
+                        }
                       },
                       icon: const Icon(Icons.open_in_new_rounded, size: 16),
                       label: const Text('查看资料'),

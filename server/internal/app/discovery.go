@@ -228,6 +228,18 @@ func (d *DiscoveryService) cached(ctx context.Context, key string, fetch func(co
 		return discoverySnapshot{}, false, errors.New("discovery upstream cooling down")
 	}
 	ch := d.flights.DoChan("catalog:"+key, func() (any, error) {
+		// Another completed flight may have populated the cache between the
+		// first lookup and this flight being created.
+		d.mu.Lock()
+		latest, ready := d.cache[key]
+		nextRetry := d.retryAt[key]
+		d.mu.Unlock()
+		if ready && d.now().Sub(latest.at) < 30*time.Minute {
+			return latest, nil
+		}
+		if d.now().Before(nextRetry) {
+			return nil, errors.New("discovery upstream cooling down")
+		}
 		// A caller leaving the page must not cancel a shared upstream request.
 		fetchCtx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 		defer cancel()
