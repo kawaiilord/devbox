@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/kawaiilord/devbox/server/internal/app"
@@ -20,6 +21,7 @@ import (
 func main() {
 	invites := flag.Bool("registration-invites", false, "enable invitation registration and a local fixture administrator")
 	verified := flag.Bool("verified-access", false, "require accounts and verified registration in this isolated fixture")
+	voice := flag.Bool("voice", false, "enable isolated voice testing with SAMEFRAME_TURN_URLS and SAMEFRAME_TURN_SECRET")
 	credentials := flag.String("credentials", "", "private credentials output file (required)")
 	flag.Parse()
 	if *credentials == "" {
@@ -81,7 +83,14 @@ func main() {
 		log.Fatal(err)
 	}
 	file.Close()
-	server := app.NewServer(app.Options{Repository: repo, Auth: auth, PointsPerCheckIn: 1, RequireAccount: *verified || *invites, RequireRegistrationCode: *verified && !*invites, AllowedOrigins: []string{"http://localhost:18883"}})
+	var rtc *app.RTCConfigManager
+	if *voice {
+		rtc, err = app.NewRTCConfigManager(strings.Split(os.Getenv("SAMEFRAME_TURN_URLS"), ","), os.Getenv("SAMEFRAME_TURN_SECRET"))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	server := app.NewServer(app.Options{Repository: repo, Auth: auth, RTC: rtc, PointsPerCheckIn: 1, RequireAccount: *verified || *invites || *voice, RequireRegistrationCode: *verified && !*invites, AllowedOrigins: []string{"http://localhost:18883"}})
 	listener, err := net.Listen("tcp", "127.0.0.1:18882")
 	if err != nil {
 		log.Fatal(err)

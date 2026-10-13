@@ -360,6 +360,9 @@ class _RoomPageState extends State<RoomPage> {
             builder: (context, _) {
               final active = controller.voice?.active == true;
               final muted = controller.voice?.muted == true;
+              final starting = controller.voiceStarting;
+              final voiceError =
+                  controller.voiceError ?? controller.voice?.error;
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -367,28 +370,58 @@ class _RoomPageState extends State<RoomPage> {
                     leading: Icon(
                       active ? Icons.mic_rounded : Icons.mic_off_rounded,
                     ),
-                    title: Text(active ? '语音已连接' : '语音未连接'),
+                    title: Text(
+                      starting
+                          ? '正在加入语音…'
+                          : active
+                          ? '已加入语音'
+                          : '语音未连接',
+                    ),
                     subtitle: Text(
-                      active
-                          ? '${controller.voice?.peerCount ?? 0} 个 PeerConnection'
-                          : '加入后将请求麦克风权限',
+                      !controller.permissions.voice
+                          ? '房主已关闭你的语音权限'
+                          : starting
+                          ? '请允许浏览器使用麦克风'
+                          : active
+                          ? (controller.voice!.peerCount > 0
+                                ? '已与 ${controller.voice!.peerCount} 位成员连通'
+                                : '等待其他成员加入语音')
+                          : '加入后开启麦克风，可随时静音或退出',
                     ),
                   ),
-                  if (controller.voiceError != null)
+                  if (voiceError != null)
                     Text(
-                      controller.voiceError!,
+                      voiceError,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  if (controller.voice?.playbackBlocked == true)
+                    TextButton.icon(
+                      onPressed: controller.resumeVoiceAudio,
+                      icon: const Icon(Icons.volume_up_rounded),
+                      label: const Text('点击开启声音'),
+                    ),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       if (!active)
                         FilledButton.icon(
-                          onPressed: controller.startVoice,
-                          icon: const Icon(Icons.call_rounded),
-                          label: const Text('加入语音'),
+                          onPressed: starting || !controller.permissions.voice
+                              ? null
+                              : controller.startVoice,
+                          icon: starting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.call_rounded),
+                          label: Text(starting ? '正在连接…' : '加入语音'),
                         ),
                       if (active) ...[
                         IconButton.filledTonal(
@@ -398,7 +431,6 @@ class _RoomPageState extends State<RoomPage> {
                           ),
                           tooltip: muted ? '取消静音' : '静音',
                         ),
-                        const SizedBox(width: 12),
                         FilledButton.icon(
                           onPressed: controller.stopVoice,
                           icon: const Icon(Icons.call_end_rounded),

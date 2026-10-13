@@ -66,6 +66,7 @@ class RoomController extends ChangeNotifier {
   VoiceSession? voice;
   List<RTCIceServerConfig> _iceServers = const [];
   String? voiceError;
+  bool voiceStarting = false;
   AppAnnouncement? roomAnnouncement;
 
   bool _disposed = false;
@@ -130,6 +131,7 @@ class RoomController extends ChangeNotifier {
     }
     notifyListeners();
     if (room.closed) {
+      await stopVoice();
       _mediaRenewal?.cancel();
       await player.pause();
       error = '房间已关闭。';
@@ -279,6 +281,10 @@ class RoomController extends ChangeNotifier {
       _connectionSubscription = socket.connection.listen((value) {
         if (connected && !value) {
           unawaited(player.pause());
+          if (voice != null || voiceStarting) {
+            voiceError = '房间连接已断开，语音已退出。连接恢复后可重新加入。';
+            unawaited(stopVoice());
+          }
         }
         connected = value;
         notifyListeners();
@@ -350,27 +356,41 @@ class RoomController extends ChangeNotifier {
   }
 
   Future<void> startVoice() async {
-    if (!permissions.voice) return;
+    if (!permissions.voice || room.closed || _disposed || voiceStarting) return;
     if (voice?.active == true) return;
+    if (!connected) {
+      voiceError = '房间正在重新连接，请稍后加入语音。';
+      notifyListeners();
+      return;
+    }
+    voiceStarting = true;
+    voiceError = null;
+    notifyListeners();
+    final next = VoiceSession(
+      userId: session.user.id,
+      sendSignal: (signal) =>
+          _socket?.send('rtc.signal', ++_clientSequence, signal),
+      onChanged: notifyListeners,
+    );
+    voice = next;
     try {
       _iceServers = await api.rtcConfig(session, room.code);
-      final next = VoiceSession(
-        userId: session.user.id,
-        sendSignal: (signal) =>
-            _socket?.send('rtc.signal', ++_clientSequence, signal),
-      );
-      voice = next;
+      if (_disposed || voice != next || !connected) return;
       await next.start(
         _iceServers,
         room.members.map((member) => member.userId).toList(growable: false),
       );
       voiceError = null;
     } catch (exception) {
-      voiceError = exception.toString();
-      await voice?.stop();
-      voice = null;
+      if (voice == next) {
+        voiceError = voiceFailureMessage(exception);
+        voice = null;
+      }
+      await next.stop();
+    } finally {
+      voiceStarting = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   void setVoiceMuted(bool value) {
@@ -379,10 +399,13 @@ class RoomController extends ChangeNotifier {
   }
 
   Future<void> stopVoice() async {
-    await voice?.stop();
+    final previous = voice;
     voice = null;
+    await previous?.stop();
     notifyListeners();
   }
+
+  Future<void> resumeVoiceAudio() async => voice?.resumeAudio();
 
   void setDanmakuEnabled(bool value) {
     danmakuEnabled = value;
@@ -490,6 +513,7 @@ class RoomController extends ChangeNotifier {
         onlineUserIds
           ..clear()
           ..addAll(ids.map((value) => value.toString()));
+        unawaited(voice?.retainMembers(onlineUserIds.toSet()));
         notifyListeners();
       }
       return;
@@ -568,7 +592,7 @@ class RoomController extends ChangeNotifier {
     if (voice == null) return;
     final signal = Map<String, dynamic>.from(envelope.payload);
     signal['from_user_id'] = envelope.fromUserId;
-    await voice?.handle(signal, _iceServers);
+    await voice?.handle(signal);
     notifyListeners();
   }
 
