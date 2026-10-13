@@ -3,6 +3,8 @@ package app
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -15,6 +17,15 @@ type webEntryProof struct {
 	Version    int64  `json:"version"`
 }
 
+func sameOriginWebEntry(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	return err == nil && (parsed.Scheme == "https" || parsed.Scheme == "http") && strings.EqualFold(parsed.Host, r.Host)
+}
+
 func entryCookie(value string, age int) *http.Cookie {
 	return &http.Cookie{Name: webEntryCookie, Value: value, Path: webEntryPath,
 		HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode, MaxAge: age,
@@ -24,6 +35,10 @@ func entryCookie(value string, age int) *http.Cookie {
 // The lightweight account form hands off an authenticated identity, never a
 // bearer token in the URL or persistent JavaScript-readable storage.
 func (s *Server) webEntryStart(w http.ResponseWriter, r *http.Request) {
+	if !sameOriginWebEntry(r) {
+		writeError(w, 403, ErrForbidden)
+		return
+	}
 	user, err := s.userFromRequest(r)
 	if err != nil || !hasRegisteredAccount(user) {
 		writeError(w, 401, ErrUnauthorized)
@@ -59,6 +74,10 @@ func (s *Server) webEntryStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) webEntryExchange(w http.ResponseWriter, r *http.Request) {
+	if !sameOriginWebEntry(r) {
+		writeError(w, 403, ErrForbidden)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	cookie, err := r.Cookie(webEntryCookie)
 	if err != nil {

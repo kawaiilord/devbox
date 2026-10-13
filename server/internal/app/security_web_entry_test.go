@@ -53,6 +53,15 @@ func TestWebEntryCookieIsBoundAndSingleUse(t *testing.T) {
 		t.Fatal("no-cookie boot must permit existing secure storage restoration")
 	}
 	cookie := mint()
+	crossOrigin := httptest.NewRequest("POST", webEntryPath+"/exchange", bytes.NewReader([]byte("{}")))
+	crossOrigin.Header.Set("Origin", "https://another.example.test")
+	crossOrigin.Header.Set("X-Device-ID", f.device.ID)
+	crossOrigin.AddCookie(cookie)
+	rejected := httptest.NewRecorder()
+	f.server.Handler().ServeHTTP(rejected, crossOrigin)
+	if rejected.Code != 403 {
+		t.Fatal("cross-origin handoff was not rejected")
+	}
 	res := request(webEntryPath+"/exchange", "", f.device.ID, cookie, map[string]string{})
 	if res.Code != 200 {
 		t.Fatalf("exchange: %d %s", res.Code, res.Body)
