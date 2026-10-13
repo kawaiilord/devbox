@@ -33,7 +33,13 @@ CREATE TABLE IF NOT EXISTS external_identities (
  PRIMARY KEY(provider,subject)
 );
 
-ALTER TABLE media_sources DROP CONSTRAINT IF EXISTS media_sources_source_type_check;
-ALTER TABLE media_sources ADD CONSTRAINT media_sources_source_type_check CHECK(source_type IN ('webdav','emby','quark','synology','qnap','fnos','nextcloud','seafile','truenas','bilibili','youtube','douyin','tiktok','twitch','huya','douyu','acfun','cctv','remote-alist','remote-emby','remote-bilibili','rtmp'));
+-- Preserve a newer constraint on restart and when rolling back application code.
+DO $$ BEGIN
+ IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='media_sources'::regclass
+   AND conname='media_sources_source_type_check' AND pg_get_constraintdef(oid) NOT LIKE '%remote-alist%') THEN
+  ALTER TABLE media_sources DROP CONSTRAINT media_sources_source_type_check;
+  ALTER TABLE media_sources ADD CONSTRAINT media_sources_source_type_check CHECK(source_type IN ('webdav','emby','quark','synology','qnap','fnos','nextcloud','seafile','truenas','bilibili','youtube','douyin','tiktok','twitch','huya','douyu','acfun','cctv','remote-alist','remote-emby','remote-bilibili','rtmp'));
+ END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS room_streams(room_code CHAR(6) PRIMARY KEY REFERENCES rooms(code) ON DELETE CASCADE,version BIGINT NOT NULL,data JSONB NOT NULL);
