@@ -109,9 +109,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('剧集分类'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.widgetWithText(ChoiceChip, '美剧'));
+      await tester.ensureVisible(find.widgetWithText(OutlinedButton, '美剧'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ChoiceChip, '美剧'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '美剧'));
       await tester.pumpAndSettle();
       expect(api.requests.last.category, 'us');
       await tester.ensureVisible(find.text('高分榜'));
@@ -123,7 +123,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('新番放送'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ChoiceChip, '周一'));
+      await tester.tap(find.widgetWithText(OutlinedButton, '周一'));
       await tester.pumpAndSettle();
       expect(api.requests.last.weekday, 1);
       expect(api.requests.last.section, 'anime');

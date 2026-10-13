@@ -158,7 +158,7 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
       backgroundColor: FrameColors.of(context).surface,
       constraints: const BoxConstraints(maxWidth: 680),
       builder: (sheet) => DraggableScrollableSheet(
-        initialChildSize: .78,
+        initialChildSize: item.summary.isEmpty ? .62 : .78,
         minChildSize: .45,
         maxChildSize: .94,
         expand: false,
@@ -404,7 +404,7 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
                     _section == 'anime'
                         ? '每周新番，按放送日查看。'
                         : _section == 'top'
-                        ? '评分排序，发现值得收藏的好作品。'
+                        ? '从当前片单精选 8 分以上作品，按评分排序。'
                         : '挑一张海报，发现下一场好故事。',
                     style: TextStyle(fontSize: 12, color: colors.muted),
                   ),
@@ -625,28 +625,25 @@ class _Filter extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => ChoiceChip(
-    label: Text(label),
-    selected: selected,
-    showCheckmark: false,
-    onSelected: (_) => onTap(),
-    labelStyle: TextStyle(
-      fontSize: 12,
-      color: selected
-          ? FrameColors.of(context).text
-          : FrameColors.of(context).muted,
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 3),
-    visualDensity: VisualDensity.compact,
-    selectedColor: FrameColors.of(context).elevated,
-    backgroundColor: FrameColors.of(context).background,
-    side: BorderSide(
-      color: selected
-          ? FrameColors.of(context).text
-          : FrameColors.of(context).border,
-    ),
-    shape: const StadiumBorder(),
-  );
+  Widget build(BuildContext context) {
+    final colors = FrameColors.of(context);
+    return Semantics(
+      selected: selected,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          foregroundColor: selected ? colors.text : colors.muted,
+          backgroundColor: selected ? colors.elevated : colors.background,
+          side: BorderSide(color: selected ? colors.text : colors.border),
+          shape: const StadiumBorder(),
+          textStyle: const TextStyle(fontSize: 12, height: 1.3),
+        ),
+        child: Text(label, softWrap: false),
+      ),
+    );
+  }
 }
 
 class _PosterCard extends StatelessWidget {
@@ -664,6 +661,7 @@ class _PosterCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: '查看 ${item.title} 的资料',
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: Colors.transparent,
