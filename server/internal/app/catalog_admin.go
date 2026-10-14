@@ -372,7 +372,7 @@ func (s *Server) adminCatalogProbe(w http.ResponseWriter, r *http.Request) {
 					if len(src.Channels) == 0 {
 						e = ErrNotFound
 					} else {
-						_, e = s.catalog.probeMedia(r.Context(), src.Channels[0].URL)
+						_, e = s.catalog.probeMedia(r.Context(), src.Channels[0].URL, src.Channels[0].UserAgent)
 					}
 				}
 				s.catalog.health(r.Context(), id, started, e)

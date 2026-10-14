@@ -36,10 +36,11 @@ type CatalogGroup struct {
 	Episodes []CatalogEpisode `json:"episodes"`
 }
 type CatalogEpisode struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	URL  string `json:"-"`
-	Live bool   `json:"live,omitempty"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	URL       string `json:"-"`
+	Live      bool   `json:"live,omitempty"`
+	UserAgent string `json:"-"`
 }
 type CatalogSearchResult struct {
 	Items   []CatalogFilm `json:"items"`
@@ -226,7 +227,7 @@ func (c *CatalogService) film(src CatalogSource, m map[string]any) CatalogFilm {
 	return f
 }
 func channelFilm(src CatalogSource, ch CatalogChannel) CatalogFilm {
-	return CatalogFilm{ID: ch.ID, SourceID: src.ID, SourceName: src.Name, Title: ch.Name, Kind: "live", Remarks: ch.Group, GroupKey: catalogHash(src.ID + ":" + ch.ID), Groups: []CatalogGroup{{ID: "live", Name: "直播", Episodes: []CatalogEpisode{{ID: "live", Name: "直播", URL: ch.URL, Live: true}}}}}
+	return CatalogFilm{ID: ch.ID, SourceID: src.ID, SourceName: src.Name, Title: ch.Name, Kind: "live", Remarks: ch.Group, GroupKey: catalogHash(src.ID + ":" + ch.ID), Groups: []CatalogGroup{{ID: "live", Name: "直播", Episodes: []CatalogEpisode{{ID: "live", Name: "直播", URL: ch.URL, Live: true, UserAgent: ch.UserAgent}}}}}
 }
 func (c *CatalogService) search(ctx context.Context, src CatalogSource, query string, page int) (CatalogSearchResult, error) {
 	if src.Kind == "cms" {

@@ -80,7 +80,7 @@ func (c *CatalogService) episode(ctx context.Context, src CatalogSource, path st
 	}
 	return CatalogEpisode{}, ErrNotFound
 }
-func (c *CatalogService) mediaRequest(ctx context.Context, target, method, rangeHeader, ifRange string) (*http.Response, error) {
+func (c *CatalogService) mediaRequest(ctx context.Context, target, method, rangeHeader, ifRange string, agents ...string) (*http.Response, error) {
 	u, e := catalogURL(target)
 	if e != nil {
 		return nil, e
@@ -90,6 +90,12 @@ func (c *CatalogService) mediaRequest(ctx context.Context, target, method, range
 		return nil, ErrForbidden
 	}
 	r.Header.Set("User-Agent", "SameFrame/1.0")
+	if len(agents) > 0 && agents[0] != "" {
+		if !validCatalogUserAgent(agents[0]) {
+			return nil, ErrForbidden
+		}
+		r.Header.Set("User-Agent", agents[0])
+	}
 	if rangeHeader != "" {
 		r.Header.Set("Range", rangeHeader)
 	}
@@ -112,10 +118,10 @@ func (c *CatalogService) mediaRequest(ctx context.Context, target, method, range
 	}
 	return client.Do(r)
 }
-func (c *CatalogService) probeMedia(ctx context.Context, raw string) (string, error) {
+func (c *CatalogService) probeMedia(ctx context.Context, raw string, agents ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
-	r, e := c.mediaRequest(ctx, raw, "GET", "bytes=0-1023", "")
+	r, e := c.mediaRequest(ctx, raw, "GET", "bytes=0-1023", "", agents...)
 	if e != nil {
 		return "", errors.New("播放连接失败")
 	}
@@ -148,14 +154,14 @@ func (m *MediaSourceManager) prepareCatalog(ctx context.Context, source MediaSou
 	}
 	kind := "platform-file"
 	// Probe once per short-lived cache window to identify extensionless HLS URLs.
-	key := "media:" + catalogHash(episode.URL)
+	key := "media:" + catalogHash(episode.URL+"\x00"+episode.UserAgent)
 	m.catalog.mu.Lock()
 	cached, ok := m.catalog.cache[key]
 	m.catalog.mu.Unlock()
 	if ok && cached.Expires.After(m.catalog.now()) {
 		kind = string(cached.Data)
 	} else {
-		kind, e = m.catalog.probeMedia(ctx, episode.URL)
+		kind, e = m.catalog.probeMedia(ctx, episode.URL, episode.UserAgent)
 		if e != nil {
 			return MediaTicket{}, e
 		}
@@ -169,7 +175,11 @@ func (m *MediaSourceManager) prepareCatalog(ctx context.Context, source MediaSou
 		m.catalog.cache[key] = catalogCacheEntry{Data: []byte(kind), Expires: m.catalog.now().Add(time.Minute)}
 		m.catalog.mu.Unlock()
 	}
-	return MediaTicket{UserID: source.UserID, SourceID: source.ID, Path: path, Kind: kind, StreamURL: episode.URL, IsLive: episode.Live}, nil
+	headers := map[string]string{}
+	if episode.UserAgent != "" {
+		headers["User-Agent"] = episode.UserAgent
+	}
+	return MediaTicket{UserID: source.UserID, SourceID: source.ID, Path: path, Kind: kind, StreamURL: episode.URL, StreamHeaders: headers, IsLive: episode.Live}, nil
 }
 
 var catalogEpisodeNumber = regexp.MustCompile(`(?i)^(?:第|ep(?:isode)?\s*)?0*([0-9]+)(?:集|话|話|期)?$`)

@@ -20,10 +20,11 @@ const catalogMaxBytes = 2 << 20
 const catalogMaxSources = 64
 
 type CatalogChannel struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	URL   string `json:"url"`
-	Group string `json:"group"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	Group     string `json:"group"`
+	UserAgent string `json:"user_agent,omitempty"`
 }
 type CatalogSource struct {
 	ID       string           `json:"id"`

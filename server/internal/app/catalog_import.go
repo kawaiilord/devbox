@@ -61,20 +61,30 @@ func parseCatalogM3U(data []byte, base string) ([]CatalogChannel, int, error) {
 	if !strings.HasPrefix(text, "#EXTM3U") || !utf8.ValidString(text) {
 		return nil, 0, errors.New("不是有效的 UTF-8 M3U 列表")
 	}
-	if strings.Contains(text, "#EXT-X-") {
-		return nil, 0, errors.New("这是 HLS 视频分片清单，请导入频道 M3U 列表")
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "#EXT-X-") {
+			continue
+		}
+		tag := strings.SplitN(strings.Fields(line)[0], ":", 2)[0]
+		switch tag {
+		case "#EXT-X-APP", "#EXT-X-APTV-TYPE", "#EXT-X-SUB-URL":
+			// Application metadata in a channel list, not an HLS media tag.
+		default:
+			return nil, 0, errors.New("这是 HLS 视频分片清单，请导入频道 M3U 列表")
+		}
 	}
 	channels := []CatalogChannel{}
 	seen := map[string]bool{}
 	ids := map[string]bool{}
 	skipped := 0
-	name, group, tvgID := "", "", ""
+	name, group, tvgID, agent := "", "", "", ""
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	scanner.Buffer(make([]byte, 4096), 32768)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "#EXTINF:") {
-			name, group, tvgID = "", "", ""
+			name, group, tvgID, agent = "", "", "", ""
 			if i := strings.LastIndex(line, ","); i >= 0 {
 				name = strings.TrimSpace(line[i+1:])
 			}
@@ -84,15 +94,22 @@ func parseCatalogM3U(data []byte, base string) ([]CatalogChannel, int, error) {
 					group = v[2]
 				case "tvg-id":
 					tvgID = v[2]
+				case "http-user-agent":
+					agent = strings.TrimSpace(v[2])
 				}
 			}
+			continue
+		}
+		if strings.HasPrefix(line, "#EXTVLCOPT:http-user-agent=") && name != "" {
+			agent = strings.TrimSpace(strings.TrimPrefix(line, "#EXTVLCOPT:http-user-agent="))
 			continue
 		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if name == "" || len([]rune(name)) > 150 {
+		if name == "" || len([]rune(name)) > 150 || !validCatalogUserAgent(agent) {
 			skipped++
+			name = ""
 			continue
 		}
 		raw := line
@@ -108,22 +125,26 @@ func parseCatalogM3U(data []byte, base string) ([]CatalogChannel, int, error) {
 			continue
 		}
 		raw = u.String()
-		if seen[raw] {
+		identityURL := raw
+		if agent != "" {
+			identityURL += "\x00" + agent
+		}
+		if seen[identityURL] {
 			skipped++
 			name = ""
 			continue
 		}
-		seen[raw] = true
+		seen[identityURL] = true
 		identity := tvgID
 		if identity == "" {
 			identity = group + ":" + name
 		}
 		id := catalogHash(identity)
 		if ids[id] {
-			id = catalogHash(identity + ":" + raw)
+			id = catalogHash(identity + ":" + identityURL)
 		}
 		ids[id] = true
-		channels = append(channels, CatalogChannel{ID: id, Name: name, Group: catalogText(group, 100), URL: raw})
+		channels = append(channels, CatalogChannel{ID: id, Name: name, Group: catalogText(group, 100), URL: raw, UserAgent: agent})
 		name = ""
 		if len(channels) > 2000 {
 			return nil, skipped, errors.New("单个 M3U 列表最多 2000 个频道")
@@ -136,6 +157,18 @@ func parseCatalogM3U(data []byte, base string) ([]CatalogChannel, int, error) {
 		return nil, skipped, errors.New("列表没有可用的 HTTP(S) 频道")
 	}
 	return channels, skipped, nil
+}
+
+func validCatalogUserAgent(value string) bool {
+	if len(value) > 512 {
+		return false
+	}
+	for _, r := range value {
+		if r < 32 || r == 127 {
+			return false
+		}
+	}
+	return true
 }
 
 func catalogText(value string, limit int) string {

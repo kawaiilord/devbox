@@ -240,7 +240,7 @@ func (m *MediaSourceManager) Open(
 func (m *MediaSourceManager) openSource(ctx context.Context, source MediaSource, secret []byte, ticket MediaTicket, method, rangeHeader, ifRange string) (*http.Response, error) {
 	switch source.Type {
 	case "catalog":
-		return m.catalog.mediaRequest(ctx, ticket.StreamURL, method, rangeHeader, ifRange)
+		return m.catalog.mediaRequest(ctx, ticket.StreamURL, method, rangeHeader, ifRange, ticket.StreamHeaders["User-Agent"])
 	case "rtmp":
 		return m.openRTMP(ctx, source, secret, ticket, method, rangeHeader)
 	case "remote-alist", "remote-emby", "remote-bilibili":
