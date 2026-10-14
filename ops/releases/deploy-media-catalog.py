@@ -149,6 +149,9 @@ def deploy(args):
     container = output(['docker', 'compose', 'ps', '-q', 'app'], root)
     old_image = output(['docker', 'inspect', container, '--format', '{{.Image}}'], root)
     runtime_name = output(['docker', 'inspect', container, '--format', '{{.Config.Image}}'], root)
+    # CI archives may inherit a private umask from the download process. This
+    # public JavaScript asset must be readable by the unprivileged check image.
+    (stage / 'flutter_bootstrap.js').chmod(0o644)
     command(['docker', 'run', '--rm', '--network', 'none', '--entrypoint', 'node',
         '-v', str(stage / 'flutter_bootstrap.js') + ':/tmp/bootstrap.js:ro',
         old_image, '--check', '/tmp/bootstrap.js'], root)

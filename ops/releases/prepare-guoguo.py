@@ -85,7 +85,9 @@ def main():
     # UID. Replace only the binary with the exact CI artifact being released.
     base = run(['docker', 'image', 'inspect', 'sameframe-guoguo:review', '--format', '{{.Id}}'],
                root, capture_output=True, text=True).stdout.strip()
-    (release / 'Dockerfile').write_text('FROM ' + base + '\nCOPY --chown=65532:65532 guoguo /usr/local/bin/guoguo\n')
+    base_tag = 'sameframe-guoguo:runtime-' + base.removeprefix('sha256:')[:12]
+    run(['docker', 'tag', base, base_tag], root)
+    (release / 'Dockerfile').write_text('FROM ' + base_tag + '\nCOPY --chown=65532:65532 guoguo /usr/local/bin/guoguo\n')
     run(['docker', 'build', '-t', image, '.'], release)
     service = {
         'image': image, 'container_name': 'sameframe-guoguo',
