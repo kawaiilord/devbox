@@ -136,22 +136,33 @@ func (a *UIApp) bridgeDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 40*time.Second)
 	defer cancel()
-	entry, err := a.downloader.hongguoAppDetail(ctx, id)
+	title, chapters, err := a.downloader.fetchHongguoChapters(ctx, id)
 	if err != nil {
 		writeJSON(w, 502, map[string]string{"error": "短剧详情暂不可用，请稍后重试"})
 		return
 	}
 	// Only stable episode identifiers leave the provider, never expiring media
 	// URLs, content keys or app signing material.
+	drama := Drama{ID: providerDramaID(sourceHongguo, id), Source: sourceHongguo, SourceID: id, Title: title, TotalEpisode: len(chapters)}
+	a.mu.Lock()
+	for _, known := range a.dramas {
+		if known.ID == drama.ID {
+			drama = known
+			drama.Title = title
+			drama.TotalEpisode = len(chapters)
+			break
+		}
+	}
+	a.mu.Unlock()
 	episodes := []map[string]string{}
-	for i, ch := range entry.Chapters {
+	for i, ch := range chapters {
 		parts := strings.Split(ch.ID, ":")
 		video := parts[len(parts)-1]
 		if hongguoNumericID.MatchString(video) {
 			episodes = append(episodes, map[string]string{"id": video, "name": "第" + ch.EpisodeString(i+1) + "集"})
 		}
 	}
-	writeJSON(w, 200, map[string]any{"drama": entry.Drama, "episodes": episodes})
+	writeJSON(w, 200, map[string]any{"drama": drama, "episodes": episodes})
 }
 
 // Compile-time assertion keeps the buffered manifest response faithful to net/http.

@@ -147,6 +147,18 @@ func (d *Downloader) fetchHongguoChapters(ctx context.Context, sourceID string) 
 	}
 	title, chapters, webErr := d.fetchHongguoWebChapters(ctx, sourceID)
 	if webErr == nil {
+		// Keep stable web episode metadata when the App detail endpoint is
+		// temporarily empty. Media URLs are still resolved at playback time.
+		client := d.hongguoClient()
+		client.mu.Lock()
+		if len(client.details) >= 128 {
+			client.details = map[string]hongguoDetailEntry{}
+		}
+		client.details[sourceID] = hongguoDetailEntry{
+			Drama:    Drama{ID: providerDramaID(sourceHongguo, sourceID), Source: sourceHongguo, SourceID: sourceID, Title: title, TotalEpisode: len(chapters)},
+			Chapters: append([]Chapter(nil), chapters...), ExpiresAt: time.Now().Add(5 * time.Minute),
+		}
+		client.mu.Unlock()
 		return title, chapters, nil
 	}
 	return "", nil, fmt.Errorf("App 详情失败: %v；网页详情失败: %w", publicError(appErr), webErr)

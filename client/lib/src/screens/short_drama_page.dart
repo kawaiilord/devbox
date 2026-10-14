@@ -100,16 +100,18 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
         _feed = feed;
       });
     } catch (e) {
-      if (mounted && request == _request)
+      if (mounted && request == _request) {
         setState(
           () => _error = e is ApiException ? e.message : '短剧暂时连接失败，请重试。',
         );
+      }
     } finally {
-      if (mounted && request == _request)
+      if (mounted && request == _request) {
         setState(() {
           _loading = false;
           _loadingMore = false;
         });
+      }
     }
   }
 
