@@ -1134,6 +1134,50 @@ class ApiClient {
         .toList();
   }
 
+  Future<MediaPlaybackTicket> watchCatalog(
+    Session session,
+    Map<String, dynamic> selection,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/v1/catalog/watch',
+      session: session,
+      body: selection,
+    );
+    return MediaPlaybackTicket(
+      url: Uri.parse(baseUrl).resolve(data['url'] as String).toString(),
+      expiresAt: (data['expires_at'] as num).toInt(),
+    );
+  }
+
+  Future<OwnedRooms> ownedRooms(Session session, {int offset = 0}) async =>
+      OwnedRooms.fromJson(
+        await _request(
+          'GET',
+          '/api/v1/account/rooms?offset=$offset',
+          session: session,
+        ),
+      );
+
+  Future<Room> watchCatalogInRoom(
+    Session session,
+    Room room,
+    Map<String, dynamic> selection, {
+    double startPosition = 0,
+  }) async => _roomFromJson(
+    await _request(
+      'POST',
+      '/api/v1/rooms/${room.code}/catalog',
+      session: session,
+      body: {
+        'version': room.features?.version ?? 0,
+        'selection': selection,
+        'play_now': true,
+        'start_position': startPosition,
+      },
+    ),
+  );
+
   Future<Room> appendCatalogPlaylist(
     Session session,
     Room room,

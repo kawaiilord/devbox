@@ -75,6 +75,27 @@ class CatalogSearch {
   final bool hasMore;
 }
 
+class OwnedRoom {
+  OwnedRoom.fromJson(Map<String, dynamic> json)
+    : code = json['code'] as String,
+      name = json['name'] as String,
+      memberCount = (json['member_count'] as num?)?.toInt() ?? 0;
+  final String code, name;
+  final int memberCount;
+}
+
+class OwnedRooms {
+  OwnedRooms.fromJson(Map<String, dynamic> json)
+    : rooms = (json['rooms'] as List)
+          .map((v) => OwnedRoom.fromJson(v as Map<String, dynamic>))
+          .toList(),
+      hasMore = json['has_more'] == true,
+      nextOffset = (json['next_offset'] as num?)?.toInt() ?? 0;
+  final List<OwnedRoom> rooms;
+  final bool hasMore;
+  final int nextOffset;
+}
+
 List<List<CatalogFilm>> groupCatalogFilms(Iterable<CatalogFilm> films) {
   final groups = <String, List<CatalogFilm>>{};
   final seen = <String>{};

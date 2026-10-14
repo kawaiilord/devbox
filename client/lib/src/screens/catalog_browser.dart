@@ -6,6 +6,8 @@ import '../api/api_client.dart';
 import '../catalog_models.dart';
 import '../design.dart';
 import '../models.dart';
+import 'catalog_player.dart';
+import 'owned_room_picker.dart';
 
 class CatalogBrowser extends StatefulWidget {
   const CatalogBrowser({
@@ -31,7 +33,7 @@ class CatalogBrowser extends StatefulWidget {
 
 class _CatalogBrowserState extends State<CatalogBrowser> {
   late final TextEditingController _query;
-  final _roomCode = TextEditingController();
+  final _player = GlobalKey<CatalogPlayerState>();
   List<CatalogSource> _sources = [];
   final List<CatalogFilm> _films = [];
   final Map<String, int> _pages = {};
@@ -63,7 +65,6 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   void dispose() {
     _request++;
     _query.dispose();
-    _roomCode.dispose();
     super.dispose();
   }
 
@@ -189,6 +190,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
           for (final group in film.groups) (film, group),
       ];
       _episode = _lines.isEmpty ? '' : _lines.first.$2.episodes.first.id;
+      _allEpisodes = _lines.isEmpty || _lines.first.$2.episodes.length <= 500;
       _detailing = false;
       if (_lines.isEmpty) _error = '暂未找到可直连的播放线路，可选择其他片源或稍后重试。';
     });
@@ -214,33 +216,44 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
 
   Future<void> _play({bool existing = false}) async {
     if (_busy || _lines.isEmpty || _episode.isEmpty) return;
+    String? selectedRoom;
+    if (existing) {
+      selectedRoom = await showDialog<String>(
+        context: context,
+        builder: (_) =>
+            OwnedRoomPicker(api: widget.api, session: widget.session),
+      );
+      if (!mounted || selectedRoom == null) return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
+      final position = _player.currentState?.positionSeconds ?? 0;
+      await _player.currentState?.pause();
       Room room;
       if (existing) {
-        final code = _roomCode.text.trim().toUpperCase();
-        if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
-          setState(() => _error = '填写已加入房间的 6 位房间码。');
-          return;
-        }
-        room = await widget.api.getRoom(widget.session, code);
+        room = await widget.api.joinRoom(
+          session: widget.session,
+          code: selectedRoom!,
+        );
         if (room.features?.permissions.playlist != true) {
           setState(() => _error = '你没有这个房间的片单编辑权限。');
           return;
         }
-        room = await widget.api.appendCatalogPlaylist(
+        room = await widget.api.watchCatalogInRoom(
           widget.session,
           room,
           _selection(),
+          startPosition: position,
         );
       } else {
         room = await widget.api.createRoom(
           session: widget.session,
           name: '${_lines[_line].$1.title} · 一起看',
           catalog: _selection(),
+          startPosition: position,
         );
       }
       if (mounted) widget.onOpenRoom(room);
@@ -542,6 +555,47 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                 ),
             ],
           ),
+          if (_lines.isNotEmpty) ...[
+            CatalogPlayer(
+              key: _player,
+              api: widget.api,
+              session: widget.session,
+              selection: _selection(),
+              identity:
+                  '${_lines[_line].$1.sourceId}:${_lines[_line].$1.id}:${_lines[_line].$2.id}:$_episode',
+              onNext: () {
+                final index = episodes.indexWhere((e) => e.id == _episode);
+                if (index >= 0 && index + 1 < episodes.length) {
+                  setState(() {
+                    _episode = episodes[index + 1].id;
+                    _episodePage = (index + 1) ~/ 50;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _play(),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(_busy ? '正在进入房间…' : '创建房间'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _play(existing: true),
+                  icon: const Icon(Icons.meeting_room_outlined, size: 18),
+                  label: const Text('加入我的房间'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('正在单人观看', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
           if (film != null) ...[
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,6 +684,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                         _line = i;
                         _episode = _lines[i].$2.episodes.first.id;
                         _episodePage = 0;
+                        _allEpisodes = _lines[i].$2.episodes.length <= 500;
                       });
                     },
             ),
@@ -678,42 +733,17 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('将全部剧集加入播放列表'),
-                subtitle: const Text('同集可用线路将合并，换源保留播放位置'),
+                title: const Text('一起看时将全部剧集加入房间片单'),
+                subtitle: Text(
+                  episodes.length > 500
+                      ? '房间片单最多 500 集，这部剧将只加入当前集。'
+                      : '单人观看无需创建房间，选择集数即可播放。',
+                ),
                 value: _allEpisodes,
-                onChanged: _busy
+                onChanged: _busy || episodes.length > 500
                     ? null
                     : (v) => setState(() => _allEpisodes = v ?? true),
               ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _busy ? null : () => _play(),
-              icon: _busy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.play_arrow_rounded),
-              label: Text(_busy ? '正在准备播放…' : '创建房间 · 立即观看'),
-            ),
-            const SizedBox(height: 12),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('加入已有房间的片单', style: TextStyle(fontSize: 13)),
-              children: [
-                TextField(
-                  controller: _roomCode,
-                  maxLength: 6,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: '已加入的房间码'),
-                ),
-                OutlinedButton(
-                  onPressed: _busy ? null : () => _play(existing: true),
-                  child: const Text('加入片单并进入房间'),
-                ),
-              ],
-            ),
           ],
         ],
       ),

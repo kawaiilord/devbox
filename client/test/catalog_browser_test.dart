@@ -48,6 +48,16 @@ class CatalogApi extends ApiClient {
   final slow = Completer<CatalogSearch>();
   bool empty = false;
   Map<String, dynamic>? requestedSelection;
+  Map<String, dynamic>? soloSelection;
+  @override
+  Future<MediaPlaybackTicket> watchCatalog(
+    Session session,
+    Map<String, dynamic> selection,
+  ) async {
+    soloSelection = selection;
+    throw const ApiException('测试播放服务离线');
+  }
+
   @override
   Future<List<CatalogSource>> catalogSources(Session session) async => empty
       ? []
@@ -143,14 +153,15 @@ void main() {
         await tester.tap(find.text('测试电影'));
         await tester.pumpAndSettle();
         expect(find.text('选择剧集 · 共 100 集'), findsOneWidget);
+        expect(api.soloSelection, isNotNull);
+        expect(api.requestedSelection, isNull);
+        await tester.ensureVisible(find.widgetWithText(ChoiceChip, '第2集'));
         await tester.tap(find.widgetWithText(ChoiceChip, '第2集'));
         await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          find.text('创建房间 · 立即观看'),
-          300,
-          scrollable: find.byType(Scrollable).last,
-        );
-        await tester.tap(find.text('创建房间 · 立即观看'));
+        expect(api.soloSelection?['episode_id'], 'episode-1');
+        expect(api.requestedSelection, isNull);
+        await tester.ensureVisible(find.text('创建房间'));
+        await tester.tap(find.text('创建房间'));
         await tester.pumpAndSettle();
         expect(api.requestedSelection?['episode_id'], 'episode-1');
         expect((api.requestedSelection?['refs'] as List).length, 2);

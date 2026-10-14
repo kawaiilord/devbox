@@ -43,7 +43,37 @@ Map<String, dynamic> drama(String title) => {
 class ShortDramaApi extends ApiClient {
   final delayed = Completer<ShortDramaFeed>();
   Map<String, dynamic>? selection;
+  Map<String, dynamic>? soloSelection;
+  String? joinedCode;
   int catalogSearches = 0;
+  @override
+  Future<MediaPlaybackTicket> watchCatalog(
+    Session session,
+    Map<String, dynamic> selection,
+  ) async {
+    soloSelection = selection;
+    throw const ApiException('测试播放服务离线，可重试');
+  }
+
+  @override
+  Future<OwnedRooms> ownedRooms(Session session, {int offset = 0}) async =>
+      OwnedRooms.fromJson({
+        'rooms': [
+          {'code': 'ABC123', 'name': '我之前的房间', 'member_count': 1},
+        ],
+        'has_more': false,
+        'next_offset': 1,
+      });
+  @override
+  Future<Room> joinRoom({
+    required Session session,
+    required String code,
+    String password = '',
+  }) async {
+    joinedCode = code;
+    throw const ApiException('测试加入房间');
+  }
+
   @override
   Future<ShortDramaFeed> shortDramas(
     Session session,
@@ -115,8 +145,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('第2集'), findsOneWidget);
       expect(api.catalogSearches, 0);
+      expect(api.soloSelection?['episode_id'], '11');
+      expect(api.selection, isNull);
+      await tester.ensureVisible(find.text('第2集'));
       await tester.tap(find.text('第2集'));
-      await tester.tap(find.text('创建房间 · 立即观看'));
+      await tester.pumpAndSettle();
+      expect(api.soloSelection?['episode_id'], '22');
+      expect(api.selection, isNull);
+      await tester.ensureVisible(find.text('加入我的房间'));
+      await tester.tap(find.text('加入我的房间'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('我之前的房间'));
+      await tester.pumpAndSettle();
+      expect(api.joinedCode, 'ABC123');
+      expect(api.selection, isNull);
+      await tester.ensureVisible(find.text('创建房间'));
+      await tester.tap(find.text('创建房间'));
       await tester.pumpAndSettle();
       expect(api.selection?['episode_id'], '22');
       expect(api.selection?['all_episodes'], true);
@@ -125,6 +169,7 @@ void main() {
         'builtin-guoguo',
       );
       expect(find.text('建房申请已提交'), findsOneWidget);
+      await tester.ensureVisible(find.text('短剧列表'));
       await tester.tap(find.text('短剧列表'));
       await tester.pumpAndSettle();
       expect(find.text('漫剧样本'), findsOneWidget);

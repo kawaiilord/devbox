@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -310,11 +311,17 @@ func (s *Server) appendCatalogPlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Version   int64            `json:"version"`
-		Selection CatalogSelection `json:"selection"`
+		Version       int64            `json:"version"`
+		Selection     CatalogSelection `json:"selection"`
+		PlayNow       bool             `json:"play_now"`
+		StartPosition float64          `json:"start_position"`
 	}
 	if e := decodeJSON(r, &in); e != nil {
 		writeError(w, 400, e)
+		return
+	}
+	if math.IsNaN(in.StartPosition) || math.IsInf(in.StartPosition, 0) || in.StartPosition < 0 || in.StartPosition > 86400 {
+		writeError(w, 400, errors.New("播放位置无效"))
 		return
 	}
 	code := strings.ToUpper(r.PathValue("code"))
@@ -327,7 +334,11 @@ func (s *Server) appendCatalogPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 403, ErrForbidden)
 		return
 	}
-	items, _, e := s.catalog.playlist(r.Context(), user, in.Selection)
+	if in.PlayNow && room.OwnerID != user.ID {
+		writeError(w, 403, ErrForbidden)
+		return
+	}
+	items, active, e := s.catalog.playlist(r.Context(), user, in.Selection)
 	if e != nil {
 		writeError(w, 400, e)
 		return
@@ -340,6 +351,9 @@ func (s *Server) appendCatalogPlaylist(w http.ResponseWriter, r *http.Request) {
 			return e
 		}
 		if !f.grants(room, user.ID).Playlist {
+			return ErrForbidden
+		}
+		if in.PlayNow && room.OwnerID != user.ID {
 			return ErrForbidden
 		}
 		if f.Version != in.Version {
@@ -356,11 +370,18 @@ func (s *Server) appendCatalogPlaylist(w http.ResponseWriter, r *http.Request) {
 			items[i].Episode = next + i
 		}
 		f.Playlist = append(f.Playlist, items...)
-		if f.ActiveItemID == "" {
-			f.ActiveItemID = items[0].ID
-			selection, e := s.selectionForItem(ctx, room, f, items[0], false)
+		if f.ActiveItemID == "" || in.PlayNow {
+			index := 0
+			if in.PlayNow {
+				index = active
+			}
+			f.ActiveItemID = items[index].ID
+			selection, e := s.selectionForItem(ctx, room, f, items[index], false)
 			if e != nil {
 				return e
+			}
+			if in.PlayNow {
+				selection.Playback.Position = in.StartPosition
 			}
 			return s.saveSelectedMedia(ctx, room, f, selection)
 		}
