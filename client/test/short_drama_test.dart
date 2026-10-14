@@ -98,7 +98,9 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.tap(find.text('漫剧'));
+      await tester.tap(
+        find.ancestor(of: find.text('漫剧'), matching: find.byType(ChoiceChip)),
+      );
       await tester.pumpAndSettle();
       expect(find.text('漫剧样本'), findsOneWidget);
       api.delayed.complete(

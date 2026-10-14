@@ -1,12 +1,15 @@
 package app
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestSameFrameBridgeAuthAndRouteIsolation(t *testing.T) {
@@ -99,5 +102,42 @@ func TestSameFrameBridgeSharesEpisodeAndServesRealHLS(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+func TestSameFrameWebDetailFallbackKeepsStableEpisodeIDs(t *testing.T) {
+	var calls atomic.Int32
+	d := rankingTestDownloader(t, func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		body := ""
+		if r.URL.Path == "/detail" {
+			body = `<script>_ROUTER_DATA={"loaderData":{"detail_page":{"seriesDetail":{"series_name":"网页回退样本","vid_list":["11","22"]}}}}</script>`
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	title, chapters, err := d.fetchHongguoChapters(ctx, "7000000000000000001")
+	if err != nil || title != "网页回退样本" || len(chapters) != 2 || chapters[1].ID != "hongguo:7000000000000000001:22" {
+		t.Fatal(title, chapters, err)
+	}
+	before := calls.Load()
+	_, again, err := d.fetchHongguoChapters(ctx, "7000000000000000001")
+	if err != nil || len(again) != 2 || calls.Load() != before {
+		t.Fatal("web detail fallback was not cached", err)
+	}
+}
+
+func TestSameFrameRankingUsesDesktopDocument(t *testing.T) {
+	board := rankingBoards[0]
+	d := rankingTestDownloader(t, func(r *http.Request) (*http.Response, error) {
+		if r.Header.Get("User-Agent") != rankingWebUserAgent {
+			t.Error("mobile rank document may omit streamed content")
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(rankingFixture(board, 1, rankingRows(1)))), Request: r}, nil
+	})
+	page, err := d.fetchRankingPage(context.Background(), board, 1)
+	if err != nil || len(page.Items) != 2 {
+		t.Fatal(page, err)
 	}
 }

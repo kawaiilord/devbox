@@ -146,8 +146,11 @@ func (c *CatalogService) guoguoFilm(row map[string]any) CatalogFilm {
 	}
 	cover := guoguoFirst(row, "coverUrl", "cover_url", "cover", "image", "poster")
 	if strings.HasPrefix(cover, "/api/ui/image?") {
-		u, _ := url.Parse(cover)
-		cover = u.Query().Get("url")
+		u, err := url.Parse(cover)
+		cover = ""
+		if err == nil {
+			cover = u.Query().Get("url")
+		}
 	}
 	if c.vault != nil && cover != "" && len(cover) < 8192 {
 		data, _ := json.Marshal(catalogPoster{URL: cover, Expires: c.now().Add(24 * time.Hour).Unix()})

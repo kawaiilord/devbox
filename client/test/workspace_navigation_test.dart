@@ -163,7 +163,16 @@ void main() {
     // The full menu is available from the section itself; no profile detour.
     await tester.tap(find.text('全部'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('设备管理'));
+    await tester.scrollUntilVisible(
+      find.text('设备管理'),
+      -140,
+      scrollable: find
+          .descendant(
+            of: find.byType(Drawer),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('设备管理'));
     await tester.pumpAndSettle();

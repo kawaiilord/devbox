@@ -46,6 +46,34 @@ func parseHongguoRanking(body string, board rankingBoard, page int) (rankingPage
 	} else {
 
 		for _, tag := range rankingScriptTags.FindAllString(body, -1) {
+			// Desktop SSR can deliver an already resolved promise via
+			// mergeLoaderData instead of a later router-data "r" callback.
+			// Decode its JSON arguments only; never evaluate upstream scripts.
+			if extractAttr(tag, "data-fn-name") == "mergeLoaderData" && extractAttr(tag, "data-script-src") == "modern-run-window-fn" {
+				var args []json.RawMessage
+				if json.Unmarshal([]byte(extractAttr(tag, "data-fn-args")), &args) != nil || len(args) != 2 {
+					continue
+				}
+				var route string
+				var fields []struct {
+					Key  string   `json:"key"`
+					Name string   `json:"routerDataFnName"`
+					Args []string `json:"routerDataFnArgs"`
+				}
+				if json.Unmarshal(args[0], &route) != nil || route != loaderKey || json.Unmarshal(args[1], &fields) != nil {
+					continue
+				}
+				for _, field := range fields {
+					if field.Key == "content" && field.Name == "p" && len(field.Args) == 1 {
+						if json.Unmarshal([]byte(field.Args[0]), &content) != nil {
+							return rankingPage{}, failure
+						}
+					}
+				}
+				if content.Success {
+					break
+				}
+			}
 			if extractAttr(tag, "data-fn-name") != "r" || extractAttr(tag, "data-script-src") != "modern-run-router-data-fn" {
 				continue
 			}

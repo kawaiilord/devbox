@@ -71,6 +71,22 @@ func TestHongguoRankingStreamAndValidation(t *testing.T) {
 	}
 }
 
+func TestHongguoRankingResolvedDesktopContent(t *testing.T) {
+	board := rankingBoards[0]
+	key := "rank_" + board.path + "/page"
+	loader, _ := json.Marshal(map[string]any{"loaderData": map[string]any{key: map[string]any{"rankKey": board.upstreamKey, "pageNum": 1, "content": map[string]any{}}}})
+	content, _ := json.Marshal(map[string]any{"isSuccess": true, "rankList": rankingRows(1), "pagination": map[string]int{"pageNum": 1, "totalPages": 2}})
+	args, _ := json.Marshal([]any{key, []any{map[string]any{"key": "content", "routerDataFnName": "p", "routerDataFnArgs": []string{string(content)}}}})
+	body := "<script>_ROUTER_DATA=" + string(loader) + "</script><script data-script-src='modern-run-window-fn' data-fn-name='mergeLoaderData' data-fn-args='" + html.EscapeString(string(args)) + "'></script>"
+	page, err := parseHongguoRanking(body, board, 1)
+	if err != nil || len(page.Items) != 2 || page.Items[0].Rank != 1 || !page.HasMore {
+		t.Fatal(page, err)
+	}
+	if _, err := parseHongguoRanking(strings.Replace(body, html.EscapeString(`"p"`), html.EscapeString(`"s"`), 1), board, 1); err == nil {
+		t.Fatal("unresolved promise accepted as content")
+	}
+}
+
 func TestHongguoReleaseLabelsUseSourceMeaning(t *testing.T) {
 	now := time.Date(2026, 9, 12, 17, 30, 0, 0, time.UTC)
 	for _, test := range []struct{ label, expected string }{

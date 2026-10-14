@@ -10,6 +10,7 @@ import (
 )
 
 const rankingCacheTTL = 5 * time.Minute
+const rankingWebUserAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 type rankingBoard struct {
 	ID          string `json:"id"`
@@ -138,7 +139,7 @@ func (d *Downloader) fetchRankingPage(ctx context.Context, board rankingBoard, p
 	switch board.Source {
 	case sourceHongguo:
 		pageURL := hongguoBaseURL + "/rank/" + board.path + "?page=" + strconv.Itoa(page)
-		body, err := d.fetchProviderText(ctx, pageURL, hongguoBaseURL+"/")
+		body, err := d.fetchProviderText(ctx, pageURL, hongguoBaseURL+"/", rankingWebUserAgent)
 		if err != nil {
 			return rankingPage{}, err
 		}

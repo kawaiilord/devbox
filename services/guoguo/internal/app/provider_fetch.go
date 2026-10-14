@@ -12,7 +12,7 @@ import (
 const providerMaxBodyBytes = 20 * 1024 * 1024
 const providerTimeout = 12 * time.Second
 
-func (d *Downloader) fetchProviderText(ctx context.Context, rawURL, referer string) (string, error) {
+func (d *Downloader) fetchProviderText(ctx context.Context, rawURL, referer string, agents ...string) (string, error) {
 	retries := d.cfg.Retries
 	if retries <= 0 {
 		retries = 3
@@ -49,6 +49,9 @@ func (d *Downloader) fetchProviderText(ctx context.Context, rawURL, referer stri
 				return "", err
 			}
 			req.Header.Set("User-Agent", userAgent)
+			if len(agents) > 0 {
+				req.Header.Set("User-Agent", agents[0])
+			}
 			if providerSourceForURL(rawURL) != "" {
 				req.Header.Set("Referer", providerRefererForURL(candidate, referer))
 			} else {
