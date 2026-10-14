@@ -1,0 +1,27 @@
+{
+  "rollback_compatibility_revision": null,
+  "original_server_sha256": "5dfc8498910f5995461f68926f88b5bdf560655a32cf9f7e78e765dd95c0de49",
+  "revision": "338cd82",
+  "root": "/opt/sameframe",
+  "status": "deployed",
+  "created_at_utc": "2026-10-14T03:45:15Z",
+  "backup_directory": "/opt/sameframe/backups/apple-m3u-20261014-034450",
+  "runtime_image_name": "sameframe-app",
+  "rollback_image": "sameframe-app:before-apple-m3u-338cd82",
+  "previous_image_id": "sha256:1b6d0ad416c44bced322b3cf54f42d9847015e9fef56e1ccd9b7d339d8733c38",
+  "new_image": "sameframe-app:apple-m3u-338cd82",
+  "database_migration": "APTV channel metadata and per-channel User-Agent; optional encrypted configuration fields; no SQL migration; preserve all user activity on rollback",
+  "previous_web_sha256": "0f4db14f4c28dac456f79d1ebaa30db81242c44fd24f88b46c6458c8feb3df3e",
+  "backup_sha256": {
+    "sameframe": "5dfc8498910f5995461f68926f88b5bdf560655a32cf9f7e78e765dd95c0de49",
+    "web.tgz": "74bf28bc90a1eaa6271bb845c2f83cb290142c24d63ea69dc677570fd3fec095",
+    "database.dump": "1e07df5a37978082ceb7878ab45eb9468eb8d1d08ef3dea3dd711ea5ef04c8b2"
+  },
+  "server_sha256": "d38a7a667fc1c1d6b2b3561145229eb957adf4b46221e1b53ad52fe76bd14d25",
+  "web_sha256": "0f4db14f4c28dac456f79d1ebaa30db81242c44fd24f88b46c6458c8feb3df3e",
+  "added_web_files": [],
+  "rollback_command": "python3 /opt/sameframe/releases/apple-m3u-338cd82/release.py --rollback",
+  "rollback_check_command": "python3 /opt/sameframe/releases/apple-m3u-338cd82/release.py --check-rollback",
+  "database_rollback_policy": "Preserve new user activity; normal rollback does not restore the database.",
+  "deployed_at_utc": "2026-10-14T03:45:37Z"
+}

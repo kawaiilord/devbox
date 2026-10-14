@@ -1,0 +1,309 @@
+{
+  "created_at_utc": "2026-10-14T03:20:47.001696+00:00",
+  "backup_directory": "/opt/sameframe/backups/apple-sources-20261014-032041",
+  "release_directory": "/opt/sameframe/releases/apple-sources-20261014-032041",
+  "database_sha256": "35e1fbd117d8cc275dd09195ac19b929297dfc777cdcbe541aa062a066617957",
+  "catalog_sha256": "8eee078db76d8f3828d5545587a60fcbc42ae282386e37bed143ecfedca4b3e9",
+  "server_sha256": "5dfc8498910f5995461f68926f88b5bdf560655a32cf9f7e78e765dd95c0de49",
+  "web_sha256": "0f4db14f4c28dac456f79d1ebaa30db81242c44fd24f88b46c6458c8feb3df3e",
+  "status": "imported",
+  "input_sha256": "75f970e77b91d9cac36c22840374f4df391b4117e330fd9927377fac240050bf",
+  "created_subscription_ids": [
+    "Xm8ejUHT8BbrvGNG",
+    "NgKGw1LlKYa1-G7N"
+  ],
+  "previews": [
+    {
+      "at": 1791947958157,
+      "subscription_id": "Xm8ejUHT8BbrvGNG",
+      "name": "aplle-min 影视接口",
+      "mode": "manual",
+      "added": 27,
+      "changed": 0,
+      "removed": 0,
+      "duplicates": 0,
+      "skipped": [],
+      "changes": [
+        {
+          "name": "⚠️光速资源(切)",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️影视 • 天涯",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️影视 • 电影天堂",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️影视 • 量子[直连]",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️影视 • 非凡[直连]",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️新浪资源(切)",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️红牛资源(切)",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️茅台 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️速播 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️金鹰 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️非凡 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️️天堂┃采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️🥑┃量子┃资源",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️🥗┃非凡┃资源",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "⚠️🦊火狐采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅360 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅360资源-采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅ikun | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅影视 • 暴風[直连]",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅无尽 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅索尼┃资源",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅艾旦 | 采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅闪电资源(切)",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "✅🐯虎牙采集",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "影视 • 极速[直连]",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "影视 • 率率[直连]",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "🎏百度┃采集",
+          "kind": "cms",
+          "action": "added"
+        }
+      ]
+    },
+    {
+      "at": 1791949607142,
+      "subscription_id": "NgKGw1LlKYa1-G7N",
+      "name": "aplle-min · Kimentanm-iptv",
+      "mode": "manual",
+      "added": 1,
+      "changed": 0,
+      "removed": 0,
+      "duplicates": 3,
+      "skipped": [
+        "跳过 3 个重复或不兼容频道"
+      ],
+      "changes": [
+        {
+          "name": "aplle-min · Kimentanm-iptv",
+          "kind": "m3u",
+          "action": "added",
+          "channels": 117
+        }
+      ]
+    }
+  ],
+  "api_probe": [
+    {
+      "id": "3ceb52b474b8152fbd70a705",
+      "ok": true
+    },
+    {
+      "id": "a6784178aba8949cae2b4c0e",
+      "ok": true
+    },
+    {
+      "id": "6f93a3ef5bc7426712301bbe",
+      "ok": true
+    },
+    {
+      "id": "d8e550c36696f721f143e5fe",
+      "ok": true
+    },
+    {
+      "id": "bc57d95956a2b82059b8c05c",
+      "ok": true
+    },
+    {
+      "id": "be016d93f2ab132c8f776755",
+      "ok": true
+    },
+    {
+      "id": "74b811716dcdf2a9833ae396",
+      "ok": true
+    },
+    {
+      "id": "05c3663b70af26aa351e5e0a",
+      "ok": true
+    },
+    {
+      "id": "efc2ee258136246af0d9e93b",
+      "ok": true
+    },
+    {
+      "id": "200fd283e81f30ce7a84a8d4",
+      "ok": true
+    },
+    {
+      "id": "73c399f1305fe246dc7b848f",
+      "ok": true
+    },
+    {
+      "id": "5941e303234f020bd0b460ec",
+      "ok": true
+    },
+    {
+      "id": "d578f7455b132ce7868f372e",
+      "ok": true
+    },
+    {
+      "id": "ddd8a59f86a9d6d202efddf5",
+      "ok": true
+    },
+    {
+      "id": "81869dd7faea23e1df461880",
+      "ok": true
+    },
+    {
+      "id": "420f70e02adb5f93c88a044b",
+      "ok": true
+    },
+    {
+      "id": "abe3f3c6fe6bd0f0f7f7a503",
+      "ok": true
+    },
+    {
+      "id": "e34fd014d9a402dc525536e1",
+      "ok": true
+    },
+    {
+      "id": "96d5e51026b43ab1f69750d9",
+      "ok": true
+    },
+    {
+      "id": "14b85d77a79441c6f9f0d370",
+      "ok": true
+    },
+    {
+      "id": "f8a51862410030f2b6ee4671",
+      "ok": true
+    },
+    {
+      "id": "053b3077d9e3a465aba371f1",
+      "ok": true
+    },
+    {
+      "id": "d321ec7b5710c166386d38d4",
+      "ok": true
+    },
+    {
+      "id": "08981c6dddaf8f84065661de",
+      "ok": true
+    },
+    {
+      "id": "21410562144422b75ee79e99",
+      "ok": true
+    },
+    {
+      "id": "41abb8ce71295a9cc6184cf0",
+      "ok": true
+    },
+    {
+      "id": "f132e526424ec3d2f83fe144",
+      "ok": true
+    }
+  ],
+  "api_probe_passed": 27,
+  "api_probe_failed": 0,
+  "skipped_empty_playlist": "综合直播-migu",
+  "live_compatibility_revision": "338cd82",
+  "rollback_command": "python3 /opt/sameframe/releases/apple-sources-20261014-032041/rollback.py --apply",
+  "rollback_preview_verified": true,
+  "code_revision": "338cd82ccc1d83a0f0f67aa60db3cd6771717971",
+  "ci": 38506967075,
+  "new_live_channel_entries": 117,
+  "sources_after": 34,
+  "subscriptions_after": 4,
+  "catalog_revision_after": 5,
+  "live_browse_items_on_first_page": 40
+}
