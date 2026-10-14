@@ -1,0 +1,180 @@
+{
+  "history": [
+    {
+      "at": 1791942763469,
+      "subscription_id": "xIZjg58LzBOMtEq9",
+      "name": "Kitty 直播订阅",
+      "mode": "manual",
+      "added": 4,
+      "changed": 0,
+      "removed": 0,
+      "duplicates": 0,
+      "skipped": [
+        "vbskycn/tv：跳过 7 个重复或无效频道",
+        "Guovin/tv：跳过 5 个重复或无效频道"
+      ],
+      "changes": [
+        {
+          "name": "Guovin/tv",
+          "kind": "m3u",
+          "action": "added",
+          "channels": 468
+        },
+        {
+          "name": "kimwang1978/tv",
+          "kind": "m3u",
+          "action": "added",
+          "channels": 6
+        },
+        {
+          "name": "mytv-android/tv",
+          "kind": "m3u",
+          "action": "added",
+          "channels": 21
+        },
+        {
+          "name": "vbskycn/tv",
+          "kind": "m3u",
+          "action": "added",
+          "channels": 519
+        }
+      ]
+    },
+    {
+      "at": 1791942762202,
+      "subscription_id": "l4pPCp7spwXfjaXR",
+      "name": "Kitty 影视接口（兼容导入）",
+      "mode": "manual",
+      "added": 2,
+      "changed": 0,
+      "removed": 0,
+      "duplicates": 0,
+      "skipped": [],
+      "changes": [
+        {
+          "name": "牛牛视频",
+          "kind": "cms",
+          "action": "added"
+        },
+        {
+          "name": "非凡资源（JSON）",
+          "kind": "cms",
+          "action": "added"
+        }
+      ]
+    }
+  ],
+  "revision": 3,
+  "sources": [
+    {
+      "channels": 468,
+      "enabled": true,
+      "health": {
+        "checked_at": 1791945692041,
+        "latency_ms": 610,
+        "failures": 0,
+        "suspended_until": 0,
+        "error": ""
+      },
+      "id": "6ece979293b529c7ce40c3e4",
+      "kind": "m3u",
+      "name": "Guovin/tv"
+    },
+    {
+      "channels": 6,
+      "enabled": true,
+      "health": {
+        "checked_at": 1791945691543,
+        "latency_ms": 155,
+        "failures": 0,
+        "suspended_until": 0,
+        "error": ""
+      },
+      "id": "fe1331842e4bf1cb94aa7441",
+      "kind": "m3u",
+      "name": "kimwang1978/tv"
+    },
+    {
+      "channels": 21,
+      "enabled": true,
+      "health": {
+        "checked_at": 1791945691938,
+        "latency_ms": 327,
+        "failures": 0,
+        "suspended_until": 0,
+        "error": ""
+      },
+      "id": "61b838f462f0b6f5168ab0df",
+      "kind": "m3u",
+      "name": "mytv-android/tv"
+    },
+    {
+      "channels": 519,
+      "enabled": true,
+      "health": {
+        "checked_at": 1791945691764,
+        "latency_ms": 390,
+        "failures": 0,
+        "suspended_until": 0,
+        "error": ""
+      },
+      "id": "8d7516632a8614610c5a3666",
+      "kind": "m3u",
+      "name": "vbskycn/tv"
+    },
+    {
+      "channels": 0,
+      "enabled": false,
+      "health": {
+        "checked_at": 1791945627258,
+        "latency_ms": 418,
+        "failures": 0,
+        "suspended_until": 0,
+        "error": ""
+      },
+      "id": "8ee740c7a2bbdb70a33e7375",
+      "kind": "cms",
+      "name": "牛牛视频"
+    },
+    {
+      "channels": 0,
+      "enabled": false,
+      "health": {
+        "checked_at": 1791945627980,
+        "latency_ms": 817,
+        "failures": 0,
+        "suspended_until": 0,
+        "error": ""
+      },
+      "id": "2ee8fd6aba737f11b817c2a2",
+      "kind": "cms",
+      "name": "非凡资源（JSON）"
+    }
+  ],
+  "subscriptions": [
+    {
+      "enabled": true,
+      "error": "",
+      "id": "l4pPCp7spwXfjaXR",
+      "interval_hours": 24,
+      "last_run": 1791942762202,
+      "last_success": 1791942762202,
+      "name": "Kitty 影视接口（兼容导入）",
+      "next_run": 1792029162202,
+      "remote": false,
+      "sources": 2
+    },
+    {
+      "enabled": true,
+      "error": "",
+      "id": "xIZjg58LzBOMtEq9",
+      "interval_hours": 24,
+      "last_run": 1791942763469,
+      "last_success": 1791942763469,
+      "name": "Kitty 直播订阅",
+      "next_run": 1792029163469,
+      "remote": true,
+      "sources": 4
+    }
+  ]
+}

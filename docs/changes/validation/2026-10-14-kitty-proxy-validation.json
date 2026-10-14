@@ -1,0 +1,29 @@
+{
+  "rooms": [
+    {
+      "code": "KDL9MY",
+      "kind": "live",
+      "private": true,
+      "cleanup": "deleted"
+    }
+  ],
+  "checks": [
+    {
+      "kind": "live",
+      "source": "mytv-android/tv",
+      "title": "广西卫视",
+      "line": "直播",
+      "manifest_status": 200,
+      "manifests": 2,
+      "keys_read": 0,
+      "first_segment_status": 206,
+      "first_segment_bytes": 1024
+    }
+  ],
+  "failures": [
+    {
+      "kind": "movie",
+      "message": "{\"code\":502,\"msg\":\"播放地址不可访问\"}\n"
+    }
+  ]
+}

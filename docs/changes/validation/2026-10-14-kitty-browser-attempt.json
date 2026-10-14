@@ -1,0 +1,7 @@
+{
+  "checks": [],
+  "errors": [],
+  "room": "MLXVAY",
+  "failure": "Waiting failed: 45000ms exceeded",
+  "cleanup": "deleted"
+}

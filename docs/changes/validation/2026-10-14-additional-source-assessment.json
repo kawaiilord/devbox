@@ -1,0 +1,205 @@
+{
+  "findings": [
+    {
+      "name": "cat-ios",
+      "url": "http://cat.xn--4kq62z5rby2qupq9ub.top/index.js.md5",
+      "status": 200,
+      "content_type": "application/octet-stream",
+      "bytes": 32,
+      "final_url": "http://cat.xn--4kq62z5rby2qupq9ub.top/index.js.md5",
+      "sha256": "16336e48a7fcec6c1947f6a41e666a42c8fb322913c365b7a1c020cd0ea01630",
+      "format": "checksum",
+      "authentication": "User-supplied HTTP Basic credentials used for this check; values omitted"
+    },
+    {
+      "name": "fantaiying",
+      "url": "http://www.xn--sss604efuw.cc/tv",
+      "status": 200,
+      "content_type": "image/x-ms-bmp",
+      "bytes": 19915,
+      "final_url": "http://www.xn--sss604efuw.cc/tv",
+      "sha256": "4554067213a163d5fb5643a0a9ec6808690704e2a2dbd35313355b710a57d30c",
+      "format": "nonstandard_or_encoded"
+    },
+    {
+      "name": "magic-cloud",
+      "url": "https://9280.kstore.vip/cat/index.js.md5",
+      "status": 200,
+      "content_type": "application/octet-stream",
+      "bytes": 32,
+      "final_url": "https://9280.kstore.vip/cat/index.js.md5",
+      "sha256": "16336e48a7fcec6c1947f6a41e666a42c8fb322913c365b7a1c020cd0ea01630",
+      "format": "checksum"
+    },
+    {
+      "name": "ok-kaisu",
+      "url": "https://9280.kstore.vip/wex.json",
+      "status": 200,
+      "content_type": "application/json",
+      "bytes": 19893,
+      "final_url": "https://9280.kstore.vip/wex.json",
+      "sha256": "6aa59bf4a9799021a34df69e5bcb4c8a75a1f6920b323c4ee5681f5de2d21a20",
+      "format": "json",
+      "root_type": "dict",
+      "keys": [
+        "spider",
+        "wallpaper",
+        "logo",
+        "sites",
+        "parses",
+        "doh",
+        "rules",
+        "ads",
+        "lives",
+        "headers"
+      ],
+      "sites": 63,
+      "site_types": {
+        "3": 63
+      },
+      "has_spider": true,
+      "live_groups": 2
+    },
+    {
+      "name": "ok-niuer",
+      "url": "https://9280.kstore.vip/newwex.json",
+      "status": 200,
+      "content_type": "application/json",
+      "bytes": 34555,
+      "final_url": "https://9280.kstore.vip/newwex.json",
+      "sha256": "6b19fbc725a899431d6f0d1703b9b2ea8797ca71efd5e7d06dcceb951332e986",
+      "format": "json",
+      "root_type": "dict",
+      "keys": [
+        "spider",
+        "wallpaper",
+        "logo",
+        "sites",
+        "parses",
+        "doh",
+        "rules",
+        "ads",
+        "lives",
+        "headers"
+      ],
+      "sites": 99,
+      "site_types": {
+        "3": 99
+      },
+      "has_spider": true,
+      "live_groups": 2
+    },
+    {
+      "name": "android-v3",
+      "url": "https://9280.kstore.vip/aiwex.json",
+      "status": 200,
+      "content_type": "application/json",
+      "bytes": 34555,
+      "final_url": "https://9280.kstore.vip/aiwex.json",
+      "sha256": "6b19fbc725a899431d6f0d1703b9b2ea8797ca71efd5e7d06dcceb951332e986",
+      "format": "json",
+      "root_type": "dict",
+      "keys": [
+        "spider",
+        "wallpaper",
+        "logo",
+        "sites",
+        "parses",
+        "doh",
+        "rules",
+        "ads",
+        "lives",
+        "headers"
+      ],
+      "sites": 99,
+      "site_types": {
+        "3": 99
+      },
+      "has_spider": true,
+      "live_groups": 2
+    },
+    {
+      "name": "feimao",
+      "url": "http://xn--z7x900a.net/tv",
+      "status": 200,
+      "content_type": "application/octet-stream",
+      "bytes": 17043,
+      "final_url": "http://xn--z7x900a.net/tv",
+      "sha256": "af6935cd52e51e854b9e3d1645947dd8a646e13ae1c4eefa4bda1ecf051f708b",
+      "format": "nonstandard_or_encoded"
+    }
+  ],
+  "fantaiying": {
+    "sites": 48,
+    "types": {
+      "3": 48
+    },
+    "lives": [
+      {
+        "name": "综合直播",
+        "type": 0,
+        "url": "http://193.123.86.190:14888/TV/iptv.php",
+        "ua": "bingcha/1.1 (mianfeifenxiang)",
+        "playerType": 2
+      },
+      {
+        "name": "Kimentanm",
+        "type": 0,
+        "url": "https://ghproxy.net/https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u",
+        "playerType": 2
+      },
+      {
+        "name": "范明明（需开启V6网络）",
+        "type": 0,
+        "url": "https://nos.netease.com/ysf/3d75a78a0fc7ede372c03598d6d10367.m3u",
+        "playerType": 2
+      },
+      {
+        "name": "虎牙一起看",
+        "type": 0,
+        "url": "https://sub.ottiptv.cc/huyayqk.m3u",
+        "playerType": 2,
+        "timeout": 10,
+        "ua": "okHttp/Mod-1.5.0.0"
+      },
+      {
+        "name": "斗鱼一起看",
+        "type": 0,
+        "url": "https://sub.ottiptv.cc/douyuyqk.m3u",
+        "playerType": 2,
+        "timeout": 10,
+        "ua": "okHttp/Mod-1.5.0.0"
+      },
+      {
+        "name": "YY轮播",
+        "type": 0,
+        "url": "https://sub.ottiptv.cc/yylunbo.m3u",
+        "playerType": 2,
+        "timeout": 10,
+        "ua": "okHttp/Mod-1.5.0.0"
+      }
+    ]
+  },
+  "feimao": {
+    "strict_json_valid": false,
+    "defect": "missing opening quote before ext at line 124",
+    "sites_after_inspection_only_repair": 39,
+    "site_type": 3
+  },
+  "production_imported": false,
+  "executed_remote_scripts": false,
+  "live_extraction_checks": [
+    {
+      "url": "https://ghfast.top/https://raw.githubusercontent.com/Kimentanm/aptv/master/m3u/iptv.m3u",
+      "bytes": 21944,
+      "m3u": true,
+      "extinf": 120
+    },
+    {
+      "url": "https://ghfast.top/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/interface.txt",
+      "bytes": 469,
+      "m3u": true,
+      "extinf": 0
+    }
+  ]
+}
