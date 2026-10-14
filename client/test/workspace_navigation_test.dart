@@ -165,7 +165,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('设备管理'),
-      -140,
+      180,
       scrollable: find
           .descendant(
             of: find.byType(Drawer),
