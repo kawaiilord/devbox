@@ -100,6 +100,7 @@ func TestCatalogTicketProxyPlaylistAndTwoNodeRecovery(t *testing.T) {
 	defer b.Close()
 	b.prefix = a.prefix
 	f.server.redis = a
+	f.server.options.RequireAccount = true
 	src := installTestCatalog(t, f, c)
 	transport := discoveryTransport(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "cms.example" {
@@ -112,7 +113,7 @@ func TestCatalogTicketProxyPlaylistAndTwoNodeRecovery(t *testing.T) {
 	})
 	c.client.Transport = transport
 	sourceManager := NewMediaSourceManager(f.repo, c.vault, false)
-	other := NewServer(Options{Repository: f.repo, Auth: f.auth, Redis: b, Sources: sourceManager, Vault: c.vault, CatalogTransport: transport})
+	other := NewServer(Options{Repository: f.repo, Auth: f.auth, Redis: b, Sources: sourceManager, Vault: c.vault, CatalogTransport: transport, RequireAccount: true})
 	film, e := c.detail(ctx, src, "12")
 	if e != nil {
 		t.Fatal(e)

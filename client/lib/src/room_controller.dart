@@ -160,6 +160,11 @@ class RoomController extends ChangeNotifier {
         await player.pause();
         _mediaRenewal?.cancel();
         notifyListeners();
+        if (room.mediaSourceId.startsWith('cat_') &&
+            room.mediaError.isNotEmpty) {
+          _catalogErrorSignal++;
+          unawaited(_recoverCatalog());
+        }
         return;
       }
       if (forceReload || (old.sourceUrl != room.sourceUrl && !changed)) {
@@ -756,7 +761,8 @@ class RoomController extends ChangeNotifier {
         notifyListeners();
         await Future<void>.delayed(Duration(seconds: attempts + 1));
         if (_disposed || version != room.playback.sourceVersion) return;
-        await _renewMediaTicket();
+        final fresh = await api.getRoom(session, room.code);
+        if (!_disposed) await acceptRoom(fresh, forceReload: true);
       } else {
         _catalogRetries[version] = 3;
         if (!isOwner) {
@@ -776,6 +782,7 @@ class RoomController extends ChangeNotifier {
     } catch (e) {
       if (!_disposed) {
         error = e is ApiException ? e.message : '自动恢复未成功，请手动重试或选择线路。';
+        if (attempts < 2) _catalogErrorSignal++;
       }
     } finally {
       _recoveringCatalog = false;

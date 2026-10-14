@@ -45,6 +45,8 @@ class FilmDiscoveryPage extends StatefulWidget {
 
 class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
   final _scroll = ScrollController();
+  final _tabsScroll = ScrollController();
+  double _tabsWidth = 0;
   String _section = 'movies', _category = 'all';
   int _weekday = 0, _request = 0;
   DiscoveryFeed? _feed;
@@ -62,6 +64,7 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
   void dispose() {
     _request++;
     _scroll.dispose();
+    _tabsScroll.dispose();
     super.dispose();
   }
 
@@ -352,6 +355,15 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
   @override
   Widget build(BuildContext context) {
     final colors = FrameColors.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    if (width != _tabsWidth || _section == 'catalog') {
+      _tabsWidth = width;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _section == 'catalog' && _tabsScroll.hasClients) {
+          _tabsScroll.jumpTo(_tabsScroll.position.maxScrollExtent);
+        }
+      });
+    }
     if (_section == 'catalog') {
       return WorkspaceSection(
         title: const Text('影视发现'),
@@ -360,6 +372,7 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SingleChildScrollView(
+                controller: _tabsScroll,
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
@@ -401,6 +414,7 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: SingleChildScrollView(
+              controller: _tabsScroll,
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [

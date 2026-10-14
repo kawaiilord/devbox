@@ -414,6 +414,8 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                               return Semantics(
                                 button: true,
                                 label: '播放 ${f.title}',
+                                excludeSemantics: true,
+                                onTap: () => _detail(matches),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(12),
                                   onTap: () => _detail(matches),

@@ -1124,20 +1124,22 @@ func (s *Server) proxyMedia(w http.ResponseWriter, r *http.Request) {
 	if viewerID == "" {
 		viewerID = ticket.UserID
 	}
-	if err := s.validateLiveUser(r.Context(), User{ID: viewerID, SessionVersion: ticket.ViewerSessionVersion}); err != nil {
+	viewerAccount, viewerErr := s.repo.UserByID(r.Context(), viewerID)
+	if viewerErr != nil || !accountActive(viewerAccount.User) ||
+		(s.options.RequireAccount && !hasRegisteredAccount(viewerAccount.User)) ||
+		(ticket.ViewerSessionVersion > 0 && ticket.ViewerSessionVersion != viewerAccount.SessionVersion) {
 		writeError(w, 401, ErrUnauthorized)
 		return
 	}
 	if ticket.ViewerSessionVersion == 0 {
-		a, err := s.repo.UserByID(r.Context(), viewerID)
-		if err != nil || a.SessionVersion > 1 {
+		if viewerAccount.SessionVersion > 1 {
 			writeError(w, 401, ErrUnauthorized)
 			return
 		}
 	}
 	if ticket.RoomCode != "" {
-		room, f, err := s.authorizedRoom(r.Context(), ticket.RoomCode, User{ID: ticket.ViewerID, SessionVersion: ticket.ViewerSessionVersion})
-		if err != nil || f.blocked(ticket.ViewerID) || room.Playback.SourceVersion != ticket.SourceVersion {
+		room, f, err := s.authorizedRoom(r.Context(), ticket.RoomCode, viewerAccount.User)
+		if err != nil || f.blocked(viewerID) || room.Playback.SourceVersion != ticket.SourceVersion {
 			writeError(w, http.StatusUnauthorized, ErrUnauthorized)
 			return
 		}
