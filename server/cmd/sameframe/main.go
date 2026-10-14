@@ -165,7 +165,16 @@ func main() {
 		}
 		payment = provider
 	}
+	var guoguo *app.GuoguoService
+	if endpoint := os.Getenv("SAMEFRAME_GUOGUO_URL"); endpoint != "" {
+		guoguo, err = app.NewGuoguoService(endpoint, os.Getenv("SAMEFRAME_GUOGUO_TOKEN"))
+		if err != nil {
+			logger.Error("configure short drama", "error", err)
+			os.Exit(1)
+		}
+	}
 	server := app.NewServer(app.Options{
+		Guoguo:                  guoguo,
 		Address:                 addr,
 		AllowedOrigins:          origins,
 		Logger:                  logger,

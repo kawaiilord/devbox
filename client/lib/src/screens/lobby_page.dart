@@ -29,6 +29,7 @@ import 'library_page.dart';
 import 'couple_page.dart';
 import 'film_search_page.dart';
 import 'film_discovery_page.dart';
+import 'short_drama_page.dart';
 import 'membership_page.dart';
 import 'privacy_page.dart';
 import 'room_page.dart';
@@ -37,6 +38,7 @@ import 'update_page.dart';
 
 enum _WorkspacePanel {
   filmDiscovery,
+  shortDrama,
   discover,
   library,
   profile,
@@ -515,6 +517,7 @@ class _LobbyPageState extends State<LobbyPage> {
   void _showPrivacy() => _showPanel(_WorkspacePanel.privacy);
   void _showLibrary() => _selectMobileTab(2);
   void _showMetadataSearch() => _showPanel(_WorkspacePanel.search);
+  void _showShortDrama() => _showPanel(_WorkspacePanel.shortDrama);
   void _showFilmDiscovery() => _showPanel(_WorkspacePanel.filmDiscovery);
   void _showSocial() => _showPanel(_WorkspacePanel.social);
   void _showCouple() => _showPanel(_WorkspacePanel.couple);
@@ -573,6 +576,7 @@ class _LobbyPageState extends State<LobbyPage> {
 
   String? get _workspaceTitle => switch (_workspacePanel) {
     _WorkspacePanel.filmDiscovery => '影视发现',
+    _WorkspacePanel.shortDrama => '果果短剧',
     _WorkspacePanel.discover => '发现房间',
     _WorkspacePanel.library => '收藏与历史',
     _WorkspacePanel.profile => '我的账号',
@@ -591,6 +595,7 @@ class _LobbyPageState extends State<LobbyPage> {
 
   (String, String) get _sectionInfo => switch (_workspacePanel) {
     _WorkspacePanel.filmDiscovery => ('DISCOVER CINEMA', '在海报之间，找到下一场好故事。'),
+    _WorkspacePanel.shortDrama => ('SHORT STORIES', '把碎片时间，留给精彩故事。'),
     _WorkspacePanel.discover => ('DISCOVER', '找到正在放映的房间，和大家一起看。'),
     _WorkspacePanel.library => ('LIBRARY', '收藏喜欢的影片，继续上次的观看进度。'),
     _WorkspacePanel.profile => ('MY ACCOUNT', '管理你的账号与观影空间。'),
@@ -676,6 +681,11 @@ class _LobbyPageState extends State<LobbyPage> {
       _WorkspacePanel.filmDiscovery => FilmDiscoveryPage(
         api: widget.api,
         session: session!,
+      ),
+      _WorkspacePanel.shortDrama => ShortDramaPage(
+        api: widget.api,
+        session: session!,
+        onOpenRoom: (room) => _openRoom(session, room),
       ),
       _WorkspacePanel.discover => PublicRoomsPage(
         api: widget.api,
@@ -1056,6 +1066,7 @@ class _LobbyPageState extends State<LobbyPage> {
     onSearch: _showMetadataSearch,
     onDiscover: _showPublicRooms,
     onFilmDiscovery: _showFilmDiscovery,
+    onShortDrama: _showShortDrama,
     onMembership: _showMembership,
     onUpdates: kIsWeb ? null : _showUpdates,
     onOfficialSite: kIsWeb ? openOfficialWebsite : null,

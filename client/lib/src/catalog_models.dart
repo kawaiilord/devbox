@@ -39,6 +39,7 @@ class CatalogFilm {
   final List<CatalogGroup> groups;
   String get kindLabel => switch (kind) {
     'tv' => '剧集',
+    'short' => '短剧',
     'anime' => '动画',
     'variety' => '综艺',
     'live' => '直播',

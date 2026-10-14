@@ -7,6 +7,7 @@ import '../device_identity.dart';
 import '../models.dart';
 import '../discovery_models.dart';
 import '../catalog_models.dart';
+import '../short_drama_models.dart';
 
 class ApiClient {
   ApiClient({
@@ -36,6 +37,18 @@ class ApiClient {
     );
     return Session.fromJson(data);
   }
+
+  Future<ShortDramaFeed> shortDramas(
+    Session session,
+    Map<String, dynamic> query,
+  ) async => ShortDramaFeed.fromJson(
+    await _request(
+      'POST',
+      '/api/v1/short-drama/feed',
+      session: session,
+      body: query,
+    ),
+  );
 
   Future<DiscoveryFeed> discoverFilms(
     Session session, {

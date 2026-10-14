@@ -152,6 +152,10 @@ func (m *MediaSourceManager) prepareCatalog(ctx context.Context, source MediaSou
 	if e != nil {
 		return MediaTicket{}, e
 	}
+	if src.ID == guoguoSourceID && src.Kind == "guoguo" {
+		parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+		return MediaTicket{UserID: source.UserID, SourceID: source.ID, Path: path, Kind: "platform-hls", StreamURL: m.catalog.guoguo.mediaURL(parts[0], episode.ID)}, nil
+	}
 	kind := "platform-file"
 	// Probe once per short-lived cache window to identify extensionless HLS URLs.
 	key := "media:" + catalogHash(episode.URL+"\x00"+episode.UserAgent)

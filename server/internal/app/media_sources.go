@@ -240,6 +240,13 @@ func (m *MediaSourceManager) Open(
 func (m *MediaSourceManager) openSource(ctx context.Context, source MediaSource, secret []byte, ticket MediaTicket, method, rangeHeader, ifRange string) (*http.Response, error) {
 	switch source.Type {
 	case "catalog":
+		bound, e := m.catalog.boundSource(ctx, secret)
+		if e != nil {
+			return nil, e
+		}
+		if bound.ID == guoguoSourceID && bound.Kind == "guoguo" {
+			return m.catalog.guoguo.openMedia(ctx, ticket.StreamURL, method, rangeHeader, ifRange)
+		}
 		return m.catalog.mediaRequest(ctx, ticket.StreamURL, method, rangeHeader, ifRange, ticket.StreamHeaders["User-Agent"])
 	case "rtmp":
 		return m.openRTMP(ctx, source, secret, ticket, method, rangeHeader)

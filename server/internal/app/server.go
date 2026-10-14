@@ -38,6 +38,7 @@ type Options struct {
 	PublicBaseURL           string
 	Metadata                *MetadataClient
 	Discovery               *DiscoveryService
+	Guoguo                  *GuoguoService
 	CatalogTransport        http.RoundTripper // Injected only by isolated fixtures/tests.
 	RTC                     *RTCConfigManager
 	Objects                 ObjectStore
@@ -100,6 +101,7 @@ func NewServer(options Options) *Server {
 	}
 	s.auth.mailer = NewRuntimeMailer(s.repo, options.Vault, s.auth.mailer)
 	s.catalog = NewCatalogService(s.repo, options.Vault)
+	s.catalog.guoguo = options.Guoguo
 	if options.CatalogTransport != nil {
 		s.catalog.client.Transport = options.CatalogTransport
 	}
@@ -113,6 +115,8 @@ func NewServer(options Options) *Server {
 	}
 	mux := http.NewServeMux()
 	s.registerCatalogRoutes(mux)
+	mux.HandleFunc("POST /api/v1/short-drama/feed", s.shortDramaFeed)
+	mux.HandleFunc("GET /api/v1/short-drama/poster", s.shortDramaPoster)
 	s.registerSecurityRoutes(mux)
 	mux.HandleFunc("GET /api/v1/discovery", s.discovery)
 	mux.HandleFunc("GET /api/v1/discovery/poster", s.discoveryPoster)

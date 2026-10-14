@@ -15,12 +15,16 @@ class CatalogBrowser extends StatefulWidget {
     required this.onOpenRoom,
     this.initialQuery = '',
     this.onMetadata,
+    this.initialFilm,
+    this.onCloseDetail,
   });
   final ApiClient api;
   final Session session;
   final ValueChanged<Room> onOpenRoom;
   final String initialQuery;
   final VoidCallback? onMetadata;
+  final CatalogFilm? initialFilm;
+  final VoidCallback? onCloseDetail;
   @override
   State<CatalogBrowser> createState() => _CatalogBrowserState();
 }
@@ -48,7 +52,11 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   void initState() {
     super.initState();
     _query = TextEditingController(text: widget.initialQuery);
-    _search();
+    if (widget.initialFilm != null) {
+      _detail([widget.initialFilm!]);
+    } else {
+      _search();
+    }
   }
 
   @override
@@ -269,6 +277,15 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   @override
   Widget build(BuildContext context) {
     final c = FrameColors.of(context);
+    if (widget.initialFilm != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_detailing) const LinearProgressIndicator(minHeight: 2),
+          Expanded(child: _buildDetail()),
+        ],
+      );
+    }
     final groups = groupCatalogFilms(_films);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -510,11 +527,12 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
               TextButton(
                 onPressed: _busy
                     ? null
-                    : () => setState(() {
-                        _showDetail = false;
-                        _error = null;
-                      }),
-                child: const Text('全部搜索结果'),
+                    : widget.onCloseDetail ??
+                          () => setState(() {
+                            _showDetail = false;
+                            _error = null;
+                          }),
+                child: Text(widget.initialFilm == null ? '全部搜索结果' : '短剧列表'),
               ),
               const Spacer(),
               if (_details.length > 1)
@@ -579,6 +597,11 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(_error!, style: TextStyle(color: c.text)),
+            ),
+          if (widget.initialFilm != null && !_detailing && _lines.isEmpty)
+            TextButton(
+              onPressed: () => _detail([widget.initialFilm!]),
+              child: const Text('重新加载分集'),
             ),
           if (_lines.isNotEmpty) ...[
             const SizedBox(height: 20),

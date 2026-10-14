@@ -271,6 +271,12 @@ func (s *Server) proxyPlatformManifest(w http.ResponseWriter, r *http.Request, r
 		allowedBase = []string{ticket.StreamURL}
 	} else if e == nil && source.Type == "catalog" {
 		allowedBase = []string{"catalog-public"}
+		_, secret, err := s.sources.loadSourceSecret(r.Context(), ticket.UserID, ticket.SourceID)
+		if err == nil {
+			if bound, e := s.catalog.boundSource(r.Context(), secret); e == nil && bound.ID == guoguoSourceID && bound.Kind == "guoguo" {
+				allowedBase = []string{ticket.StreamURL}
+			}
+		}
 	}
 	data, err = s.rewriteHLS(raw, base, data, allowedBase...)
 	if err != nil {

@@ -93,6 +93,7 @@ type catalogCacheEntry struct {
 	Expires time.Time
 }
 type CatalogService struct {
+	guoguo   *GuoguoService
 	repo     Repository
 	vault    *CredentialVault
 	client   *http.Client
@@ -221,6 +222,9 @@ func catalogSources(st CatalogState, enabledOnly bool) []CatalogSource {
 	return result
 }
 func (c *CatalogService) source(ctx context.Context, id string) (CatalogSource, error) {
+	if id == guoguoSourceID && c.guoguo != nil {
+		return CatalogSource{ID: guoguoSourceID, Name: "果果短剧", Kind: "guoguo"}, nil
+	}
 	st, _, e := c.read(ctx)
 	if e != nil {
 		return CatalogSource{}, e

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sameframe_client/src/discovery_models.dart';
 import 'package:sameframe_client/src/catalog_models.dart';
+import 'package:sameframe_client/src/short_drama_models.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/appearance.dart';
 import 'package:sameframe_client/src/design.dart';
@@ -35,6 +36,31 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('全部'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('影视发现'));
+      await tester.pumpAndSettle();
+      expect(find.text('热门电影'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'web short dramas sit immediately below discovery in the same shell',
+    (tester) async {
+      await _open(tester, signedIn: true, size: const Size(1440, 1000));
+      final shell = tester.state<ScaffoldState>(find.byType(Scaffold));
+      expect(
+        tester.getTopLeft(find.text('果果短剧')).dy,
+        greaterThan(tester.getTopLeft(find.text('影视发现')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('果果短剧')).dy,
+        lessThan(tester.getTopLeft(find.text('发现房间').first).dy),
+      );
+      await tester.tap(find.text('果果短剧'));
+      await tester.pumpAndSettle();
+      expect(find.text('真人剧'), findsOneWidget);
+      expect(find.text('热播榜'), findsOneWidget);
+      expect(tester.state<ScaffoldState>(find.byType(Scaffold)), same(shell));
+      expect(find.byType(BackButton), findsNothing);
       await tester.tap(find.text('影视发现'));
       await tester.pumpAndSettle();
       expect(find.text('热门电影'), findsOneWidget);
@@ -219,6 +245,11 @@ class _Store implements SessionStore {
 }
 
 class _Api extends ApiClient {
+  @override
+  Future<ShortDramaFeed> shortDramas(
+    Session session,
+    Map<String, dynamic> query,
+  ) async => ShortDramaFeed.fromJson({'items': [], 'has_more': false});
   @override
   Future<List<CatalogSource>> catalogSources(Session session) async => [];
   @override

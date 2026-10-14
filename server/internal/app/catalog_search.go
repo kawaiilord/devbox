@@ -258,6 +258,9 @@ func (c *CatalogService) search(ctx context.Context, src CatalogSource, query st
 	return result, nil
 }
 func (c *CatalogService) detail(ctx context.Context, src CatalogSource, id string) (CatalogFilm, error) {
+	if src.ID == guoguoSourceID && src.Kind == "guoguo" {
+		return c.guoguoDetail(ctx, id)
+	}
 	if !catalogFilmID.MatchString(id) {
 		return CatalogFilm{}, errors.New("影片标识无效")
 	}
