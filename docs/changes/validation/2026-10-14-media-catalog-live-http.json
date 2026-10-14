@@ -1,0 +1,37 @@
+{
+  "anonymous": {
+    "/api/v1/catalog/sources": 401,
+    "/api/v1/catalog/search": 401,
+    "/api/v1/catalog/detail": 401,
+    "/api/v1/admin/catalog": 401,
+    "/api/v1/discovery": 401,
+    "/api/v1/public/rooms": 401
+  },
+  "preserved_files": {
+    "/opt/sameframe/compose.yml": "2c9707c20151fb0c823b39f018ffd8926c098247c82f9c67f10880eb901e3f9f",
+    "/opt/sameframe/compose.override.yml": "6073bba90851fb723997e83c9e82b489fdb3de5b7532a301408d64bf3012b59f",
+    "/opt/sameframe/nginx.conf": "b66e7712942ee0ac0af986dac1c8a787684a79ba24e769e2a2607021fa9399c3",
+    "/opt/sameframe/turn/app.env": "ad77cc1e8bc7c0446b1d6eff1711c9ebb56ce70010cd23c579cb69ff3c2c374c",
+    "/opt/sameframe/web/index.html": "7dd1f14ec291649e6e4e0001ae48d50a390623c991afd08d90c6c38114fb3576",
+    "/opt/sameframe/web/site/website.css": "239a223ab3f3dd3d71e82df7eb97b6169f563c0553253d95f86d5bbeb2608b99"
+  },
+  "checks": [
+    "Admin catalog is accessible; production catalog contains no test sources",
+    "Registration invitation and disabled email verification settings preserved",
+    "Compose, TURN, nginx, homepage and marketing styles are unchanged"
+  ],
+  "subscriptions": 0,
+  "sources": 0,
+  "registration_policy": {
+    "registration_requires_email_code": false,
+    "registration_requires_invite": true,
+    "registration_requires_review": true
+  },
+  "ready": {
+    "redis": "ok",
+    "repository": "ok"
+  },
+  "server_sha256": "5dfc8498910f5995461f68926f88b5bdf560655a32cf9f7e78e765dd95c0de49",
+  "web_sha256": "0f4db14f4c28dac456f79d1ebaa30db81242c44fd24f88b46c6458c8feb3df3e",
+  "bootstrap_sha256": "bef75378bf3a2de5657bf5c6dc4c64a17278da32fc1240123b69ad7f0bfd02d3"
+}

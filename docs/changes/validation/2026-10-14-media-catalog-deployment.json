@@ -1,0 +1,38 @@
+{
+  "rollback_compatibility_revision": "9c18aa335d775f815f06ebd2df3d7eae4f05849a",
+  "original_server_sha256": "a3726c4fd7302fc221f8519db4775b18e9cf09986252d9bdb46f952726d97f26",
+  "revision": "f07becd",
+  "root": "/opt/sameframe",
+  "status": "deployed",
+  "created_at_utc": "2026-10-14T01:08:46Z",
+  "backup_directory": "/opt/sameframe/backups/media-catalog-20261014-010827",
+  "runtime_image_name": "sameframe-app",
+  "rollback_image": "sameframe-app:before-media-catalog-f07becd",
+  "previous_image_id": "sha256:1181b55e928d05d188decb8a5d828bf33d373eee83b286a4f5c5b3d535fed428",
+  "new_image": "sameframe-app:media-catalog-f07becd",
+  "database_migration": "022 additive catalog media type and encrypted versioned subscription document; rollback uses 9c18aa3 constraint-compatible binary and preserves database activity",
+  "previous_web_sha256": "9df1b39aacb99da72a0b2f1032e8028f3cea6431ec343fc67d349ed02958f249",
+  "backup_sha256": {
+    "sameframe": "beb6ca64a1a542796d3e67efa8fe4cc7a86aa3b753dccfbb966ade6ca682ce48",
+    "web.tgz": "79391e2445519351a44a122ed0978a7cbeae4464313823bae9f8c76d2d93218c",
+    "database.dump": "27f95c058558f640fe78f13965f7b204d642e8ac6a7fad2132a5c4f88199bca6",
+    "sameframe-original": "a3726c4fd7302fc221f8519db4775b18e9cf09986252d9bdb46f952726d97f26"
+  },
+  "server_sha256": "5dfc8498910f5995461f68926f88b5bdf560655a32cf9f7e78e765dd95c0de49",
+  "web_sha256": "0f4db14f4c28dac456f79d1ebaa30db81242c44fd24f88b46c6458c8feb3df3e",
+  "added_web_files": [],
+  "rollback_command": "python3 /opt/sameframe/releases/media-catalog-f07becd/release.py --rollback",
+  "rollback_check_command": "python3 /opt/sameframe/releases/media-catalog-f07becd/release.py --check-rollback",
+  "database_rollback_policy": "Preserve new user activity; normal rollback does not restore the database.",
+  "deployed_at_utc": "2026-10-14T01:08:58Z",
+  "bootstrap_patch": {
+    "revision": "e6f1fd0f33d51381bb516e115a6c04216f5bdc71",
+    "ci": 38494613481,
+    "installed_at_utc": "2026-10-14T01:21:17Z",
+    "bootstrap_sha256": "bef75378bf3a2de5657bf5c6dc4c64a17278da32fc1240123b69ad7f0bfd02d3",
+    "syntax_check": "passed; CI and production runtime node --check",
+    "reason": "Flutter service-worker template expands to a quoted expression; remove the extra surrounding quotes."
+  },
+  "final_web_archive": "/opt/sameframe/releases/media-catalog-final-e6f1fd0.tgz",
+  "final_web_archive_sha256": "f8c82a1a6268af158294c45beef175cc1e2799d23f8da5a34eeafd91522e6769"
+}

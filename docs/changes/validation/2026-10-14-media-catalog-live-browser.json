@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "Production discovery catalog works inside the authenticated workspace and shows an honest empty catalog",
+    "Mobile catalog retains bottom navigation and supports light and dark themes",
+    "Production film search switches between playable catalogs and retained metadata/reviews",
+    "Production media subscription management is available without importing test data",
+    "Web renderer is delivered by sameframe.top and requires no renderer CDN request"
+  ],
+  "errors": [],
+  "renderer": [
+    {
+      "origin": "https://sameframe.top",
+      "path": "/canvaskit/chromium/canvaskit.wasm",
+      "status": 200
+    },
+    {
+      "origin": "https://sameframe.top",
+      "path": "/canvaskit/chromium/canvaskit.js",
+      "status": 200
+    }
+  ],
+  "bootstrap_revision": "e6f1fd0f33d51381bb516e115a6c04216f5bdc71",
+  "bootstrap_sha256": "bef75378bf3a2de5657bf5c6dc4c64a17278da32fc1240123b69ad7f0bfd02d3"
+}

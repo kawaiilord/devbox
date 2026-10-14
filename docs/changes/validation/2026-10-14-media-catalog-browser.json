@@ -1,0 +1,220 @@
+{
+  "checks": [
+    "Admin import preview reports duplicate and unsupported entries; confirmation saves 3 sources and batch probing succeeds",
+    "Existing film search now opens playable catalogs and retains metadata/review search in the workspace",
+    "Workspace catalog shows grouped results and proxied posters without opening a new page",
+    "Selecting episode 2 creates a 3-episode room and actual HLS video advances in the browser",
+    "Injected player failures retry twice, then automatically switch the room to a same-episode fallback",
+    "Room-authoritative fallback preserves episode and position; stale attempts and old tickets are rejected",
+    "Catalog search/details and administrative subscription APIs require login"
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/v1/rooms",
+      "status": 201
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 401
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 401
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 401
+    },
+    {
+      "path": "/media/[ticket]/stream.m3u8",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    },
+    {
+      "path": "/media/[ticket]/asset.ts",
+      "status": 200
+    }
+  ],
+  "videoSamples": [
+    [
+      {
+        "time": 2.65267,
+        "duration": 45,
+        "paused": false,
+        "ready": 4
+      }
+    ]
+  ],
+  "frontend_revision": "77c12115aa4ba1d55be7a66207cac521b723302d",
+  "renderer_config": "Same-origin CanvasKit, identical startup configuration to final f07becd build",
+  "final_main_dart_js_sha256": "0f4db14f4c28dac456f79d1ebaa30db81242c44fd24f88b46c6458c8feb3df3e",
+  "server_source_equivalent": "f3c79072be33e939540fcde08c71295750bb5a24"
+}
