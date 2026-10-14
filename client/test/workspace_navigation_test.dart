@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sameframe_client/src/discovery_models.dart';
+import 'package:sameframe_client/src/catalog_models.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/appearance.dart';
 import 'package:sameframe_client/src/design.dart';
@@ -51,6 +52,9 @@ void main() {
       await tester.pump();
       expect(find.text('今晚，一起看点什么？'), findsNothing);
       await tester.pumpAndSettle();
+      expect(find.text('片源搜索'), findsOneWidget);
+      await tester.tap(find.text('资料与影评'));
+      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '共同的电影');
       await tester.tap(find.text('搜索'));
       await tester.pumpAndSettle();
@@ -77,6 +81,8 @@ void main() {
       tester.view.physicalSize = const Size(1440, 1000);
       await tester.pumpAndSettle();
       await tester.tap(find.text('搜索电影 / 剧集'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('资料与影评'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '第二次搜索');
       await tester.tap(find.text('搜索'));
@@ -213,6 +219,8 @@ class _Store implements SessionStore {
 }
 
 class _Api extends ApiClient {
+  @override
+  Future<List<CatalogSource>> catalogSources(Session session) async => [];
   @override
   Future<DiscoveryFeed> discoverFilms(
     Session session, {
