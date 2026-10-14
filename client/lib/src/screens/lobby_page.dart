@@ -27,7 +27,7 @@ import 'room_join_dialog.dart';
 import '../secure_session_store.dart';
 import 'library_page.dart';
 import 'couple_page.dart';
-import 'metadata_search_page.dart';
+import 'film_search_page.dart';
 import 'film_discovery_page.dart';
 import 'membership_page.dart';
 import 'privacy_page.dart';
@@ -710,9 +710,10 @@ class _LobbyPageState extends State<LobbyPage> {
         api: widget.api,
         session: session!,
       ),
-      _WorkspacePanel.search => MetadataSearchPage(
+      _WorkspacePanel.search => FilmSearchPage(
         api: widget.api,
         session: session!,
+        onOpenRoom: _openRoom,
       ),
       _WorkspacePanel.social => SocialPage(api: widget.api, session: session!),
       _WorkspacePanel.couple => CouplePage(api: widget.api, session: session!),
