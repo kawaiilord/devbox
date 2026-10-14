@@ -713,7 +713,7 @@ class _LobbyPageState extends State<LobbyPage> {
       _WorkspacePanel.search => FilmSearchPage(
         api: widget.api,
         session: session!,
-        onOpenRoom: _openRoom,
+        onOpenRoom: (room) => _openRoom(session, room),
       ),
       _WorkspacePanel.social => SocialPage(api: widget.api, session: session!),
       _WorkspacePanel.couple => CouplePage(api: widget.api, session: session!),
