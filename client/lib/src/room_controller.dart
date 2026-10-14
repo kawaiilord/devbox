@@ -257,30 +257,38 @@ class RoomController extends ChangeNotifier {
       if (room.mediaError.isNotEmpty) {
         error = room.mediaError;
       }
+      String? initialPlaybackError;
       if (room.sourceUrl.isNotEmpty) {
-        await player.open(
-          room.sourceUrl,
-          version: room.playback.sourceVersion,
-          episodeIndex: room.playback.episode,
-          initialPosition: Duration(
-            milliseconds: (room.playback.position * 1000).round(),
-          ),
-          cacheIdentity: _mediaCacheIdentity,
-          live: isLive,
-        );
-        if (isLive) {
-          if (room.playback.playing) {
-            await player.play();
-          }
-        } else {
-          await _synchronizer.apply(
-            snapshot: room.playback,
-            player: player,
-            sourceUrl: room.sourceUrl,
-            clockOffset: _clockOffset,
+        try {
+          await player.open(
+            room.sourceUrl,
+            version: room.playback.sourceVersion,
+            episodeIndex: room.playback.episode,
+            initialPosition: Duration(
+              milliseconds: (room.playback.position * 1000).round(),
+            ),
             cacheIdentity: _mediaCacheIdentity,
+            live: isLive,
           );
+          if (isLive) {
+            if (room.playback.playing) {
+              await player.play();
+            }
+          } else {
+            await _synchronizer.apply(
+              snapshot: room.playback,
+              player: player,
+              sourceUrl: room.sourceUrl,
+              clockOffset: _clockOffset,
+              cacheIdentity: _mediaCacheIdentity,
+            );
+          }
+        } catch (exception) {
+          initialPlaybackError = exception.toString();
+          error = initialPlaybackError;
         }
+      } else if (room.mediaError.isNotEmpty) {
+        initialPlaybackError = room.mediaError;
       }
       if (_disposed) {
         return;
@@ -312,6 +320,10 @@ class RoomController extends ChangeNotifier {
         const Duration(seconds: 30),
         (_) => _syncWatchProgress(),
       );
+      if (initialPlaybackError != null &&
+          room.mediaSourceId.startsWith('cat_')) {
+        _handlePlayerError(initialPlaybackError);
+      }
     } catch (exception) {
       error = exception.toString();
     } finally {
