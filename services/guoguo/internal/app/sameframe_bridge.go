@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -90,6 +92,11 @@ func (a *UIApp) sameframeRoutes(token string) http.Handler {
 			recorder := &bridgeRecorder{header: make(http.Header)}
 			a.handleEmbyStream(recorder, req)
 			if recorder.code != 200 {
+				var failure struct {
+					Error string `json:"error"`
+				}
+				_ = json.Unmarshal(recorder.body.Bytes(), &failure)
+				fmt.Printf("bridge manifest startup failed: status=%d reason=%s\n", recorder.code, a.redactError(fmt.Errorf("%s", failure.Error)))
 				writeJSON(w, 502, map[string]string{"error": "短剧播放暂不可用，请稍后重试"})
 				return
 			}
