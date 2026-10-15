@@ -654,7 +654,11 @@ class RoomController extends ChangeNotifier {
     if (_danmakuEpisode != snapshot.episode) {
       unawaited(_loadDanmaku(snapshot.episode));
     }
-    _queueAlignment(snapshot);
+    _queueAlignment(
+      snapshot,
+      authoritativeControl:
+          envelope.fromUserId.isNotEmpty && envelope.fromUserId != 'server',
+    );
   }
 
   Future<void> _loadDanmaku(int episode) async {
@@ -683,7 +687,10 @@ class RoomController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _queueAlignment(PlaybackSnapshot snapshot) {
+  void _queueAlignment(
+    PlaybackSnapshot snapshot, {
+    bool authoritativeControl = false,
+  }) {
     final source = room.sourceUrl;
     final revision = ++_alignmentRevision;
     _alignmentQueue = _alignmentQueue
@@ -719,6 +726,7 @@ class RoomController extends ChangeNotifier {
             sourceUrl: room.sourceUrl,
             clockOffset: _clockOffset,
             cacheIdentity: _mediaCacheIdentity,
+            authoritativeControl: authoritativeControl,
           );
           lastAlignment = alignment.action;
           if (alignment.action == AlignmentAction.reloadSource ||

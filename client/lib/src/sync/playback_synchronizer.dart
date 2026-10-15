@@ -117,6 +117,7 @@ class PlaybackSynchronizer {
     required String sourceUrl,
     required Duration clockOffset,
     String? cacheIdentity,
+    bool authoritativeControl = false,
   }) async {
     final alignment = plan(
       snapshot: snapshot,
@@ -125,7 +126,7 @@ class PlaybackSynchronizer {
       localEpisode: player.episode,
       localNow: DateTime.now(),
       clockOffset: clockOffset,
-      localBuffering: player.buffering,
+      localBuffering: player.buffering && !authoritativeControl,
     );
     switch (alignment.action) {
       case AlignmentAction.reloadSource:
