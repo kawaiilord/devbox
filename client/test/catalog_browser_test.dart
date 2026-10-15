@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/catalog_models.dart';
 import 'package:sameframe_client/src/design.dart';
@@ -121,6 +122,7 @@ Future<void> open(WidgetTester tester, CatalogApi api, double width) async {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('grouping retains versions and ignores repeated source results', () {
     final grouped = groupCatalogFilms([
       CatalogFilm.fromJson(film('a')),

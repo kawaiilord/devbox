@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/design.dart';
 import 'package:sameframe_client/src/discovery_models.dart';
@@ -91,6 +92,7 @@ Future<void> _open(
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final width in [320.0, 390.0, 1440.0]) {
     testWidgets(
       'discovery opens standalone player and filters fit width $width',

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sameframe_client/src/api/api_client.dart';
 import 'package:sameframe_client/src/catalog_models.dart';
 import 'package:sameframe_client/src/design.dart';
@@ -112,6 +113,7 @@ class ShortDramaApi extends ApiClient {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets(
     'web short dramas ignore stale categories and preserve episode selection',
     (tester) async {
