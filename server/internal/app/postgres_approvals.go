@@ -77,6 +77,9 @@ func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecor
 		}
 		return ApprovalRequest{}, err
 	}
+	if err = insertRegistrationTx(ctx, tx, a, policy); err != nil {
+		return ApprovalRequest{}, err
+	}
 	if policy.RegistrationRequiresInvite {
 		if _, err = tx.Exec(ctx, `UPDATE registration_invites SET used_by=$2,used_at=$3 WHERE code_hash=$1`, hash, a.ID, time.Now().UnixMilli()); err != nil {
 			return ApprovalRequest{}, err
@@ -92,7 +95,12 @@ func (r *PostgresRepository) RegisterAccount(ctx context.Context, a AccountRecor
 			return item, err
 		}
 	}
-	return item, tx.Commit(ctx)
+	err = tx.Commit(ctx)
+	if err == nil {
+		// No identity or account reference is retained in expired quota counters.
+		_, _ = r.pool.Exec(ctx, `DELETE FROM registration_quotas WHERE window_start<$1`, time.Now().Add(-2*registrationWindow).UnixMilli())
+	}
+	return item, err
 }
 func (r *PostgresRepository) CreateRoomWithApproval(ctx context.Context, room Room, f RoomFeatures, review bool) (ApprovalRequest, error) {
 	tx, err := r.pool.Begin(ctx)

@@ -1516,6 +1516,18 @@ class ApiClient {
     request.headers['X-Device-ID'] = device.id;
     request.headers['X-Device-Name'] = device.label;
     request.headers['X-Device-Platform'] = device.platform;
+    if (path.startsWith('/api/v1/auth/register') ||
+        path.startsWith('/api/v1/auth/oauth/')) {
+      request.headers['X-Client-Context'] = base64Encode(
+        utf8.encode(
+          jsonEncode({
+            'timezone': DateTime.now().timeZoneName,
+            'timezone_offset': DateTime.now().timeZoneOffset.inMinutes,
+            'platform': device.platform,
+          }),
+        ),
+      );
+    }
     final requestAccessToken = session?.accessToken;
     if (session != null) {
       request.headers['Authorization'] = 'Bearer $requestAccessToken';

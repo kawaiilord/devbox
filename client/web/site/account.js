@@ -46,7 +46,7 @@
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
     try {
       const response=await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,
-        headers:{'Content-Type':'application/json','X-Device-ID':device,'X-Device-Name':'Web browser','X-Device-Platform':'web',...(session?{Authorization:`Bearer ${session.access_token}`}:{})},
+        headers:{'Content-Type':'application/json','X-Device-ID':device,'X-Device-Name':'Web browser','X-Device-Platform':'web',...(registering ? globalThis.sameframeRegistrationContext?.() || {} : {}),...(session?{Authorization:`Bearer ${session.access_token}`}:{})},
         ...(body===undefined?{}:{body:JSON.stringify(body)})});
       const data=await response.json();
       if (response.status===202 && data.data) return {...data.data,_message:data.msg};

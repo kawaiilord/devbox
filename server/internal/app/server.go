@@ -152,6 +152,7 @@ func NewServer(options Options) *Server {
 	mux.HandleFunc("PUT /api/v1/admin/media-sources/{id}", s.adminChangeSource)
 	mux.HandleFunc("POST /api/v1/admin/media-sources/{id}/probe", s.adminProbeSource)
 	mux.HandleFunc("GET /api/v1/admin/registration-invites", s.adminRegistrationInvites)
+	mux.HandleFunc("GET /api/v1/admin/managed-users/{id}/registration", s.adminUserRegistration)
 	mux.HandleFunc("POST /api/v1/admin/registration-invites", s.adminRegistrationInvites)
 	mux.HandleFunc("POST /api/v1/admin/registration-invites/{id}/revoke", s.adminRevokeRegistrationInvite)
 	mux.HandleFunc("GET /api/v1/admin/site-policy", s.adminPolicy)
@@ -484,8 +485,13 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if !s.enforceRateLimit(w, r, "register-source", sourceIdentity(r), 20, time.Hour) ||
-		!s.enforceRateLimit(w, r, "register-device", device.ID, 5, time.Hour) {
+	origin := s.registrationFromRequest(w, r, device, "password")
+	if s.writeRegistrationError(w, r, origin, validateRegistrationRecord(origin)) {
+		return
+	}
+	if !s.enforceRateLimit(w, r, "register-source", origin.Network, 20, time.Hour) ||
+		!s.enforceRateLimit(w, r, "register-device", device.ID, 5, time.Hour) ||
+		!s.enforceRateLimit(w, r, "register-browser", origin.BrowserHash, 5, time.Hour) {
 		return
 	}
 	if policy.RegistrationRequiresEmailCode {
@@ -499,8 +505,11 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	session, err := s.auth.registerWithOptions(
-		r.Context(), request.Email, request.DisplayName, request.Password, accountRegistrationOptions{Verified: policy.RegistrationRequiresEmailCode, InviteCode: request.InviteCode}, device,
+		r.Context(), request.Email, request.DisplayName, request.Password, accountRegistrationOptions{Registration: origin, Verified: policy.RegistrationRequiresEmailCode, InviteCode: request.InviteCode}, device,
 	)
+	if s.writeRegistrationError(w, r, origin, err) {
+		return
+	}
 	if writeLoginChallenge(w, err) || writeApprovalPending(w, err) {
 		return
 	}
@@ -2076,7 +2085,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		}
 		w.Header().Set(
 			"Access-Control-Allow-Headers",
-			"Authorization, Content-Type, Range, If-Range, X-Device-ID, X-Device-Name, X-Device-Platform",
+			"Authorization, Content-Type, Range, If-Range, X-Device-ID, X-Device-Name, X-Device-Platform, X-Client-Context",
 		)
 		w.Header().Set(
 			"Access-Control-Expose-Headers",

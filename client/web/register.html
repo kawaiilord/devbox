@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/site/account.css">
   <script src="/appearance.js"></script>
   <script src="/site/device.js" defer></script>
+  <script src="/admin/registration-context.js" defer></script>
   <script src="/site/account.js" defer></script>
 </head>
 <body data-account-mode="register">
@@ -30,6 +31,7 @@
       </form>
       <form id="mfaForm" class="mfa-form" hidden><div class="field"><label for="mfaCode">动态验证码或恢复码</label><input id="mfaCode" name="mfa_code" autocomplete="one-time-code" maxlength="128" required></div><p id="mfaMessage" class="form-message error" role="alert" hidden></p><button id="submitMfa" class="primary" type="submit"><span>验证并登录</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button><p class="form-switch"><button id="cancelMfa" class="text-button" type="button">使用其他账号</button></p></form>
       <p id="registrationStatus" class="rules-status"  ><span id="rulesText">正在读取注册设置…</span><button id="retryRules" class="text-button" type="button" hidden>重试</button></p>
+      <p class="field-help">为防止恶意注册，本站会记录注册 IP、设备与浏览器环境。</p>
       <p class="form-switch" id="formSwitch"><span>已经有账号？</span><a href="/login">登录</a></p>
       <noscript><p class="noscript">请启用 JavaScript 后提交账号信息。</p></noscript>
     </section>

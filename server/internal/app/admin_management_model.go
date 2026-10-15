@@ -73,6 +73,8 @@ type AdminDocument struct {
 }
 
 type SitePolicy struct {
+	RegistrationIPLimit           int  `json:"registration_ip_limit"`
+	RegistrationDeviceLimit       int  `json:"registration_device_limit"`
 	RegistrationRequiresEmailCode bool `json:"registration_requires_email_code"`
 	RegistrationRequiresInvite    bool `json:"registration_requires_invite"`
 	RegistrationRequiresReview    bool `json:"registration_requires_review"`
@@ -98,7 +100,7 @@ type TaxonomyEntry struct {
 }
 
 func defaultSitePolicy() SitePolicy {
-	return SitePolicy{RegistrationEnabled: true, RoomCreationEnabled: true, GuestsEnabled: true,
+	return SitePolicy{RegistrationIPLimit: 5, RegistrationDeviceLimit: 3, RegistrationEnabled: true, RoomCreationEnabled: true, GuestsEnabled: true,
 		ChatEnabled: true, DefaultMaxMembers: 8, MaxRoomMembers: 100, ChatHistoryLimit: 50}
 }
 

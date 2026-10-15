@@ -62,6 +62,9 @@ func (r *PostgresRepository) AdminCreateUser(ctx context.Context, a AccountRecor
 		}
 		return ManagedUser{}, err
 	}
+	if err = insertRegistrationTx(ctx, tx, a, defaultSitePolicy()); err != nil {
+		return ManagedUser{}, err
+	}
 	if _, err = appendPostgresAudit(ctx, tx, AuditEvent{ActorID: actor, Action: "user.create", TargetType: "user", TargetID: a.ID}); err != nil {
 		return ManagedUser{}, err
 	}

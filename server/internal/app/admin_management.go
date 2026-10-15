@@ -93,7 +93,10 @@ func (s *Server) adminCreateManagedUser(w http.ResponseWriter, r *http.Request) 
 		writeError(w, 500, err)
 		return
 	}
-	item, err := s.repo.AdminCreateUser(r.Context(), AccountRecord{User: User{ID: mustRandomString(12), Email: email, DisplayName: strings.TrimSpace(in.DisplayName), EmailVerified: in.EmailVerified, SessionVersion: 1}, PasswordHash: hash, CreatedAt: time.Now()}, actor.ID)
+	device, _ := deviceFromRequest(r)
+	origin := s.registrationFromRequest(w, r, device, "admin")
+	origin.CreatedBy = actor.ID
+	item, err := s.repo.AdminCreateUser(r.Context(), AccountRecord{Registration: origin, User: User{ID: mustRandomString(12), Email: email, DisplayName: strings.TrimSpace(in.DisplayName), EmailVerified: in.EmailVerified, SessionVersion: 1}, PasswordHash: hash, CreatedAt: time.Now()}, actor.ID)
 	if err != nil {
 		writeAdminError(w, err)
 		return
@@ -253,6 +256,9 @@ func loadSitePolicy(ctx context.Context, repo Repository) (SitePolicy, AdminDocu
 	return p, d, err
 }
 func validateSitePolicy(p SitePolicy) error {
+	if p.RegistrationIPLimit < 0 || p.RegistrationIPLimit > 1000 || p.RegistrationDeviceLimit < 0 || p.RegistrationDeviceLimit > 1000 {
+		return errors.New("注册额度需为 0–1000，0 表示不限制")
+	}
 	if p.MaxRoomsPerUser < 0 || p.MaxRoomsPerUser > 1000 || p.DefaultMaxMembers < 2 || p.DefaultMaxMembers > p.MaxRoomMembers || p.MaxRoomMembers > 100 || p.ChatHistoryLimit < 1 || p.ChatHistoryLimit > 100 {
 		return errors.New("房间数需为 0–1000，人数需为 2–100，聊天历史条数需为 1–100")
 	}
@@ -276,6 +282,14 @@ func (s *Server) adminPolicy(w http.ResponseWriter, r *http.Request) {
 		Version int64      `json:"version"`
 		Policy  SitePolicy `json:"policy"`
 	}
+	current, _, err := s.sitePolicy(r.Context())
+	if err != nil {
+		writeAdminError(w, err)
+		return
+	}
+	// An older open admin page must not disable newly introduced quotas by
+	// omitting fields it does not yet know about.
+	in.Policy = current
 	if err := decodeJSON(r, &in); err != nil {
 		writeError(w, 400, err)
 		return

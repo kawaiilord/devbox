@@ -51,6 +51,9 @@ func (r *MemoryRepository) RegisterAccount(_ context.Context, account AccountRec
 			return ApprovalRequest{}, ErrRegistrationInvite
 		}
 	}
+	if err := r.registerOriginLocked(&account, policy); err != nil {
+		return ApprovalRequest{}, err
+	}
 	account.AccountStatus = "active"
 	account.AdminVersion = 1
 	if review {

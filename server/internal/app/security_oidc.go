@@ -26,15 +26,16 @@ func validIssuer(raw string) bool {
 }
 
 type oauthCeremony struct {
-	Provider    string     `json:"provider"`
-	Version     int64      `json:"version"`
-	Verifier    string     `json:"verifier"`
-	Nonce       string     `json:"nonce"`
-	CookieHash  string     `json:"cookie_hash"`
-	ResultToken string     `json:"result_token"`
-	Device      DeviceInfo `json:"device"`
-	LinkUser    string     `json:"link_user"`
-	LinkVersion int64      `json:"link_version"`
+	Registration *RegistrationRecord `json:"registration,omitempty"`
+	Provider     string              `json:"provider"`
+	Version      int64               `json:"version"`
+	Verifier     string              `json:"verifier"`
+	Nonce        string              `json:"nonce"`
+	CookieHash   string              `json:"cookie_hash"`
+	ResultToken  string              `json:"result_token"`
+	Device       DeviceInfo          `json:"device"`
+	LinkUser     string              `json:"link_user"`
+	LinkVersion  int64               `json:"link_version"`
 }
 type oauthResult struct {
 	Login    loginCeremony `json:"login"`
@@ -112,6 +113,7 @@ func (s *Server) oauthStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ceremony := oauthCeremony{Provider: p.ID, Version: v, Verifier: oauth2.GenerateVerifier(), Nonce: mustRandomString(24), ResultToken: mustRandomString(32), Device: device}
+	ceremony.Registration = s.registrationFromRequest(w, r, device, "oauth:"+p.ID)
 	if in.Link {
 		user, e := s.userFromRequest(r)
 		if e != nil {
@@ -306,9 +308,22 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return err
 			}
-			a = AccountRecord{User: User{ID: mustRandomString(12), Email: email, DisplayName: name, SessionVersion: 1, EmailVerified: true, AccountStatus: "active"}, PasswordHash: hash, CreatedAt: time.Now()}
+			origin := s.registrationFromRequest(w, r, c.Device, "oauth:"+p.ID)
+			if c.Registration != nil {
+				// The callback carries the verified network address; preserve the
+				// browser environment submitted when the OAuth flow began.
+				origin.Client = c.Registration.Client
+				origin.ContextStatus = c.Registration.ContextStatus
+				s.hashRegistrationEnvironment(origin)
+			}
+			a = AccountRecord{Registration: origin, User: User{ID: mustRandomString(12), Email: email, DisplayName: name, SessionVersion: 1, EmailVerified: true, AccountStatus: "active"}, PasswordHash: hash, CreatedAt: time.Now()}
 			review, err := s.repo.RegisterAccount(ctx, a, policy.RegistrationRequiresReview)
 			if err != nil {
+				var limit *registrationLimitError
+				if errors.As(err, &limit) || errors.Is(err, ErrRegistrationSource) {
+					result.Error = err.Error()
+					s.logRegistrationBlock(ctx, origin, err)
+				}
 				return err
 			}
 			if err = s.repo.VerifyEmail(ctx, a.ID); err != nil {

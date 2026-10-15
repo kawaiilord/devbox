@@ -369,3 +369,5 @@ input[type="checkbox"]:not(.toggle) { width: 17px; min-width: 17px; height: 17px
 :root[data-theme="dark"] .brand img, :root[data-theme="dark"] .mobile-brand { filter: invert(1); }
 
 .invite-code-output { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; font-size: 13px; padding: 16px; background: var(--elevated); border: 1px solid var(--line); border-radius: 10px; }
+
+.registration-details{margin:0}.registration-row{padding:10px 0;border-bottom:1px solid var(--border,#dedede)}.registration-row dt{font-size:12px;color:var(--muted,#777);margin-bottom:4px}.registration-row dd{margin:0;overflow-wrap:anywhere;font-size:14px}

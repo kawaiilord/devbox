@@ -43,6 +43,9 @@ func (r *MemoryRepository) AdminCreateUser(_ context.Context, account AccountRec
 	if _, ok := r.usersByMail[account.Email]; ok {
 		return ManagedUser{}, ErrEmailExists
 	}
+	if err := r.registerOriginLocked(&account, defaultSitePolicy()); err != nil {
+		return ManagedUser{}, err
+	}
 	account.AccountStatus = "active"
 	account.AdminVersion = 1
 	r.usersByID[account.ID] = account

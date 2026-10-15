@@ -20,6 +20,7 @@ var (
 
 type AccountRecord struct {
 	User
+	Registration *RegistrationRecord `json:"-"`
 	PasswordHash string
 	CreatedAt    time.Time
 }
@@ -37,6 +38,7 @@ type ActionTokenRecord struct {
 }
 
 type Repository interface {
+	RegistrationRepository
 	CatalogRepository
 	RegistrationInviteRepository
 	PlatformRepository
@@ -192,6 +194,7 @@ type memoryActionToken struct {
 }
 
 type MemoryRepository struct {
+	registrationQuotas     map[string]registrationQuota
 	roomStreams            map[string]RoomStream
 	security               map[string]AccountSecurity
 	authChallenges         map[string]AuthChallenge

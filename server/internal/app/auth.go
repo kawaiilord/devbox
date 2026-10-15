@@ -155,6 +155,7 @@ func (s *AuthService) Register(
 }
 
 type accountRegistrationOptions struct {
+	Registration     *RegistrationRecord
 	Verified         bool
 	SendVerification bool
 	InviteCode       string
@@ -178,6 +179,7 @@ func (s *AuthService) registerWithOptions(ctx context.Context, email, displayNam
 		return Session{}, err
 	}
 	account := AccountRecord{
+		Registration: options.Registration,
 		User: User{
 			ID: mustRandomString(12), DisplayName: strings.TrimSpace(displayName),
 			Email: normalizedEmail, SessionVersion: 1, EmailVerified: options.Verified,

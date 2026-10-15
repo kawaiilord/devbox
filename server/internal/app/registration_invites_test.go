@@ -28,10 +28,10 @@ func TestPostgresRegistrationInvites(t *testing.T) {
 	if err = repo.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = repo.pool.Exec(ctx, "TRUNCATE users,admin_documents,registration_invites CASCADE"); err != nil {
+	if _, err = repo.pool.Exec(ctx, "TRUNCATE users,admin_documents,registration_invites,registration_quotas CASCADE"); err != nil {
 		t.Fatal(err)
 	}
-	defer repo.pool.Exec(ctx, "TRUNCATE users,admin_documents,registration_invites CASCADE")
+	defer repo.pool.Exec(ctx, "TRUNCATE users,admin_documents,registration_invites,registration_quotas CASCADE")
 	testRegistrationInvites(t, repo)
 }
 
@@ -73,6 +73,9 @@ func testRegistrationInvites(t *testing.T, repo Repository) {
 		}
 		json.Unmarshal(f.call(t, "GET", "/api/v1/admin/site-policy", nil, f.root.AccessToken, 200), &current)
 		current.Policy.RegistrationRequiresInvite = required
+		// This scenario exercises invitation reuse and approval with several
+		// accounts from one test client; quota boundaries have their own tests.
+		current.Policy.RegistrationDeviceLimit = 20
 		f.call(t, "PUT", "/api/v1/admin/site-policy", map[string]any{"version": current.Version, "policy": current.Policy}, f.root.AccessToken, 200)
 	}
 	setPolicy(true)

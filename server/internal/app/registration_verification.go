@@ -54,7 +54,9 @@ func (s *Server) requestRegistrationCode(w http.ResponseWriter, r *http.Request)
 		writeError(w, 400, err)
 		return
 	}
-	if !s.enforceRateLimit(w, r, "registration-code-ip", sourceIdentity(r), 10, time.Hour) ||
+	if !s.enforceRateLimit(w, r, "registration-code-ip", registrationNetwork(sourceIdentity(r)), 10, time.Hour) ||
+		!s.enforceRateLimit(w, r, "registration-code-device", device.ID, 5, time.Hour) ||
+		!s.enforceRateLimit(w, r, "registration-code-browser", s.registrationBrowser(w, r), 5, time.Hour) ||
 		!s.enforceRateLimit(w, r, "registration-code-email-minute", email, 1, time.Minute) ||
 		!s.enforceRateLimit(w, r, "registration-code-email-hour", email, 5, time.Hour) {
 		return
