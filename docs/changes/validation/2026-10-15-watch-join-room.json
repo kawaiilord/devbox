@@ -1,0 +1,951 @@
+{
+  "startedAt": "2026-10-15T06:39:20.866Z",
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "checks": [
+    "加入已有播放中的房间，影片和进度正确带入并继续播放",
+    "临时验收房间已移入回收站：62X3CR"
+  ],
+  "errors": [],
+  "watchRequests": [
+    {
+      "status": 200,
+      "source": "200fd283e81f30ce7a84a8d4"
+    },
+    {
+      "status": 502,
+      "source": "200fd283e81f30ce7a84a8d4"
+    },
+    {
+      "status": 502,
+      "source": "efc2ee258136246af0d9e93b"
+    },
+    {
+      "status": 200,
+      "source": "efc2ee258136246af0d9e93b"
+    },
+    {
+      "status": 200,
+      "source": "6f93a3ef5bc7426712301bbe"
+    }
+  ],
+  "screenshots": [
+    "独立播放页-加入已有房间.png"
+  ],
+  "mode": "join-existing-final",
+  "frames": [
+    {
+      "at": 1792046776858,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 133.29700000000003,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046768753,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046778505,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 138.858,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046774314,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046778527,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "pause",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046778531,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "seek",
+        "position": 0,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046780595,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.85600000000002,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046777312,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046781736,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 143.049,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046778509,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046781736,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046778617,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046781743,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046780278,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046784456,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046783555,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046786300,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046786217,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046793464,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046789243,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046794216,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046792295,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046796742,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046795196,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046799303,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046798811,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046801820,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046801415,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046804305,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046804162,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046807231,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046807166,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046811971,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "play",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046812057,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046810236,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046814151,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 0.006,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046811984,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046815626,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 1.4569999999999999,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046813435,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046817197,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 4.286,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046816264,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046819148,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "pause",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046819149,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "seek",
+        "position": 132.602,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046821496,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 7.272,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046819302,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046824094,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 7.272,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046819267,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046824297,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046819503,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046825871,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046822214,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046831147,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046825253,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046831165,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046828205,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046833253,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "play",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046833311,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046831299,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046839981,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.61,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046833393,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046842082,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 133.408,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046834191,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046842084,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 136.525,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046837308,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046842096,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "pause",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046842096,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "seek",
+        "position": 132.602,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046845803,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 139.415,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046840198,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046849355,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046842187,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046852091,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046842297,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046852121,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046843324,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046853292,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046846278,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046853458,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046849752,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046853514,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046852378,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046857172,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046855532,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046861276,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046858234,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046863044,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046861161,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046865117,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046864435,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046867313,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046867204,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046870460,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046870301,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046874298,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.602,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046873194,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046875301,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "play",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046876429,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 132.615,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046875395,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046877684,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 133.419,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046876199,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046879707,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 136.53699999999998,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046879317,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046879714,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "pause",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046879715,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "seek",
+        "position": 141.393,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046881936,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 136.93,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046879712,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046882947,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046879841,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046886511,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046882239,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046891972,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046885293,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046894162,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046888719,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046894238,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046891237,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046895356,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046894228,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046898969,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046897275,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046901323,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046900300,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046903321,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.393,
+        "playing": false,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046903240,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046906040,
+      "direction": "sent",
+      "type": "playback.control",
+      "payload": {
+        "action": "play",
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046906532,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.405,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046906078,
+        "source_version": 2
+      }
+    },
+    {
+      "at": 1792046908455,
+      "direction": "received",
+      "type": "playback.snapshot",
+      "payload": {
+        "position": 141.583,
+        "playing": true,
+        "speed": 1,
+        "episode": 1,
+        "position_ts": 1792046906256,
+        "source_version": 2
+      }
+    }
+  ],
+  "createdRoom": "62X3CR",
+  "registry": [
+    {
+      "id": "1",
+      "time": 4.109747,
+      "ready": 4,
+      "connected": true,
+      "width": 808,
+      "height": 454.5
+    }
+  ],
+  "beforeJoin": 100.240666,
+  "handoff": {
+    "position": 100.241,
+    "playNow": true
+  },
+  "handoffResponse": {
+    "position": 100.447,
+    "playing": true,
+    "speed": 1,
+    "episode": 1,
+    "position_ts": 1792046735903,
+    "source_version": 2
+  },
+  "joinPlayback": {
+    "before": 100.240666,
+    "request": 100.241,
+    "after": [
+      {
+        "time": 142.966,
+        "duration": 8553.416803000066,
+        "ready": 1,
+        "paused": false,
+        "width": 1280,
+        "height": 720
+      }
+    ]
+  },
+  "status": "passed",
+  "finalServerPlayback": {
+    "position": 141.405,
+    "playing": true,
+    "speed": 1,
+    "episode": 1,
+    "position_ts": 1792046906078,
+    "source_version": 2
+  },
+  "finishedAt": "2026-10-15T06:48:29.932Z"
+}

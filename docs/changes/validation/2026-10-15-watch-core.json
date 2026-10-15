@@ -1,0 +1,163 @@
+{
+  "startedAt": "2026-10-15T05:56:52.560Z",
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "checks": [
+    "高分榜电影海报直达独立播放页并解码视频，无搜索表单、无隐式建房",
+    "快进控制生效",
+    "1.5 倍速实际生效",
+    "宽屏展开与收起保留播放",
+    "真实电影换源保留进度、暂停状态和倍速，恢复后继续播放",
+    "临时验收房间已移入回收站：XQXYAX"
+  ],
+  "errors": [],
+  "watchRequests": [
+    {
+      "status": 502,
+      "selection": {
+        "refs": [
+          {
+            "source_id": "efc2ee258136246af0d9e93b",
+            "film_id": "26167",
+            "group_id": "ef4cb6d916cfa39b3a00cc90"
+          },
+          {
+            "source_id": "efc2ee258136246af0d9e93b",
+            "film_id": "26167",
+            "group_id": "c195b205725854a95664d275"
+          }
+        ],
+        "episode_id": "9abc744d488eb3a01c6de14e",
+        "all_episodes": true
+      }
+    },
+    {
+      "status": 200,
+      "selection": {
+        "refs": [
+          {
+            "source_id": "efc2ee258136246af0d9e93b",
+            "film_id": "26167",
+            "group_id": "c195b205725854a95664d275"
+          },
+          {
+            "source_id": "efc2ee258136246af0d9e93b",
+            "film_id": "26167",
+            "group_id": "ef4cb6d916cfa39b3a00cc90"
+          },
+          {
+            "source_id": "200fd283e81f30ce7a84a8d4",
+            "film_id": "24922",
+            "group_id": "a61c0597c8fef538fc84967d"
+          },
+          {
+            "source_id": "200fd283e81f30ce7a84a8d4",
+            "film_id": "24922",
+            "group_id": "c1f70a1e32e2a318d92a4a83"
+          },
+          {
+            "source_id": "ddd8a59f86a9d6d202efddf5",
+            "film_id": "6270",
+            "group_id": "79e74211f8e6c76db02020df"
+          }
+        ],
+        "episode_id": "9abc744d488eb3a01c6de14e",
+        "all_episodes": true
+      }
+    },
+    {
+      "status": 200,
+      "selection": {
+        "refs": [
+          {
+            "source_id": "6f93a3ef5bc7426712301bbe",
+            "film_id": "79047",
+            "group_id": "0390c452c9e4ab5944dfeba9"
+          },
+          {
+            "source_id": "efc2ee258136246af0d9e93b",
+            "film_id": "26167",
+            "group_id": "ef4cb6d916cfa39b3a00cc90"
+          },
+          {
+            "source_id": "efc2ee258136246af0d9e93b",
+            "film_id": "26167",
+            "group_id": "c195b205725854a95664d275"
+          },
+          {
+            "source_id": "200fd283e81f30ce7a84a8d4",
+            "film_id": "24922",
+            "group_id": "a61c0597c8fef538fc84967d"
+          },
+          {
+            "source_id": "200fd283e81f30ce7a84a8d4",
+            "film_id": "24922",
+            "group_id": "c1f70a1e32e2a318d92a4a83"
+          },
+          {
+            "source_id": "ddd8a59f86a9d6d202efddf5",
+            "film_id": "6270",
+            "group_id": "79e74211f8e6c76db02020df"
+          },
+          {
+            "source_id": "a6784178aba8949cae2b4c0e",
+            "film_id": "52719",
+            "group_id": "00f196158211911dab6eda7b"
+          },
+          {
+            "source_id": "a6784178aba8949cae2b4c0e",
+            "film_id": "52719",
+            "group_id": "c84526325bab8c7d963dad38"
+          }
+        ],
+        "episode_id": "9abc744d488eb3a01c6de14e",
+        "all_episodes": true
+      }
+    }
+  ],
+  "screenshots": [
+    "独立播放页-电影-浅色.png",
+    "独立播放页-电影-深色.png"
+  ],
+  "initialMovie": [
+    {
+      "time": 4.460666,
+      "duration": 8553.416803000066,
+      "ready": 2,
+      "paused": false,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "sourceSwitch": {
+    "before": 122.92096,
+    "phase": "passed",
+    "rate": 1.5,
+    "pausedDuringSwitch": true,
+    "after": 122.921,
+    "pausedAfter": true,
+    "resumed": [
+      {
+        "time": 124.130674,
+        "duration": 8553.416803000066,
+        "ready": 4,
+        "paused": false,
+        "width": 1280,
+        "height": 720
+      }
+    ]
+  },
+  "createPosition": 153.586021,
+  "status": "failed",
+  "failure": "Waiting failed: 60000ms exceeded",
+  "failureVideoState": [
+    {
+      "time": 153.586,
+      "duration": 8553.416803000066,
+      "ready": 4,
+      "paused": true,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "finishedAt": "2026-10-15T06:01:04.326Z"
+}

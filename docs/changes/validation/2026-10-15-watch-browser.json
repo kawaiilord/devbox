@@ -1,0 +1,101 @@
+{
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "status": "passed",
+  "mode": "combined-scoped-acceptance",
+  "verification_runs": [
+    {
+      "file": "2026-10-15-watch-core.json",
+      "scope": "单人自动播放、控制与暂停换源",
+      "note": "该轮后续因错误假定新建房间自动播放而停止；房间按既有房主播放控制另行验收。"
+    },
+    {
+      "file": "2026-10-15-watch-create-room.json",
+      "scope": "创建房间的进度交接和实际播放",
+      "note": "该记录的创建房间部分通过，加入已有房间由后续独立检查验证。"
+    },
+    {
+      "file": "2026-10-15-watch-join-room.json",
+      "scope": "加入已有房间；记录实际交接请求、可见视频和同步消息"
+    },
+    {
+      "file": "2026-10-15-watch-short.json",
+      "scope": "短剧搜索、独立播放和第 2 集"
+    }
+  ],
+  "checks": [
+    "高分榜电影海报直达独立播放页并解码视频，无搜索表单、无隐式建房",
+    "快进控制生效",
+    "1.5 倍速实际生效",
+    "宽屏展开与收起保留播放",
+    "真实电影换源保留进度、暂停状态和倍速，恢复后继续播放",
+    "创建房间保留观影进度；点击房间播放控制后视频持续播放",
+    "加入已有播放中的房间，影片和进度正确带入并继续播放",
+    "临时验收房间已移入回收站：62X3CR",
+    "果果短剧进入独立播放页，第 1、2 集均实际解码播放"
+  ],
+  "errors": [],
+  "sourceSwitch": {
+    "before": 122.92096,
+    "phase": "passed",
+    "rate": 1.5,
+    "pausedDuringSwitch": true,
+    "after": 122.921,
+    "pausedAfter": true,
+    "resumed": [
+      {
+        "time": 124.130674,
+        "duration": 8553.416803000066,
+        "ready": 4,
+        "paused": false,
+        "width": 1280,
+        "height": 720
+      }
+    ]
+  },
+  "initialMovie": [
+    {
+      "time": 4.460666,
+      "duration": 8553.416803000066,
+      "ready": 2,
+      "paused": false,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "createPosition": 93.564026,
+  "createdPlayback": [
+    {
+      "time": 97.207286,
+      "duration": 8553.416803000066,
+      "ready": 4,
+      "paused": false,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "joinPlayback": {
+    "before": 100.240666,
+    "request": 100.241,
+    "after": [
+      {
+        "time": 142.966,
+        "duration": 8553.416803000066,
+        "ready": 1,
+        "paused": false,
+        "width": 1280,
+        "height": 720
+      }
+    ]
+  },
+  "shortDrama": [
+    {
+      "time": 2.796667,
+      "duration": 121.116,
+      "ready": 4,
+      "paused": false,
+      "width": 1080,
+      "height": 1920
+    }
+  ],
+  "cleanupError": null
+}

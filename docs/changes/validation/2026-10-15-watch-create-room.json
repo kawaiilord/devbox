@@ -1,0 +1,39 @@
+{
+  "startedAt": "2026-10-15T06:18:52.103Z",
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "checks": [
+    "创建房间保留观影进度；点击房间播放控制后视频持续播放",
+    "临时验收房间已移入回收站：PDWFTH"
+  ],
+  "errors": [],
+  "watchRequests": [],
+  "screenshots": [
+    "独立播放页-加入已有房间.png"
+  ],
+  "mode": "room-final",
+  "createPosition": 93.564026,
+  "createdRoom": "PDWFTH",
+  "createdPlayback": [
+    {
+      "time": 97.207286,
+      "duration": 8553.416803000066,
+      "ready": 4,
+      "paused": false,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "status": "failed",
+  "failure": "Waiting failed: 120000ms exceeded",
+  "failureVideoState": [
+    {
+      "time": 1.661,
+      "duration": 8553.416803000066,
+      "ready": 4,
+      "paused": true,
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "finishedAt": "2026-10-15T06:27:52.667Z"
+}

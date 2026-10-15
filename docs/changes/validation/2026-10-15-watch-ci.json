@@ -1,0 +1,38 @@
+{
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "run": 38686988754,
+  "url": "https://github.com/kawaiilord/devbox/actions/runs/38686988754",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "guoguo-provider",
+      "conclusion": "success",
+      "completedAt": "2026-10-15T05:31:09Z"
+    },
+    {
+      "name": "server-runtime",
+      "conclusion": "success",
+      "completedAt": "2026-10-15T05:30:04Z"
+    },
+    {
+      "name": "server",
+      "conclusion": "success",
+      "completedAt": "2026-10-15T05:30:46Z"
+    },
+    {
+      "name": "flutter-linux",
+      "conclusion": "success",
+      "completedAt": "2026-10-15T05:31:01Z"
+    },
+    {
+      "name": "flutter-windows",
+      "conclusion": "success",
+      "completedAt": "2026-10-15T05:33:45Z"
+    },
+    {
+      "name": "flutter-web",
+      "conclusion": "success",
+      "completedAt": "2026-10-15T05:30:50Z"
+    }
+  ]
+}

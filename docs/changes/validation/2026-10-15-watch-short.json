@@ -1,0 +1,22 @@
+{
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "mode": "short-drama-final",
+  "checks": [
+    "果果短剧进入独立播放页，第 1、2 集均实际解码播放"
+  ],
+  "requests": [
+    "7519401131911416857",
+    "7519401132133714969"
+  ],
+  "status": "passed",
+  "video": [
+    {
+      "time": 2.796667,
+      "duration": 121.116,
+      "ready": 4,
+      "paused": false,
+      "width": 1080,
+      "height": 1920
+    }
+  ]
+}

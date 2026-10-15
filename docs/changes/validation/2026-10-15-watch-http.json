@@ -1,0 +1,34 @@
+{
+  "checked_at_utc": "2026-10-15T05:37:47.293385+00:00",
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "path": "/app",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "path": "/login",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "path": "/api/v1/catalog/sources",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "path": "/api/v1/account/rooms",
+      "status": 401,
+      "expected": 401
+    }
+  ],
+  "main_js_sha256": "526e16905ab37e1bf5012bf58312825b02a1b1bdce231561e37d5cec4c4b66c9",
+  "adaptive_js_sha256": "43104cb938be46444f6f69f1e2df87d4acc31aca3ba9876f52f124c6ba76cde3",
+  "status": "passed"
+}

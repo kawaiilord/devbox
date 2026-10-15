@@ -1,0 +1,27 @@
+{
+  "rollback_compatibility_revision": null,
+  "original_server_sha256": "b8ee7ab146a575832cd9909a1f23d7a561e784d651b553588c9a5ebb8e0b1d26",
+  "revision": "7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "root": "/opt/sameframe",
+  "status": "deployed",
+  "created_at_utc": "2026-10-15T05:36:46Z",
+  "backup_directory": "/opt/sameframe/backups/watch-page-20261015-053623",
+  "runtime_image_name": "sameframe-app",
+  "rollback_image": "sameframe-app:before-watch-page-7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "previous_image_id": "sha256:3059b1f60f0aca7f305c735d5bb2dab51fbcc5340a09df9532d3dd99354d2d24",
+  "new_image": "sameframe-app:watch-page-7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc",
+  "database_migration": "No database schema changes; retain user activity on rollback.",
+  "previous_web_sha256": "9ed612628e363389a06c6a2d4c342ff22dff15db9a4e7c7de6ea1e5f9d52e163",
+  "backup_sha256": {
+    "sameframe": "b8ee7ab146a575832cd9909a1f23d7a561e784d651b553588c9a5ebb8e0b1d26",
+    "web.tgz": "ea68db6a337ef71105541db3855983427f7b991589d69835c81ac2ad3d5bbe98",
+    "database.dump": "0c0e2d6982f1a308312fbab2a2d46ac96358b2630e2161e57741b3e5730d0f33"
+  },
+  "server_sha256": "46e2cccff74e2b6d465d7c66b32e3ced3d6e1e4eac1b88d533c4f2ef9e3a8659",
+  "web_sha256": "526e16905ab37e1bf5012bf58312825b02a1b1bdce231561e37d5cec4c4b66c9",
+  "added_web_files": [],
+  "rollback_command": "python3 /opt/sameframe/releases/watch-page-7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc/release.py --rollback",
+  "rollback_check_command": "python3 /opt/sameframe/releases/watch-page-7eaebbdc2d31a4acbd8a702db836b1bbcc5aeccc/release.py --check-rollback",
+  "database_rollback_policy": "Preserve new user activity; normal rollback does not restore the database.",
+  "deployed_at_utc": "2026-10-15T05:37:10Z"
+}
