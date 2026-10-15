@@ -1,6 +1,6 @@
 # 注册来源记录与批量注册限制（2026-10-15）
 
-状态：实现完成，CI 与上线验收中。
+状态：已上线，自动测试、线上浏览器验收及回滚检查通过。
 基线代码：aa40dbc；原线上应用 dccd15a；果果取流故障继续按用户要求留待下次处理。
 
 ## 新增、修改与移除
@@ -31,11 +31,53 @@
 新增迁移 023_registration_security.sql：registration_records 与 registration_quotas 及索引。用户注册记录随账号正式删除清理，独立摘要计数保留至周期过期。
 迁移为增量，旧版应用可以忽略新增表；代码回滚保留用户活动及记录，不恢复旧数据库。
 
-正式发布前备份数据库、网页及后端镜像。实际 CI、版本、资源哈希、备份和回滚命令在验收后补齐。
+发布前已备份数据库、网页及后端镜像。具体路径和哈希见下方发布记录。
 
 ## 验证
 
 - 新增直接连接伪造头、可信代理来源、IPv4 映射地址、IPv6 /64、非法环境上报和伪造浏览器 Cookie 测试。
 - 新增注册记录不可被后续登录覆盖、无权限不可读取、旧账号缺失来源、浏览器 ID 关联与额度测试。
 - 新增内存与 PostgreSQL 并发注册、设备跨 IP / OAuth 计数、失败回滚、重复邮箱不占额、封禁设备阻断测试。
-- JavaScript 语法检查通过；CI 及真实浏览器验收待补。
+- JavaScript 语法检查、CI 及真实浏览器验收均通过。
+
+## 上线验收与发布记录
+
+- 发布提交：3120e531b71214b67bcc65926a64469b6894b472。
+- [CI 38719345246](https://github.com/kawaiilord/devbox/actions/runs/38719345246)：server、flutter-web、flutter-windows、flutter-linux、server-runtime、guoguo-provider 六项全部成功。
+- 内存及 PostgreSQL 实测同一网络 18 个并发注册，仅 5 个成功；同设备跨 IP / OAuth 共用 3 次额度；重复邮箱不占额度、超额不残留账号、封禁设备阻断均通过。
+- HTTP 浏览器关联测试：保留签名浏览器 Cookie，同时更换设备 ID 和来源 IP，第 4 次注册返回 429，附带 Retry-After。
+- 线上 Edge 实际注册验收通过，页面 JavaScript 错误为 0。注册请求携带三种伪造 IP 头，数据库仍保存可信代理解析的访问出口 IP，而非伪造值或 Docker 代理地址。
+- 线上成功记录 Windows、Edge User-Agent / Client Hints、zh-CN、Asia/Shanghai、1280×950 屏幕及浏览器/设备/环境摘要。自动化验收的 WebDriver 标志如实记录为 true，未将这个单独信号作为封禁依据。
+- 现有“邀请码 + 管理员审批”模式保持生效，测试注册返回 202 待审批。测试账号已移入回收站，其会话失效；使用的测试邀请码不能复用。
+- 未登录读取注册详情返回 401；普通用户与运营角色的 403 权限隔离由自动测试验证。旧管理员账号返回 record=null，未补造历史来源。
+- 线上管理后台已验证“用户管理 → 注册环境”及“站点策略 → 注册额度”字段。当前默认值为 IP 5、设备/浏览器 3。
+- 部署就绪检查、备份哈希及回滚可用性检查通过。
+
+部署完成时间：2026-10-15 10:25:50 UTC（北京时间 18:25:50）。
+
+| 资源 | SHA-256 |
+| --- | --- |
+| 新服务端 | 0321917c0f677391d510322661fac110d633679df31497f53a1a6a6e6c49ce4e |
+| 新网页 main.dart.js | bef1732e36cbeff346f094d4d71f4a0c397e97c1b56ba8f574914f1f2b9aaf03 |
+| CI 网页压缩包 | 336716e51bb76c4c93a0d5d87cabbe54178ce97fa0b71eaee2bb7b9c6d918880 |
+| 原服务端 | c13e0c09cfb6148365d0c7bde7ca1c6fa48877021ea735f198fbd96bee19f620 |
+| 数据库备份 | 86365e1ed1a0cdfdd0fe30b4327e02e4f57d8438cbf35b470ea398ba8d705a28 |
+
+备份：`/opt/sameframe/backups/registration-security-20261015-102508`
+
+部署清单：`/opt/sameframe/releases/registration-security-3120e531b71214b67bcc65926a64469b6894b472/deployment.json`
+
+回滚命令：
+
+```sh
+python3 /opt/sameframe/releases/registration-security-3120e531b71214b67bcc65926a64469b6894b472/release.py --rollback
+```
+
+回滚保留新增用户、注册记录与计数表；不会恢复旧数据库。回滚旧代码后，新的注册记录采集与每日额度不再执行，重新部署本版本可恢复功能。
+
+验收文件在 `artifacts/registration-security-20261015/`：
+
+- `registration-environment.png`：后台注册来源和环境。
+- `registration-policy.png`：额度配置及保留的注册设置。
+- `register-notice.png`：注册页采集说明。
+- `live-acceptance.json`：浏览器验收结果，不包含登录密码、令牌或邀请码。
