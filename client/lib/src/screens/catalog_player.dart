@@ -62,10 +62,11 @@ class CatalogPlayerState extends State<CatalogPlayer> {
   String _quality = 'auto';
   Map<String, dynamic> _info = {};
   BoxFit _fit = BoxFit.contain;
-  double get positionSeconds => _kernel == null || _loading
+  double get positionSeconds => _kernel == null || _loading || _failed
       ? _position
       : _kernel!.position.inMilliseconds / 1000;
-  bool get playing => _kernel == null || _loading ? _playing : _kernel!.playing;
+  bool get playing =>
+      _kernel == null || _loading || _failed ? _playing : _kernel!.playing;
   double get rate => _rate;
 
   Future<void> pause() async {
@@ -176,7 +177,7 @@ class CatalogPlayerState extends State<CatalogPlayer> {
       );
       _subscriptions.add(
         kernel.positionStream.listen((value) {
-          if (!mounted || request != _request || _loading) return;
+          if (!mounted || request != _request || _loading || _failed) return;
           _position = value.inMilliseconds / 1000;
           if (widget.skipOutro > 0 &&
               _duration > widget.skipOutro + widget.skipIntro + 10 &&
@@ -199,7 +200,7 @@ class CatalogPlayerState extends State<CatalogPlayer> {
       );
       _subscriptions.add(
         kernel.playingStream.listen((value) {
-          if (mounted && request == _request && !_loading) {
+          if (mounted && request == _request && !_loading && !_failed) {
             _playing = value;
             if (!value) _report();
           }
