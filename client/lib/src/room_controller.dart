@@ -379,8 +379,9 @@ class RoomController extends ChangeNotifier {
           player.sourceVersion == version &&
           player.episode == room.playback.episode;
       final ready = matches && await player.bufferedForPlayback();
-      if (_disposed || version != room.playback.sourceVersion || !connected)
+      if (_disposed || version != room.playback.sourceVersion || !connected) {
         return;
+      }
       for (final command in _bufferingGate.observe(
         sourceVersion: version,
         playing: room.playback.playing,
