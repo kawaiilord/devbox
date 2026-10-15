@@ -158,7 +158,7 @@ func testRegistrationQuotas(t *testing.T, repo Repository) {
 	ctx := context.Background()
 	makeAccount := func(ip, device, method string) AccountRecord {
 		id := mustRandomString(16)
-		return AccountRecord{User: User{ID: id, Email: id + "@registration.test", DisplayName: "Quota fixture", SessionVersion: 1}, PasswordHash: "fixture-hash", CreatedAt: time.Now(),
+		return AccountRecord{User: User{ID: id, Email: strings.ToLower(id) + "@registration.test", DisplayName: "Quota fixture", SessionVersion: 1}, PasswordHash: "fixture-hash", CreatedAt: time.Now(),
 			Registration: &RegistrationRecord{Method: method, SourceIP: ip, PeerIP: ip, IPSource: "direct", Network: registrationNetwork(ip), DeviceHash: hashDeviceID(device)}}
 	}
 	var wg sync.WaitGroup
