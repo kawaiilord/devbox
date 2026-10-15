@@ -15,6 +15,7 @@ import (
 
 const playbackNativeSegmentSeconds = 2
 const playbackNativeBatchSegments = 12
+const playbackNativePrefetchSegments = 6
 const playbackNativeCacheBytes = 96 * 1024 * 1024
 const playbackNativeSegmentBytes = 16 * 1024 * 1024
 
@@ -401,7 +402,9 @@ func (cache *playbackNative) segment(ctx context.Context, index int) ([]byte, er
 
 func (cache *playbackNative) prefillLocked(index int) {
 	job := cache.job
-	if cache.background || job == nil || cache.err != nil || cache.closed || index < job.end-3 || job.end >= cache.segmentCountLocked() {
+	// Prepare the next batch while at least twelve seconds are still cached.
+	// Six seconds was too little for a cold FFmpeg start plus upstream I/O.
+	if cache.background || job == nil || cache.err != nil || cache.closed || index < job.end-playbackNativePrefetchSegments || job.end >= cache.segmentCountLocked() {
 		return
 	}
 	if cache.shared {

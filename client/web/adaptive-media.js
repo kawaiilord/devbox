@@ -69,7 +69,7 @@
             fail(status?'HTTP '+status+'：媒体请求失败':'媒体播放失败（'+String(e?.code??'unknown')+'）');
           });
           await engine.attach(video);
-          const config={streaming:{bufferingGoal:15,rebufferingGoal:2}};
+          const config={streaming:{bufferingGoal:live?15:45,rebufferingGoal:live?2:4,bufferBehind:20}};
           const target=new URL(url,document.baseURI);
           if(kind==='hls'&&target.origin===new URL(document.baseURI).origin&&target.pathname.startsWith('/media/')) {
             // Private providers can prepare/transcode the first fragment before

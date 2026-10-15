@@ -47,6 +47,8 @@ class ShortDramaApi extends ApiClient {
   Map<String, dynamic>? soloSelection;
   String? joinedCode;
   int catalogSearches = 0;
+  int feedCalls = 0;
+  Completer<ShortDramaFeed>? nextFeed;
   @override
   Future<MediaPlaybackTicket> watchCatalog(
     Session session,
@@ -80,6 +82,8 @@ class ShortDramaApi extends ApiClient {
     Session session,
     Map<String, dynamic> query,
   ) async {
+    feedCalls++;
+    if (nextFeed != null) return nextFeed!.future;
     if (query['section'] == 'short_play') return delayed.future;
     return ShortDramaFeed.fromJson({
       'items': [drama('漫剧样本')],
@@ -114,6 +118,67 @@ class ShortDramaApi extends ApiClient {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('cold short drama loading shows poster skeletons', (
+    tester,
+  ) async {
+    final api = ShortDramaApi();
+    addTearDown(api.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: frameTheme(),
+        home: ShortDramaPage(api: api, session: session, onOpenRoom: (_) {}),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('short-drama-skeleton-0')),
+      findsOneWidget,
+    );
+    api.delayed.complete(
+      ShortDramaFeed.fromJson({
+        'items': [drama('已载入短剧')],
+      }),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('short-drama-skeleton-0')), findsNothing);
+    expect(find.text('已载入短剧'), findsOneWidget);
+  });
+  testWidgets('returning uses recent list and refresh keeps posters visible', (
+    tester,
+  ) async {
+    final api = ShortDramaApi();
+    addTearDown(api.close);
+    Widget screen() => MaterialApp(
+      theme: frameTheme(),
+      home: ShortDramaPage(api: api, session: session, onOpenRoom: (_) {}),
+    );
+    api.delayed.complete(
+      ShortDramaFeed.fromJson({
+        'items': [drama('缓存短剧')],
+      }),
+    );
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    expect(api.feedCalls, 1);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(screen());
+    await tester.pumpAndSettle();
+    expect(find.text('缓存短剧'), findsOneWidget);
+    expect(api.feedCalls, 1);
+    api.nextFeed = Completer<ShortDramaFeed>();
+    await tester.tap(find.byTooltip('刷新短剧'));
+    await tester.pump();
+    expect(find.text('缓存短剧'), findsOneWidget);
+    expect(find.byKey(const ValueKey('short-drama-skeleton-0')), findsNothing);
+    api.nextFeed!.complete(
+      ShortDramaFeed.fromJson({
+        'items': [drama('更新短剧')],
+      }),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('更新短剧'), findsOneWidget);
+    expect(api.feedCalls, 2);
+  });
   testWidgets(
     'web short dramas ignore stale categories and preserve episode selection',
     (tester) async {

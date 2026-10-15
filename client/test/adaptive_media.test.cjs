@@ -69,3 +69,14 @@ test('default live loads retain the engine live edge',async()=>{
  f.video.src=url;await f.global.sameframeAdaptive.ready(7);
  assert.equal(f.loads[0].start,undefined);
 });
+
+test('VOD buffers ahead of conversion batches while live buffering stays bounded',async()=>{
+ const f=fixture();
+ for(const [live,goal,rebuffer] of [[false,45,4],[true,15,2]]){
+  const url='https://app.example/media/ticket/stream.m3u8';
+  await f.global.sameframeAdaptive.prepare(7,url,live,()=>{});f.video.src=url;await f.global.sameframeAdaptive.ready(7);
+  assert.equal(f.activeEngine.config.streaming.bufferingGoal,goal);
+  assert.equal(f.activeEngine.config.streaming.rebufferingGoal,rebuffer);
+  assert.equal(f.activeEngine.config.streaming.bufferBehind,20);
+ }
+});

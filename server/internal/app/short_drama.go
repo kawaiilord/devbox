@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,9 +21,12 @@ const guoguoSourceID = "builtin-guoguo"
 var shortDramaID = regexp.MustCompile(`^[0-9]{1,32}$`)
 
 type GuoguoService struct {
-	base   *url.URL
-	token  string
-	client *http.Client
+	base      *url.URL
+	token     string
+	client    *http.Client
+	feedMu    sync.Mutex
+	feeds     map[string]*shortDramaHead
+	feedCalls map[string]*shortDramaHeadCall
 }
 
 func NewGuoguoService(raw, token string) (*GuoguoService, error) {
@@ -111,6 +115,7 @@ type shortDramaQuery struct {
 	Session string   `json:"session"`
 	Seen    []string `json:"seen"`
 	Page    int      `json:"page"`
+	Refresh bool     `json:"refresh,omitempty"`
 }
 
 func (q *shortDramaQuery) validate() error {
@@ -213,15 +218,7 @@ func (s *Server) shortDramaFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 50*time.Second)
 	defer cancel()
-	var data map[string]any
-	var e error
-	if q.Section == "search" {
-		data, e = s.catalog.guoguo.json(ctx, "GET", "/bridge/search", url.Values{"q": {strings.TrimSpace(q.Query)}}, nil)
-	} else if q.Section == "hot" || q.Section == "real" || q.Section == "comic" || q.Section == "ai" {
-		data, e = s.catalog.guoguo.json(ctx, "GET", "/bridge/rankings", url.Values{"board": {"hongguo-" + q.Section}, "page": {strconv.Itoa(q.Page)}}, nil)
-	} else {
-		data, e = s.catalog.guoguo.json(ctx, "POST", "/bridge/recommendations", nil, map[string]any{"genre": q.Section, "offset": q.Offset, "sessionId": q.Session, "seen": q.Seen})
-	}
+	data, e := s.catalog.guoguo.feed(ctx, q)
 	if e != nil {
 		writeError(w, 502, e)
 		return

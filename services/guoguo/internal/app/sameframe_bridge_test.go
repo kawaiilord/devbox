@@ -163,3 +163,30 @@ func TestSameFrameSharedEpisodeServesDifferentPositionsWithoutPreemption(t *test
 	}
 	wg.Wait()
 }
+
+func TestSharedPlaybackPrefillsNextBatchWithTwelveSecondsRemaining(t *testing.T) {
+	app, fixture := nativePlaybackFixture(t, "60", "320x180")
+	cache := newPlaybackNative(app, context.Background(), fixture.tasks[0], fixture.downloadIDs[0], 0, 0, false)
+	cache.shared = true
+	defer cache.Close()
+	cache.start()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if _, err := cache.segment(ctx, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.segment(ctx, 6); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		cache.mu.Lock()
+		started := cache.job != nil && cache.job.start >= playbackNativeBatchSegments
+		cache.mu.Unlock()
+		if started {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("next batch was not prepared while twelve seconds remained")
+}

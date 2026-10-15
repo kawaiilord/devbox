@@ -400,7 +400,9 @@ class CatalogPlayerState extends State<CatalogPlayer> {
                       child: Video(
                         controller: _kernel!.videoController,
                         fit: _fit,
-                        controls: MediaQuery.sizeOf(context).width >= 700
+                        controls: _loading
+                            ? null
+                            : MediaQuery.sizeOf(context).width >= 700
                             ? MaterialDesktopVideoControls
                             : MaterialVideoControls,
                       ),

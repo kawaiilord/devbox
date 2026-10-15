@@ -39,6 +39,7 @@ class ShortDramaPage extends StatefulWidget {
 }
 
 class _ShortDramaPageState extends State<ShortDramaPage> {
+  static final _snapshots = Expando<Map<String, _ShortDramaSnapshot>>();
   final _query = TextEditingController();
   final _scroll = ScrollController();
   String _genre = 'short_play', _board = 'hot', _search = '';
@@ -62,24 +63,45 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
     super.dispose();
   }
 
-  Future<void> _load({bool more = false, bool reset = false}) async {
+  Future<void> _load({
+    bool more = false,
+    bool reset = false,
+    bool force = false,
+  }) async {
     if (more && (_loading || _loadingMore || _feed?.hasMore != true)) return;
     final request = ++_request;
+    final section = _search.isNotEmpty
+        ? 'search'
+        : (_genre == 'hot' ? _board : _genre);
+    final key = '${widget.session.user.id}|$section|$_search';
+    final cache = _snapshots[widget.api] ??= <String, _ShortDramaSnapshot>{};
+    final saved = more ? null : cache[key];
+    final snapshot =
+        saved != null &&
+            DateTime.now().difference(saved.saved) < const Duration(minutes: 30)
+        ? saved
+        : null;
+    final fresh =
+        snapshot != null &&
+        DateTime.now().difference(snapshot.saved) < const Duration(minutes: 2);
     setState(() {
       _error = null;
-      _loading = !more;
+      _loading = !more && (force || !fresh);
       _loadingMore = more;
-      if (reset) {
+      if (snapshot != null) {
+        _items = snapshot.feed.items;
+        _feed = snapshot.feed;
+      } else if (reset) {
         _items = [];
         _feed = null;
       }
     });
+    if (fresh && !force) return;
     try {
       final feed = await widget.api.shortDramas(widget.session, {
-        'section': _search.isNotEmpty
-            ? 'search'
-            : (_genre == 'hot' ? _board : _genre),
+        'section': section,
         'query': _search,
+        if (force) 'refresh': true,
         'offset': more ? _feed?.offset ?? 0 : 0,
         'session': more ? _feed?.session ?? '' : '',
         'seen': more
@@ -90,6 +112,11 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
             : <String>[],
         'page': more ? (_feed?.page ?? 0) + 1 : 1,
       });
+      if (!more) {
+        cache.remove(key);
+        if (cache.length >= 16) cache.remove(cache.keys.first);
+        cache[key] = _ShortDramaSnapshot(feed);
+      }
       if (!mounted || request != _request) return;
       setState(() {
         final seen = more ? _items.map((f) => f.id).toSet() : <String>{};
@@ -152,7 +179,7 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
       actions: [
         IconButton(
           tooltip: '刷新短剧',
-          onPressed: _loading ? null : () => _load(),
+          onPressed: _loading ? null : () => _load(force: true),
           icon: const Icon(Icons.refresh_rounded),
         ),
       ],
@@ -234,7 +261,7 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
                       children: [
                         Text(
                           _loading && _items.isEmpty
-                              ? '正在寻找好故事…'
+                              ? '正在加载短剧…'
                               : '已展示 ${_items.length} 部短剧 · 选集后即可一起看',
                           style: TextStyle(color: c.muted, fontSize: 12),
                         ),
@@ -318,7 +345,9 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
                           (constraints.crossAxisExtent - (columns - 1) * 18) /
                           columns;
                       return SliverGrid.builder(
-                        itemCount: _items.length,
+                        itemCount: _loading && _items.isEmpty
+                            ? 12
+                            : _items.length,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: columns,
                           crossAxisSpacing: 18,
@@ -326,7 +355,9 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
                           mainAxisExtent: width * 1.4 + 68,
                         ),
                         itemBuilder: (context, index) =>
-                            _card(_items[index], width),
+                            _loading && _items.isEmpty
+                            ? _skeletonCard(width, index)
+                            : _card(_items[index], width),
                       );
                     },
                   ),
@@ -353,6 +384,50 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _skeletonCard(double width, int index) {
+    final c = FrameColors.of(context);
+    return ExcludeSemantics(
+      key: ValueKey('short-drama-skeleton-$index'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: width * 1.4,
+            decoration: BoxDecoration(
+              color: c.elevated,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: c.border),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FractionallySizedBox(
+            widthFactor: .75,
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: 14,
+              decoration: BoxDecoration(
+                color: c.elevated,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FractionallySizedBox(
+            widthFactor: .45,
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: c.elevated,
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
         ],
@@ -440,4 +515,10 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
       ),
     );
   }
+}
+
+class _ShortDramaSnapshot {
+  _ShortDramaSnapshot(this.feed) : saved = DateTime.now();
+  final ShortDramaFeed feed;
+  final DateTime saved;
 }
