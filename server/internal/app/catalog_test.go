@@ -246,3 +246,15 @@ func TestCatalogGroupingAndCooldown(t *testing.T) {
 		t.Fatal("successful probe did not restore source")
 	}
 }
+
+func TestCatalogMediaKindDoesNotTreatDramaFilmsAsSeries(t *testing.T) {
+	for input, expected := range map[string]string{
+		"剧情片": "movie", "喜剧片": "movie", "剧情": "movie", "动画电影": "movie",
+		"动作片": "movie", "国产剧": "tv", "欧美剧": "tv", "日本剧": "tv",
+		"连续剧": "tv", "日本动漫": "anime", "大陆综艺": "variety", "短剧": "short",
+	} {
+		if got := catalogMediaKind(input); got != expected {
+			t.Errorf("%q: got %q, want %q", input, got, expected)
+		}
+	}
+}

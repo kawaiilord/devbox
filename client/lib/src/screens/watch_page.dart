@@ -122,8 +122,9 @@ class _WatchPageState extends State<WatchPage> {
               pos.isFinite && pos > 0 && (duration <= 0 || pos < duration - 8)
               ? pos
               : 0;
-          if (_start > 0)
+          if (_start > 0) {
             _notice = '继续上次观看 · ${_episodes[_episode].name} · ${_time(_start)}';
+          }
         }
         _allEpisodes = _episodes.length <= 500;
         _attempted.add(_line!.id);
@@ -196,8 +197,9 @@ class _WatchPageState extends State<WatchPage> {
   }
 
   void _selectEpisode(int index) {
-    if (_busy || index < 0 || index >= _episodes.length || index == _episode)
+    if (_busy || index < 0 || index >= _episodes.length || index == _episode) {
       return;
+    }
     final rate = _player.currentState?.rate ?? _rate;
     setState(() {
       _episode = index;
@@ -258,8 +260,9 @@ class _WatchPageState extends State<WatchPage> {
       Room room;
       if (existing) {
         room = await widget.api.joinRoom(session: widget.session, code: code!);
-        if (room.features?.permissions.playlist != true)
+        if (room.features?.permissions.playlist != true) {
           throw const ApiException('你没有这个房间的片单编辑权限。');
+        }
         room = await widget.api.watchCatalogInRoom(
           widget.session,
           room,

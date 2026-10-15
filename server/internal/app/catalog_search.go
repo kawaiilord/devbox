@@ -168,17 +168,7 @@ func decodeCMS(data []byte) (map[string]any, error) {
 }
 func (c *CatalogService) film(src CatalogSource, m map[string]any) CatalogFilm {
 	title := catalogPlain(mapText(m, "vod_name"), 180)
-	kind := "movie"
-	typ := mapText(m, "type_name")
-	if strings.Contains(typ, "剧") {
-		kind = "tv"
-	}
-	if strings.Contains(typ, "动漫") || strings.Contains(typ, "动画") {
-		kind = "anime"
-	}
-	if strings.Contains(typ, "综艺") {
-		kind = "variety"
-	}
+	kind := catalogMediaKind(mapText(m, "type_name"))
 	f := CatalogFilm{ID: mapText(m, "vod_id"), SourceID: src.ID, SourceName: src.Name, Title: title, Year: catalogYear.FindString(mapText(m, "vod_year")), Kind: kind, Remarks: catalogPlain(mapText(m, "vod_remarks"), 150), Summary: catalogPlain(mapText(m, "vod_content", "vod_blurb"), 1500), Actors: catalogPlain(mapText(m, "vod_actor"), 400), Groups: []CatalogGroup{}}
 	f.GroupKey = catalogGroupKey(f.Title, f.Year, f.Kind, src.ID, f.ID)
 	f.Poster = c.posterURL(mapText(m, "vod_pic"))
@@ -225,6 +215,31 @@ func (c *CatalogService) film(src CatalogSource, m map[string]any) CatalogFilm {
 		}
 	}
 	return f
+}
+
+// CMS genre names such as 剧情片/喜剧片 describe movies, not TV series.
+// Use explicit series categories; a single 剧 character is not a type signal.
+func catalogMediaKind(raw string) string {
+	typ := strings.ToLower(strings.TrimSpace(raw))
+	switch {
+	case strings.Contains(typ, "短剧"):
+		return "short"
+	case strings.Contains(typ, "综艺"):
+		return "variety"
+	case strings.Contains(typ, "电影") || strings.HasSuffix(typ, "片"):
+		return "movie"
+	case strings.Contains(typ, "动漫") || strings.Contains(typ, "动画"):
+		return "anime"
+	}
+	for _, name := range []string{"电视剧", "连续剧", "剧集", "国产剧", "香港剧", "港台剧", "台湾剧", "港剧", "台剧", "欧美剧", "美剧", "英剧", "日剧", "日本剧", "韩剧", "韩国剧", "泰剧", "泰国剧", "海外剧", "其他剧", "其它剧"} {
+		if strings.Contains(typ, name) {
+			return "tv"
+		}
+	}
+	if typ == "tv" || typ == "series" {
+		return "tv"
+	}
+	return "movie"
 }
 func channelFilm(src CatalogSource, ch CatalogChannel) CatalogFilm {
 	return CatalogFilm{ID: ch.ID, SourceID: src.ID, SourceName: src.Name, Title: ch.Name, Kind: "live", Remarks: ch.Group, GroupKey: catalogHash(src.ID + ":" + ch.ID), Groups: []CatalogGroup{{ID: "live", Name: "直播", Episodes: []CatalogEpisode{{ID: "live", Name: "直播", URL: ch.URL, Live: true, UserAgent: ch.UserAgent}}}}}

@@ -68,8 +68,9 @@ class CatalogLine {
 String? episodeNumber(String name) {
   final text = name.trim().toLowerCase();
   final season = RegExp(r's(\d+)e(\d+)').firstMatch(text);
-  if (season != null)
+  if (season != null) {
     return '${int.parse(season[1]!)}:${int.parse(season[2]!)}';
+  }
   final match =
       RegExp(r'^(?:第\s*)?(\d+)(?:\s*[集话期]|$)').firstMatch(text) ??
       RegExp(r'^ep?\.?\s*(\d+)$').firstMatch(text);
@@ -102,7 +103,7 @@ class CatalogResolver extends ChangeNotifier {
   final List<CatalogLine> lines = [];
   final Map<String, String> failures = {};
   final Set<String> _seen = {};
-  bool loading = false;
+  bool loading = true;
   int done = 0, total = 0, _generation = 0;
   String? error;
 
@@ -119,8 +120,9 @@ class CatalogResolver extends ChangeNotifier {
     bool active() => generation == _generation;
     final deferred = <CatalogFilm>[];
     Future<void> detail(CatalogFilm candidate) async {
-      if (!active() || !_seen.add('${candidate.sourceId}:${candidate.id}'))
+      if (!active() || !_seen.add('${candidate.sourceId}:${candidate.id}')) {
         return;
+      }
       try {
         final film = await api.catalogDetail(session, candidate);
         if (!active()) return;

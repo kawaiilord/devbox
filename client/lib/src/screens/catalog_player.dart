@@ -160,8 +160,9 @@ class CatalogPlayerState extends State<CatalogPlayer> {
             _loading ||
             _failed ||
             !mounted ||
-            request != _request)
+            request != _request) {
           return;
+        }
         _completed = true;
         if (widget.autoAdvance) widget.onNext?.call();
       }
@@ -178,8 +179,9 @@ class CatalogPlayerState extends State<CatalogPlayer> {
           if (widget.skipOutro > 0 &&
               _duration > widget.skipOutro + widget.skipIntro + 10 &&
               _position >= _duration - widget.skipOutro &&
-              kernel.playing)
+              kernel.playing) {
             next();
+          }
           if (value.inSeconds ~/ 5 != _lastReported) {
             _lastReported = value.inSeconds ~/ 5;
             _report();
@@ -188,8 +190,9 @@ class CatalogPlayerState extends State<CatalogPlayer> {
       );
       _subscriptions.add(
         kernel.durationStream.listen((value) {
-          if (mounted && request == _request)
+          if (mounted && request == _request) {
             _duration = value.inMilliseconds / 1000;
+          }
         }),
       );
       _subscriptions.add(
@@ -258,7 +261,7 @@ class CatalogPlayerState extends State<CatalogPlayer> {
     try {
       await adaptiveAction(await kernel.player.handle, action, value);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -270,6 +273,7 @@ class CatalogPlayerState extends State<CatalogPlayer> {
             ),
           ),
         );
+      }
     }
   }
 
@@ -281,9 +285,10 @@ class CatalogPlayerState extends State<CatalogPlayer> {
     );
     if (file == null || !mounted) return;
     if (await file.length() > 2 * 1024 * 1024) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('请选择小于 2 MB 的字幕文件。')));
+      }
       return;
     }
     try {
@@ -296,10 +301,11 @@ class CatalogPlayerState extends State<CatalogPlayer> {
       }
       if (mounted) setState(() => _subtitle = content);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('请使用 UTF-8 编码的 SRT 或 VTT 字幕。')),
         );
+      }
     }
   }
 
