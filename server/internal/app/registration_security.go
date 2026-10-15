@@ -228,7 +228,9 @@ func registrationReasons(a, b RegistrationRecord) []string {
 func (s *Server) logRegistrationBlock(ctx context.Context, record *RegistrationRecord, err error) {
 	var limit *registrationLimitError
 	if record != nil && errors.As(err, &limit) {
-		_, _ = s.repo.AppendAudit(ctx, AuditEvent{Action: "registration.blocked", TargetType: "registration", Metadata: map[string]any{"bucket": limit.Bucket, "source_ip": record.SourceIP, "device_hash": record.DeviceHash, "browser_hash": record.BrowserHash}})
+		// A rejected signup has no authenticated actor. Administrative audit
+		// events require an existing account, so use the service security log.
+		s.options.Logger.WarnContext(ctx, "registration blocked", "bucket", limit.Bucket, "source_ip", record.SourceIP, "device_hash", record.DeviceHash, "browser_hash", record.BrowserHash)
 	}
 }
 
