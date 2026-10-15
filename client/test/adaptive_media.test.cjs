@@ -35,3 +35,11 @@ test('a cold private HLS provider can prepare media beyond the default connectio
  f.video.src=external;
  await assert.rejects(f.global.sameframeAdaptive.ready(7),/connection deadline/);
 });
+test('buffer readiness checks the current frame, not a later disjoint range',()=>{
+ const f=fixture();Object.assign(f.video,{readyState:3,seeking:false,currentTime:5,duration:20,buffered:{length:1,start:()=>8,end:()=>18}});
+ assert.equal(f.global.sameframeAdaptive.buffered(7),false);
+ f.video.buffered={length:1,start:()=>4,end:()=>8};
+ assert.equal(f.global.sameframeAdaptive.buffered(7),true);
+ f.video.seeking=true;assert.equal(f.global.sameframeAdaptive.buffered(7),false);
+ f.video.seeking=false;f.video.readyState=2;assert.equal(f.global.sameframeAdaptive.buffered(7),false);
+});

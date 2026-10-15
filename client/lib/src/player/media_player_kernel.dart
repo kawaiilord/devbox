@@ -31,6 +31,8 @@ class MediaPlayerKernel {
   Duration get duration => player.state.duration;
   bool get playing => player.state.playing;
   bool get buffering => player.state.buffering;
+  Future<bool> bufferedForPlayback() async =>
+      kIsWeb ? adaptiveBuffered(await player.handle) : !buffering;
 
   Stream<Duration> get positionStream => player.stream.position;
   Stream<Duration> get durationStream => player.stream.duration;

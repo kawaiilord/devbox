@@ -6,3 +6,4 @@ Future<void> prepareAdaptive(
 ) async {}
 Future<void> readyAdaptive(int id) async {}
 Future<void> disposeAdaptive(int id) async {}
+Future<bool> adaptiveBuffered(int id) async => true;

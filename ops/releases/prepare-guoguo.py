@@ -94,7 +94,7 @@ def main():
         'restart': 'unless-stopped', 'env_file': ['./guoguo/bridge.env'],
         'environment': {'SAMEFRAME_BRIDGE': '1'},
         'volumes': ['./guoguo/data:/data', './guoguo/downloads:/downloads'],
-        'mem_limit': '1200m', 'cpus': 1.5,
+        'mem_limit': '1200m', 'cpus': 2.5,
         'security_opt': ['no-new-privileges:true'],
         'healthcheck': {
             'test': ['CMD-SHELL', 'curl --noproxy "*" -fsS -H "Authorization: Bearer $$SAMEFRAME_GUOGUO_TOKEN" http://127.0.0.1:8999/bridge/health >/dev/null'],

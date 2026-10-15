@@ -8,6 +8,7 @@ import 'player/media_player_kernel.dart';
 import 'player/playback_failure.dart';
 import 'sync/playback_synchronizer.dart';
 import 'sync/room_socket.dart';
+import 'sync/buffering_gate.dart';
 import 'voice_session.dart';
 
 class RoomController extends ChangeNotifier {
@@ -34,6 +35,10 @@ class RoomController extends ChangeNotifier {
   StreamSubscription<String>? _playerErrorSubscription;
   Duration _clockOffset = Duration.zero;
   Future<void> _alignmentQueue = Future.value();
+  int _alignmentRevision = 0;
+  final _bufferingGate = BufferingGate();
+  Timer? _bufferingTimer;
+  bool _checkingBuffer = false;
   Timer? _mediaRenewal;
   Timer? _watchProgress;
   bool _renewingMedia = false;
@@ -316,6 +321,10 @@ class RoomController extends ChangeNotifier {
         return;
       }
       _scheduleMediaRenewal();
+      _bufferingTimer = Timer.periodic(
+        const Duration(milliseconds: 500),
+        (_) => unawaited(_coordinateBuffering()),
+      );
       _watchProgress = Timer.periodic(
         const Duration(seconds: 30),
         (_) => _syncWatchProgress(),
@@ -332,12 +341,63 @@ class RoomController extends ChangeNotifier {
     }
   }
 
-  void play() => _sendControl({'action': 'play'});
-  void pause() => _sendControl({'action': 'pause'});
-  void seek(Duration position) => _sendControl({
-    'action': 'seek',
-    'position': position.inMilliseconds / 1000,
-  });
+  void play() {
+    _bufferingGate.reset();
+    _sendControl({'action': 'play'});
+  }
+
+  void pause() {
+    _bufferingGate.reset();
+    _sendControl({'action': 'pause'});
+  }
+
+  void seek(Duration position) {
+    _bufferingGate.reset();
+    _sendControl({
+      'action': 'seek',
+      'position': position.inMilliseconds / 1000,
+    });
+  }
+
+  Future<void> _coordinateBuffering() async {
+    if (_disposed ||
+        loading ||
+        !connected ||
+        !isOwner ||
+        !canControl ||
+        isLive ||
+        room.closed ||
+        !room.mediaSourceId.startsWith('cat_')) {
+      _bufferingGate.reset();
+      return;
+    }
+    if (_checkingBuffer) return;
+    _checkingBuffer = true;
+    final version = room.playback.sourceVersion;
+    try {
+      final matches =
+          player.sourceVersion == version &&
+          player.episode == room.playback.episode;
+      final ready = matches && await player.bufferedForPlayback();
+      if (_disposed || version != room.playback.sourceVersion || !connected)
+        return;
+      for (final command in _bufferingGate.observe(
+        sourceVersion: version,
+        playing: room.playback.playing,
+        ready: ready,
+        position: matches
+            ? player.position.inMilliseconds / 1000
+            : room.playback.position,
+        now: DateTime.now(),
+      )) {
+        _sendControl(command);
+      }
+    } catch (_) {
+      /* Keep ordinary player error handling authoritative. */
+    } finally {
+      _checkingBuffer = false;
+    }
+  }
 
   void setSpeed(double speed) =>
       _sendControl({'action': 'speed', 'speed': speed});
@@ -573,6 +633,11 @@ class RoomController extends ChangeNotifier {
       return;
     }
     _lastServerSequence = envelope.sequence;
+    if (envelope.fromUserId.isNotEmpty &&
+        envelope.fromUserId != 'server' &&
+        envelope.fromUserId != session.user.id) {
+      _bufferingGate.reset();
+    }
     final snapshot = PlaybackSnapshot.fromJson(envelope.payload);
     if (snapshot.sourceVersion != room.playback.sourceVersion) {
       if (snapshot.sourceVersion > room.playback.sourceVersion) {
@@ -620,9 +685,11 @@ class RoomController extends ChangeNotifier {
 
   void _queueAlignment(PlaybackSnapshot snapshot) {
     final source = room.sourceUrl;
+    final revision = ++_alignmentRevision;
     _alignmentQueue = _alignmentQueue
         .then((_) async {
           if (_disposed ||
+              revision != _alignmentRevision ||
               source.isEmpty ||
               source != room.sourceUrl ||
               snapshot.sourceVersion != room.playback.sourceVersion) {
@@ -808,6 +875,8 @@ class RoomController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _bufferingTimer?.cancel();
+    _bufferingGate.reset();
     _sourceLoad++;
     _completionSubscription?.cancel();
     _eventSubscription?.cancel();

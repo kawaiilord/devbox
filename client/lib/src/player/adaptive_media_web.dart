@@ -11,6 +11,9 @@ external JSPromise<JSAny?> _prepare(
 external JSPromise<JSAny?> _ready(JSNumber id);
 @JS('sameframeAdaptive.dispose')
 external JSPromise<JSAny?> _dispose(JSNumber id);
+@JS('sameframeAdaptive.buffered')
+external JSBoolean _buffered(JSNumber id);
+Future<bool> adaptiveBuffered(int id) async => _buffered(id.toJS).toDart;
 Future<void> prepareAdaptive(
   int id,
   String url,

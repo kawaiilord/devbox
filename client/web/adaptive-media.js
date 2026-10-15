@@ -82,5 +82,14 @@
       set(value){if(state.active&&value&&canonical(value)===canonical(url)){void load()}else{nativeSrc.set.call(video,value)}}
     });
   }
-  globalThis.sameframeAdaptive={prepare,ready:id=>states.get(id)?.promise??Promise.resolve(),dispose};
+  const buffered = id => {
+    const video=globalThis['$com.alexmercerind.media_kit.instances']?.[String(id)];
+    if(!video||video.seeking||video.readyState<3)return false;
+    const needed=Math.min(.75,Math.max(0,video.duration-video.currentTime));
+    for(let i=0;i<video.buffered.length;i++) {
+      if(video.buffered.start(i)<=video.currentTime+.05&&video.buffered.end(i)>=video.currentTime+needed)return true;
+    }
+    return false;
+  };
+  globalThis.sameframeAdaptive={prepare,ready:id=>states.get(id)?.promise??Promise.resolve(),buffered,dispose};
 })();
