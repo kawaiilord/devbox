@@ -96,4 +96,4 @@ python3 /opt/sameframe/releases/watch-page-ab8b4530d697bfab5194a717ffe61f7b6225f
 ```
 对应原版本备份：`/opt/sameframe/backups/watch-page-20261015-051401`。两组备份与回滚镜像均已校验。正常代码回滚不恢复旧数据库。
 
-服务器验收脚本：`/home/admin/sameframe-mobile-preview/watch/browser-acceptance.cjs`；运行时读取既有私密凭据文件，交付记录不包含密码或访问令牌。
+服务器验收文件位于 `/home/admin/sameframe-mobile-preview/watch/`：`browser-acceptance.cjs`（单人/换源阶段）、`room-final.cjs`（创建房间阶段）、`join-final.cjs`（已有房间，含交接请求及同步消息）、`short-final.cjs`（短剧）。运行时读取既有私密凭据文件，交付记录不包含密码或访问令牌。
