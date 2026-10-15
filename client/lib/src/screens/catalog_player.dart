@@ -205,10 +205,15 @@ class CatalogPlayerState extends State<CatalogPlayer> {
           }
         }),
       );
-      await kernel.open(ticket.url, version: request, episodeIndex: 0);
+      final desired = position > 0 ? position : widget.skipIntro.toDouble();
+      await kernel.open(
+        ticket.url,
+        version: request,
+        episodeIndex: 0,
+        initialPosition: Duration(milliseconds: (desired * 1000).round()),
+      );
       if (!mounted || request != _request) return;
       final duration = kernel.duration.inMilliseconds / 1000;
-      final desired = position > 0 ? position : widget.skipIntro.toDouble();
       if (desired > 0) {
         await kernel.seek(
           Duration(

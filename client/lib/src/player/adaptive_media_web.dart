@@ -17,6 +17,7 @@ external JSPromise<JSAny?> _prepare(
   JSString url,
   JSBoolean live,
   JSFunction onError,
+  JSNumber startPosition,
 );
 @JS('sameframeAdaptive.ready')
 external JSPromise<JSAny?> _ready(JSNumber id);
@@ -29,13 +30,15 @@ Future<void> prepareAdaptive(
   int id,
   String url,
   bool live,
-  void Function(String) onError,
-) async {
+  void Function(String) onError, {
+  Duration initialPosition = Duration.zero,
+}) async {
   await _prepare(
     id.toJS,
     url.toJS,
     live.toJS,
     ((JSString message) => onError(message.toDart)).toJS,
+    (initialPosition.inMilliseconds / 1000).toJS,
   ).toDart;
 }
 

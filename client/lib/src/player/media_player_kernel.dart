@@ -64,7 +64,7 @@ class MediaPlayerKernel {
         if (operationGeneration == generation && !_errors.isClosed) {
           _errors.add(message);
         }
-      });
+      }, initialPosition: initialPosition);
     }
     await player.open(Media(playbackUri.toString()), play: false);
     if (kIsWeb) {

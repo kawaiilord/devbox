@@ -31,7 +31,7 @@
     delete state.video.src;
     states.delete(id);
   }
-  async function prepare(id, url, live, onError) {
+  async function prepare(id, url, live, onError, startPosition = 0) {
     const video = await videoFor(id);
     await dispose(id);
     // One adapter owns HLS lifecycles; the old media_kit helper has no exposed
@@ -79,7 +79,9 @@
             config.streaming.retryParameters={timeout:120000,connectionTimeout:95000,stallTimeout:45000};
           }
           engine.configure(config);
-          await engine.load(url,undefined,kind==='dash'?'application/dash+xml':'application/x-mpegurl');
+          // Set the start before Shaka initializes its playhead; an early HTML seek can be overwritten.
+          const start = Number.isFinite(startPosition) && startPosition > 0 ? startPosition : undefined;
+          await engine.load(url,start,kind==='dash'?'application/dash+xml':'application/x-mpegurl');
           if(state.active)state.resolve();
         }
       } catch(error) { if(state.active) fail(error?.message??'媒体加载失败'); }
