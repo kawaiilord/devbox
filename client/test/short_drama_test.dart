@@ -152,8 +152,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.soloSelection?['episode_id'], '22');
       expect(api.selection, isNull);
-      await tester.ensureVisible(find.text('加入我的房间'));
-      await tester.tap(find.text('加入我的房间'));
+      await tester.ensureVisible(find.text('加入房间'));
+      await tester.tap(find.text('加入房间'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('我之前的房间'));
       await tester.pumpAndSettle();
@@ -169,8 +169,8 @@ void main() {
         'builtin-guoguo',
       );
       expect(find.text('建房申请已提交'), findsOneWidget);
-      await tester.ensureVisible(find.text('短剧列表'));
-      await tester.tap(find.text('短剧列表'));
+      await tester.ensureVisible(find.byTooltip('返回片库'));
+      await tester.tap(find.byTooltip('返回片库'));
       await tester.pumpAndSettle();
       expect(find.text('漫剧样本'), findsOneWidget);
       expect(tester.takeException(), isNull);

@@ -1,4 +1,15 @@
 import 'dart:js_interop';
+import 'dart:convert';
+
+@JS('sameframeAdaptive.info')
+external JSString _info(JSNumber id);
+@JS('sameframeAdaptive.action')
+external JSPromise<JSAny?> _action(JSNumber id, JSString name, JSString value);
+Future<Map<String, dynamic>> adaptiveInfo(int id) async =>
+    jsonDecode(_info(id.toJS).toDart) as Map<String, dynamic>;
+Future<void> adaptiveAction(int id, String name, [String value = '']) async {
+  await _action(id.toJS, name.toJS, value.toJS).toDart;
+}
 
 @JS('sameframeAdaptive.prepare')
 external JSPromise<JSAny?> _prepare(

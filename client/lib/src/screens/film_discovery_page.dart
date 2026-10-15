@@ -9,6 +9,8 @@ import '../models.dart';
 import 'workspace_section.dart';
 import 'catalog_browser.dart';
 import 'room_page.dart';
+import 'watch_page.dart';
+import '../player/catalog_resolver.dart';
 
 const _sections = [
   ('movies', '热门电影'),
@@ -167,23 +169,12 @@ class _FilmDiscoveryPageState extends State<FilmDiscoveryPage> {
   }
 
   Future<void> _detail(DiscoveryItem item) async {
-    final room = await showModalBottomSheet<Room>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: FrameColors.of(context).surface,
-      constraints: const BoxConstraints(maxWidth: 820),
-      builder: (sheet) => SizedBox(
-        height: MediaQuery.sizeOf(sheet).height * .86,
-        child: CatalogBrowser(
-          api: widget.api,
-          session: widget.session,
-          initialQuery: item.title,
-          onMetadata: () => _metadataDetail(item),
-          onOpenRoom: (room) => Navigator.of(sheet).pop(room),
-        ),
-      ),
+    final room = await openWatchPage(
+      context,
+      api: widget.api,
+      session: widget.session,
+      target: WatchTarget.discovery(item),
+      onMetadata: () => _metadataDetail(item),
     );
     if (mounted && room != null) _openCatalogRoom(room);
   }

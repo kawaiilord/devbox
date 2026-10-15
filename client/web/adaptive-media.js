@@ -2,6 +2,7 @@
 (() => {
   'use strict';
   const states = new Map();
+  const subtitles = new Map();
   const nativeSrc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
   const canonical = value => new URL(value, document.baseURI).href;
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -16,6 +17,12 @@
     throw new Error('播放器初始化超时');
   }
   async function dispose(id) {
+    const subtitle = subtitles.get(id);
+    if (subtitle) {
+      subtitle.track.remove();
+      URL.revokeObjectURL(subtitle.url);
+      subtitles.delete(id);
+    }
     const state = states.get(id);
     if (!state) return;
     state.active = false;
@@ -91,5 +98,52 @@
     }
     return false;
   };
-  globalThis.sameframeAdaptive={prepare,ready:id=>states.get(id)?.promise??Promise.resolve(),buffered,dispose};
+  const element = id => globalThis['$com.alexmercerind.media_kit.instances']?.[String(id)];
+  function info(id) {
+    const video=element(id), engine=states.get(id)?.engine;
+    const tracks=engine?.getVariantTracks?.()??[];
+    const seen=new Set();
+    const qualities=tracks.filter(t=>t.height&&seen.size<20&&!seen.has(t.height)&&seen.add(t.height))
+      .sort((a,b)=>b.height-a.height).map(t=>({id:t.id,label:t.height+'p'}));
+    return JSON.stringify({pip:!!(document.pictureInPictureEnabled&&video?.requestPictureInPicture),
+      screenshot:!!video?.videoWidth,qualities,
+      audio:[...new Set(tracks.map(t=>t.language).filter(x=>x&&x!=='und'))]});
+  }
+  async function action(id,name,value) {
+    const video=element(id), engine=states.get(id)?.engine;
+    if(!video)throw Error('播放器尚未就绪');
+    if(name==='pip') {
+      if(document.pictureInPictureElement===video)await document.exitPictureInPicture();
+      else await video.requestPictureInPicture();
+    } else if(name==='quality') {
+      if(!engine?.getVariantTracks)throw Error('当前片源没有可切换的画质');
+      if(value==='auto')engine.configure({abr:{enabled:true}});
+      else {
+        const track=engine.getVariantTracks().find(t=>String(t.id)===value);
+        if(!track)throw Error('该画质已不可用，请重新选择');
+        engine.configure({abr:{enabled:false}});engine.selectVariantTrack(track,true);
+      }
+    } else if(name==='audio') {
+      if(!engine?.selectAudioLanguage)throw Error('当前片源没有可切换的音轨');
+      engine.selectAudioLanguage(value);
+    } else if(name==='screenshot') {
+      if(!video.videoWidth)throw Error('画面尚未加载');
+      const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+      canvas.getContext('2d').drawImage(video,0,0);
+      const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('截图失败')),'image/png'));
+      const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='sameframe-'+Date.now()+'.png';a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+    } else if(name==='subtitle') {
+      const old=subtitles.get(id);
+      if(old){old.track.remove();URL.revokeObjectURL(old.url);subtitles.delete(id);}
+      if(value) {
+        let content=value.replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
+        if(!content.startsWith('WEBVTT'))content='WEBVTT\n\n'+content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2');
+        const url=URL.createObjectURL(new Blob([content],{type:'text/vtt'})),track=document.createElement('track');
+        track.kind='subtitles';track.label='本地字幕';track.src=url;track.default=true;
+        video.appendChild(track);track.track.mode='showing';subtitles.set(id,{track,url});
+      }
+    } else throw Error('不支持的播放操作');
+  }
+  globalThis.sameframeAdaptive={prepare,ready:id=>states.get(id)?.promise??Promise.resolve(),buffered,dispose,info,action};
 })();

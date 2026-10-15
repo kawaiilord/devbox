@@ -7,7 +7,8 @@ import '../catalog_models.dart';
 import '../design.dart';
 import '../models.dart';
 import '../short_drama_models.dart';
-import 'catalog_browser.dart';
+import 'watch_page.dart';
+import '../player/catalog_resolver.dart';
 import 'workspace_section.dart';
 
 const _genres = [
@@ -43,7 +44,6 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
   String _genre = 'short_play', _board = 'hot', _search = '';
   List<CatalogFilm> _items = [];
   ShortDramaFeed? _feed;
-  CatalogFilm? _selected;
   bool _loading = true, _loadingMore = false;
   String? _error;
   int _request = 0;
@@ -133,22 +133,20 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
     _load(reset: true);
   }
 
+  Future<void> _watch(CatalogFilm film) async {
+    final room = await openWatchPage(
+      context,
+      api: widget.api,
+      session: widget.session,
+      target: WatchTarget.film(film),
+      films: [film],
+    );
+    if (mounted && room != null) widget.onOpenRoom(room);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = FrameColors.of(context);
-    if (_selected != null) {
-      return WorkspaceSection(
-        title: const Text('果果短剧'),
-        body: CatalogBrowser(
-          key: ValueKey('short-drama-${_selected!.id}'),
-          api: widget.api,
-          session: widget.session,
-          initialFilm: _selected,
-          onCloseDetail: () => setState(() => _selected = null),
-          onOpenRoom: widget.onOpenRoom,
-        ),
-      );
-    }
     return WorkspaceSection(
       title: const Text('果果短剧'),
       actions: [
@@ -377,7 +375,7 @@ class _ShortDramaPageState extends State<ShortDramaPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => setState(() => _selected = film),
+          onTap: () => _watch(film),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

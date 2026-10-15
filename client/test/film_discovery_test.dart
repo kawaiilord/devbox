@@ -92,51 +92,54 @@ Future<void> _open(
 
 void main() {
   for (final width in [320.0, 390.0, 1440.0]) {
-    testWidgets('discovery filters and detail sheet fit width $width', (
-      tester,
-    ) async {
-      final api = _Api();
-      await _open(
-        tester,
-        api,
-        Size(width, 900),
-        brightness: width == 390 ? Brightness.dark : Brightness.light,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('movies/all/0'), findsOneWidget);
-      await tester.tap(find.text('movies/all/0'));
-      await tester.pumpAndSettle();
-      expect(find.text('片库等待上架'), findsOneWidget);
-      await tester.tap(find.byTooltip('影片资料'));
-      await tester.pumpAndSettle();
-      expect(find.text('复制片名'), findsOneWidget);
-      expect(find.text('查看资料'), findsOneWidget);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('剧集分类'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.widgetWithText(OutlinedButton, '美剧'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(OutlinedButton, '美剧'));
-      await tester.pumpAndSettle();
-      expect(api.requests.last.category, 'us');
-      await tester.ensureVisible(find.text('高分榜'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('高分榜'));
-      await tester.pumpAndSettle();
-      expect(api.requests.last.category, 'movie');
-      await tester.ensureVisible(find.text('新番放送'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('新番放送'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(OutlinedButton, '周一'));
-      await tester.pumpAndSettle();
-      expect(api.requests.last.weekday, 1);
-      expect(api.requests.last.section, 'anime');
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'discovery opens standalone player and filters fit width $width',
+      (tester) async {
+        final api = _Api();
+        await _open(
+          tester,
+          api,
+          Size(width, 900),
+          brightness: width == 390 ? Brightness.dark : Brightness.light,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('movies/all/0'), findsOneWidget);
+        await tester.tap(find.text('movies/all/0'));
+        await tester.pumpAndSettle();
+        expect(find.text('同帧 / 放映厅'), findsOneWidget);
+        expect(find.byType(TextField), findsNothing);
+        expect(find.text('当前片源暂未收录这部影片的可播放版本'), findsOneWidget);
+        await tester.tap(find.byTooltip('影片资料'));
+        await tester.pumpAndSettle();
+        expect(find.text('复制片名'), findsOneWidget);
+        expect(find.text('查看资料'), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('剧集分类'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.widgetWithText(OutlinedButton, '美剧'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(OutlinedButton, '美剧'));
+        await tester.pumpAndSettle();
+        expect(api.requests.last.category, 'us');
+        await tester.ensureVisible(find.text('高分榜'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('高分榜'));
+        await tester.pumpAndSettle();
+        expect(api.requests.last.category, 'movie');
+        await tester.ensureVisible(find.text('新番放送'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('新番放送'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(OutlinedButton, '周一'));
+        await tester.pumpAndSettle();
+        expect(api.requests.last.weekday, 1);
+        expect(api.requests.last.section, 'anime');
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('late response cannot overwrite a newer selected category', (

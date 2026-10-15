@@ -6,8 +6,8 @@ import '../api/api_client.dart';
 import '../catalog_models.dart';
 import '../design.dart';
 import '../models.dart';
-import 'catalog_player.dart';
-import 'owned_room_picker.dart';
+import '../player/catalog_resolver.dart';
+import 'watch_page.dart';
 
 class CatalogBrowser extends StatefulWidget {
   const CatalogBrowser({
@@ -16,49 +16,32 @@ class CatalogBrowser extends StatefulWidget {
     required this.session,
     required this.onOpenRoom,
     this.initialQuery = '',
-    this.onMetadata,
-    this.initialFilm,
-    this.onCloseDetail,
   });
   final ApiClient api;
   final Session session;
   final ValueChanged<Room> onOpenRoom;
   final String initialQuery;
-  final VoidCallback? onMetadata;
-  final CatalogFilm? initialFilm;
-  final VoidCallback? onCloseDetail;
   @override
   State<CatalogBrowser> createState() => _CatalogBrowserState();
 }
 
 class _CatalogBrowserState extends State<CatalogBrowser> {
   late final TextEditingController _query;
-  final _player = GlobalKey<CatalogPlayerState>();
   List<CatalogSource> _sources = [];
   final List<CatalogFilm> _films = [];
   final Map<String, int> _pages = {};
   final Set<String> _more = {};
   final Map<String, String> _failures = {};
-  List<CatalogFilm> _details = [];
-  List<(CatalogFilm, CatalogGroup)> _lines = [];
-  bool _searching = false,
-      _detailing = false,
-      _busy = false,
-      _allEpisodes = true;
-  int _request = 0, _done = 0, _line = 0, _episodePage = 0;
-  String _episode = '', _searchQuery = '';
+  bool _searching = false;
+  int _request = 0, _done = 0;
+  String _searchQuery = '';
   String? _error;
-  bool _showDetail = false;
 
   @override
   void initState() {
     super.initState();
     _query = TextEditingController(text: widget.initialQuery);
-    if (widget.initialFilm != null) {
-      _detail([widget.initialFilm!]);
-    } else {
-      _search();
-    }
+    _search();
   }
 
   @override
@@ -76,7 +59,6 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
     setState(() {
       _error = null;
       _searching = true;
-      _showDetail = false;
       _done = 0;
       if (!more) {
         _films.clear();
@@ -128,14 +110,6 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
         List.generate(math.min(4, pending.length), (_) => worker()),
       );
       if (!mounted || request != _request) return;
-      if (!more &&
-          widget.initialQuery.isNotEmpty &&
-          _searchQuery == widget.initialQuery) {
-        final exact = groupCatalogFilms(_films)
-            .where((g) => g.first.title.trim() == _searchQuery)
-            .toList();
-        if (exact.length == 1) await _detail(exact.single);
-      }
     } catch (e) {
       if (mounted && request == _request) setState(() => _error = _message(e));
     } finally {
@@ -144,124 +118,14 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   }
 
   Future<void> _detail(List<CatalogFilm> matches) async {
-    setState(() {
-      _showDetail = true;
-      _detailing = true;
-      _error = null;
-      _details = [];
-      _lines = [];
-      _line = 0;
-      _episodePage = 0;
-    });
-    final request = _request;
-    var cursor = 0;
-    final candidates = matches.take(8).toList();
-    final details = <CatalogFilm>[];
-    Future<void> worker() async {
-      while (cursor < candidates.length) {
-        final candidate = candidates[cursor++];
-        try {
-          final film = await widget.api.catalogDetail(
-            widget.session,
-            candidate,
-          );
-          if (mounted && request == _request) details.add(film);
-        } catch (_) {
-          /* Other sources remain available. */
-        }
-      }
-    }
-
-    await Future.wait(
-      List.generate(math.min(4, candidates.length), (_) => worker()),
+    final room = await openWatchPage(
+      context,
+      api: widget.api,
+      session: widget.session,
+      target: WatchTarget.film(matches.first),
+      films: matches,
     );
-    if (!mounted || request != _request) return;
-    details.sort(
-      (a, b) => matches
-          .indexWhere((m) => m.id == a.id && m.sourceId == a.sourceId)
-          .compareTo(
-            matches.indexWhere((m) => m.id == b.id && m.sourceId == b.sourceId),
-          ),
-    );
-    setState(() {
-      _details = details;
-      _lines = [
-        for (final film in details)
-          for (final group in film.groups) (film, group),
-      ];
-      _episode = _lines.isEmpty ? '' : _lines.first.$2.episodes.first.id;
-      _allEpisodes = _lines.isEmpty || _lines.first.$2.episodes.length <= 500;
-      _detailing = false;
-      if (_lines.isEmpty) _error = '暂未找到可直连的播放线路，可选择其他片源或稍后重试。';
-    });
-  }
-
-  Map<String, dynamic> _selection() {
-    final chosen = _lines[_line];
-    final refs = [chosen, ..._lines.where((l) => l != chosen)].take(8);
-    return {
-      'refs': refs
-          .map(
-            (line) => {
-              'source_id': line.$1.sourceId,
-              'film_id': line.$1.id,
-              'group_id': line.$2.id,
-            },
-          )
-          .toList(),
-      'episode_id': _episode,
-      'all_episodes': _allEpisodes,
-    };
-  }
-
-  Future<void> _play({bool existing = false}) async {
-    if (_busy || _lines.isEmpty || _episode.isEmpty) return;
-    String? selectedRoom;
-    if (existing) {
-      selectedRoom = await showDialog<String>(
-        context: context,
-        builder: (_) =>
-            OwnedRoomPicker(api: widget.api, session: widget.session),
-      );
-      if (!mounted || selectedRoom == null) return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final position = _player.currentState?.positionSeconds ?? 0;
-      await _player.currentState?.pause();
-      Room room;
-      if (existing) {
-        room = await widget.api.joinRoom(
-          session: widget.session,
-          code: selectedRoom!,
-        );
-        if (room.features?.permissions.playlist != true) {
-          setState(() => _error = '你没有这个房间的片单编辑权限。');
-          return;
-        }
-        room = await widget.api.watchCatalogInRoom(
-          widget.session,
-          room,
-          _selection(),
-          startPosition: position,
-        );
-      } else {
-        room = await widget.api.createRoom(
-          session: widget.session,
-          name: '${_lines[_line].$1.title} · 一起看',
-          catalog: _selection(),
-          startPosition: position,
-        );
-      }
-      if (mounted) widget.onOpenRoom(room);
-    } catch (e) {
-      if (mounted) setState(() => _error = _message(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    if (mounted && room != null) widget.onOpenRoom(room);
   }
 
   Widget _poster(String raw, {double width = 90}) {
@@ -290,15 +154,6 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   @override
   Widget build(BuildContext context) {
     final c = FrameColors.of(context);
-    if (widget.initialFilm != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_detailing) const LinearProgressIndicator(minHeight: 2),
-          Expanded(child: _buildDetail()),
-        ],
-      );
-    }
     final groups = groupCatalogFilms(_films);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -323,430 +178,188 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                   ),
                 ),
               ),
-              if (widget.onMetadata != null)
-                IconButton(
-                  onPressed: widget.onMetadata,
-                  tooltip: '影片资料',
-                  icon: const Icon(Icons.info_outline_rounded),
-                ),
             ],
           ),
         ),
-        if (_searching || _detailing)
-          const LinearProgressIndicator(minHeight: 2),
+        if (_searching) const LinearProgressIndicator(minHeight: 2),
         Expanded(
-          child: _showDetail
-              ? _buildDetail()
-              : CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _searching
-                                  ? '已完成 $_done / ${_sources.length} 个片源 · 结果陆续呈现'
-                                  : '${_sources.length} 个片源 · ${groups.length} 部影片 / 频道',
-                              style: TextStyle(color: c.muted, fontSize: 12),
-                            ),
-                            if (_error != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Text(_error!),
-                              ),
-                            if (_failures.isNotEmpty)
-                              ExpansionTile(
-                                tilePadding: EdgeInsets.zero,
-                                title: Text(
-                                  '${_failures.length} 个片源暂不可用',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                children: [
-                                  for (final source in _sources.where(
-                                    (s) => _failures.containsKey(s.id),
-                                  ))
-                                    ListTile(
-                                      dense: true,
-                                      title: Text(source.name),
-                                      subtitle: Text(_failures[source.id]!),
-                                    ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (groups.isEmpty && !_searching)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(28),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.video_library_outlined,
-                                  size: 36,
-                                  color: c.muted,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _sources.isEmpty ? '片库等待上架' : '没有找到匹配影片',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 17,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _sources.isEmpty
-                                      ? '管理员导入媒体订阅后，便可在这里搜索、选集与一起观看。'
-                                      : '试试其他片名，或检查片源是否提供这部影片。',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: c.muted,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextButton(
-                                  onPressed: () => _search(),
-                                  child: const Text('刷新片源'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverLayoutBuilder(
-                        builder: (context, constraints) {
-                          final columns = math.max(
-                            2,
-                            (constraints.crossAxisExtent / 155).floor(),
-                          );
-                          return SliverGrid.builder(
-                            itemCount: groups.length,
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  crossAxisSpacing: 14,
-                                  mainAxisSpacing: 20,
-                                  childAspectRatio: .56,
-                                ),
-                            itemBuilder: (context, index) {
-                              final matches = groups[index];
-                              final f = matches.first;
-                              return Semantics(
-                                button: true,
-                                label: '播放 ${f.title}',
-                                excludeSemantics: true,
-                                onTap: () => _detail(matches),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () => _detail(matches),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          child: _poster(f.poster, width: 180),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 9),
-                                      Text(
-                                        f.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                        [
-                                          if (f.year.isNotEmpty) f.year,
-                                          f.kindLabel,
-                                          '${matches.length} 个来源',
-                                        ].join(' · '),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: c.muted,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                      if (f.remarks.isNotEmpty)
-                                        Text(
-                                          f.remarks,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: c.muted,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: _more.isNotEmpty
-                            ? OutlinedButton(
-                                onPressed: _searching
-                                    ? null
-                                    : () => _search(more: true),
-                                child: const Text('加载更多片源结果'),
-                              )
-                            : const SizedBox(height: 20),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDetail() {
-    final c = FrameColors.of(context);
-    final film = _details.isEmpty ? null : _details.first;
-    final episodes = _lines.isEmpty
-        ? <CatalogEpisode>[]
-        : _lines[_line].$2.episodes;
-    final start = _episodePage * 50;
-    final shown = episodes.skip(start).take(50);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              TextButton(
-                onPressed: _busy
-                    ? null
-                    : widget.onCloseDetail ??
-                          () => setState(() {
-                            _showDetail = false;
-                            _error = null;
-                          }),
-                child: Text(widget.initialFilm == null ? '全部搜索结果' : '短剧列表'),
-              ),
-              const Spacer(),
-              if (_details.length > 1)
-                Text(
-                  '${_details.length} 个同片来源',
-                  style: TextStyle(color: c.muted, fontSize: 12),
-                ),
-            ],
-          ),
-          if (_lines.isNotEmpty) ...[
-            CatalogPlayer(
-              key: _player,
-              api: widget.api,
-              session: widget.session,
-              selection: _selection(),
-              identity:
-                  '${_lines[_line].$1.sourceId}:${_lines[_line].$1.id}:${_lines[_line].$2.id}:$_episode',
-              onNext: () {
-                final index = episodes.indexWhere((e) => e.id == _episode);
-                if (index >= 0 && index + 1 < episodes.length) {
-                  setState(() {
-                    _episode = episodes[index + 1].id;
-                    _episodePage = (index + 1) ~/ 50;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : () => _play(),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: Text(_busy ? '正在进入房间…' : '创建房间'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : () => _play(existing: true),
-                  icon: const Icon(Icons.meeting_room_outlined, size: 18),
-                  label: const Text('加入我的房间'),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('正在单人观看', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-          ],
-          if (film != null) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _poster(film.poster),
-                const SizedBox(width: 16),
-                Expanded(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        film.title,
-                        style: const TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        [
-                          film.year,
-                          film.kindLabel,
-                          film.remarks,
-                        ].where((s) => s.isNotEmpty).join(' · '),
+                        _searching
+                            ? '已完成 $_done / ${_sources.length} 个片源 · 结果陆续呈现'
+                            : '${_sources.length} 个片源 · ${groups.length} 部影片 / 频道',
                         style: TextStyle(color: c.muted, fontSize: 12),
                       ),
-                      if (film.actors.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          film.actors,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: c.muted, fontSize: 12),
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(_error!),
                         ),
-                      ],
+                      if (_failures.isNotEmpty)
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(
+                            '${_failures.length} 个片源暂不可用',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          children: [
+                            for (final source in _sources.where(
+                              (s) => _failures.containsKey(s.id),
+                            ))
+                              ListTile(
+                                dense: true,
+                                title: Text(source.name),
+                                subtitle: Text(_failures[source.id]!),
+                              ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            if (film.summary.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Text(
-                  film.summary,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: c.muted, fontSize: 12, height: 1.6),
-                ),
               ),
-          ],
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(_error!, style: TextStyle(color: c.text)),
-            ),
-          if (widget.initialFilm != null && !_detailing && _lines.isEmpty)
-            TextButton(
-              onPressed: () => _detail([widget.initialFilm!]),
-              child: const Text('重新加载分集'),
-            ),
-          if (_lines.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            DropdownButtonFormField<int>(
-              key: ValueKey(
-                _lines.map((v) => '${v.$1.sourceId}:${v.$2.id}').join(','),
-              ),
-              initialValue: _line,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: '播放线路'),
-              items: [
-                for (var i = 0; i < _lines.length; i++)
-                  DropdownMenuItem(
-                    value: i,
-                    child: Text(
-                      '${_lines[i].$1.sourceName} · ${_lines[i].$2.name}',
-                      overflow: TextOverflow.ellipsis,
+              if (groups.isEmpty && !_searching)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.video_library_outlined,
+                            size: 36,
+                            color: c.muted,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _sources.isEmpty ? '片库等待上架' : '没有找到匹配影片',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 17,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _sources.isEmpty
+                                ? '管理员导入媒体订阅后，便可在这里搜索、选集与一起观看。'
+                                : '试试其他片名，或检查片源是否提供这部影片。',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: c.muted, fontSize: 13),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () => _search(),
+                            child: const Text('刷新片源'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-              ],
-              onChanged: _busy
-                  ? null
-                  : (i) {
-                      if (i == null) return;
-                      setState(() {
-                        _line = i;
-                        _episode = _lines[i].$2.episodes.first.id;
-                        _episodePage = 0;
-                        _allEpisodes = _lines[i].$2.episodes.length <= 500;
-                      });
-                    },
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '选择剧集 · 共 ${episodes.length} 集',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final ep in shown)
-                  ChoiceChip(
-                    label: Text(ep.name),
-                    selected: _episode == ep.id,
-                    onSelected: _busy
-                        ? null
-                        : (_) => setState(() => _episode = ep.id),
-                  ),
-              ],
-            ),
-            if (episodes.length > 50)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: _episodePage > 0
-                        ? () => setState(() => _episodePage--)
-                        : null,
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                  Text(
-                    '${_episodePage + 1} / ${(episodes.length / 50).ceil()}',
-                  ),
-                  IconButton(
-                    onPressed: start + 50 < episodes.length
-                        ? () => setState(() => _episodePage++)
-                        : null,
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                ],
-              ),
-            if (episodes.length > 1)
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text('一起看时将全部剧集加入房间片单'),
-                subtitle: Text(
-                  episodes.length > 500
-                      ? '房间片单最多 500 集，这部剧将只加入当前集。'
-                      : '单人观看无需创建房间，选择集数即可播放。',
                 ),
-                value: _allEpisodes,
-                onChanged: _busy || episodes.length > 500
-                    ? null
-                    : (v) => setState(() => _allEpisodes = v ?? true),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = math.max(
+                      2,
+                      (constraints.crossAxisExtent / 155).floor(),
+                    );
+                    return SliverGrid.builder(
+                      itemCount: groups.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 20,
+                        childAspectRatio: .56,
+                      ),
+                      itemBuilder: (context, index) {
+                        final matches = groups[index];
+                        final f = matches.first;
+                        return Semantics(
+                          button: true,
+                          label: '播放 ${f.title}',
+                          excludeSemantics: true,
+                          onTap: () => _detail(matches),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _detail(matches),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: _poster(f.poster, width: 180),
+                                  ),
+                                ),
+                                const SizedBox(height: 9),
+                                Text(
+                                  f.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  [
+                                    if (f.year.isNotEmpty) f.year,
+                                    f.kindLabel,
+                                    '${matches.length} 个来源',
+                                  ].join(' · '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: c.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                if (f.remarks.isNotEmpty)
+                                  Text(
+                                    f.remarks,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: c.muted,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-          ],
-        ],
-      ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: _more.isNotEmpty
+                      ? OutlinedButton(
+                          onPressed: _searching
+                              ? null
+                              : () => _search(more: true),
+                          child: const Text('加载更多片源结果'),
+                        )
+                      : const SizedBox(height: 20),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
