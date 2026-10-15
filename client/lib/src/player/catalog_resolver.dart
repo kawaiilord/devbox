@@ -118,6 +118,7 @@ class CatalogResolver extends ChangeNotifier {
     total = 0;
     notifyListeners();
     bool active() => generation == _generation;
+    var chosenYear = target.year;
     final deferred = <CatalogFilm>[];
     Future<void> detail(CatalogFilm candidate) async {
       if (!active() || !_seen.add('${candidate.sourceId}:${candidate.id}')) {
@@ -132,6 +133,14 @@ class CatalogResolver extends ChangeNotifier {
           (s) => s.id == film.id && s.sourceId == film.sourceId,
         );
         if (!explicit && target.match(film) == 0) return;
+        final year = catalogYear(film.year);
+        if (chosenYear.isNotEmpty && year.isNotEmpty && year != chosenYear) {
+          return;
+        }
+        if (chosenYear.isEmpty &&
+            film.groups.any((g) => g.episodes.isNotEmpty)) {
+          chosenYear = year;
+        }
         for (final group in film.groups.where((g) => g.episodes.isNotEmpty)) {
           lines.add(CatalogLine(film, group));
         }

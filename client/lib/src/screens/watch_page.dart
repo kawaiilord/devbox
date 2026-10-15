@@ -64,7 +64,8 @@ class _WatchPageState extends State<WatchPage> {
       _descending = false,
       _autoNext = true,
       _allEpisodes = true,
-      _failed = false;
+      _failed = false,
+      _retainSubtitle = false;
   String? _notice, _roomError;
   final Set<String> _attempted = {};
   Map<String, dynamic>? _resume;
@@ -185,6 +186,7 @@ class _WatchPageState extends State<WatchPage> {
       _startPlaying = player?.playing ?? true;
       _rate = player?.rate ?? _rate;
       _line = line;
+      _retainSubtitle = true;
       _episode = index;
       _episodePage = index ~/ 50;
       _allEpisodes = _allEpisodes && _episodes.length <= 500;
@@ -205,6 +207,7 @@ class _WatchPageState extends State<WatchPage> {
       _episode = index;
       _episodePage = index ~/ 50;
       _start = 0;
+      _retainSubtitle = false;
       _rate = rate;
       _startPlaying = true;
       _failed = false;
@@ -671,6 +674,7 @@ class _WatchPageState extends State<WatchPage> {
                   skipIntro: _intro,
                   skipOutro: _autoNext ? _outro : 0,
                   autoAdvance: _autoNext,
+                  retainSubtitle: _retainSubtitle,
                   onProgress: _progress,
                   onFailure: _failure,
                   onPrevious: _episode > 0 && !_busy

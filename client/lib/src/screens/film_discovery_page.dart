@@ -737,7 +737,7 @@ class _PosterCard extends StatelessWidget {
     final c = FrameColors.of(context);
     return Semantics(
       button: true,
-      label: '查看 ${item.title} 的资料',
+      label: '播放 ${item.title}',
       onTap: onTap,
       excludeSemantics: true,
       child: Material(

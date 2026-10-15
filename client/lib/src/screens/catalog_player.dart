@@ -29,6 +29,7 @@ class CatalogPlayer extends StatefulWidget {
     this.skipOutro = 0,
     this.height = 480,
     this.autoAdvance = true,
+    this.retainSubtitle = false,
   });
   final ApiClient api;
   final Session session;
@@ -43,7 +44,7 @@ class CatalogPlayer extends StatefulWidget {
   )?
   onProgress;
   final double startPosition, startRate, height;
-  final bool startPlaying, autoAdvance;
+  final bool startPlaying, autoAdvance, retainSubtitle;
   final int skipIntro, skipOutro;
   @override
   State<CatalogPlayer> createState() => CatalogPlayerState();
@@ -125,6 +126,7 @@ class CatalogPlayerState extends State<CatalogPlayer> {
     final position = preserve ? positionSeconds : widget.startPosition;
     final play = preserve ? playing : widget.startPlaying;
     final rate = preserve ? _rate : widget.startRate;
+    if (!preserve && !widget.retainSubtitle) _subtitle = null;
     setState(() {
       _kernel = null;
       _position = position;
@@ -255,11 +257,13 @@ class CatalogPlayerState extends State<CatalogPlayer> {
     }
   }
 
-  Future<void> _action(String action, [String value = '']) async {
+  Future<bool> _action(String action, [String value = '']) async {
     final kernel = _kernel;
-    if (kernel == null) return;
+    final request = _request;
+    if (kernel == null) return false;
     try {
       await adaptiveAction(await kernel.player.handle, action, value);
+      return mounted && request == _request;
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -274,16 +278,18 @@ class CatalogPlayerState extends State<CatalogPlayer> {
           ),
         );
       }
+      return false;
     }
   }
 
   Future<void> _loadSubtitle() async {
+    final request = _request;
     final file = await openFile(
       acceptedTypeGroups: const [
         XTypeGroup(label: '字幕', extensions: ['srt', 'vtt']),
       ],
     );
-    if (file == null || !mounted) return;
+    if (file == null || !mounted || request != _request) return;
     if (await file.length() > 2 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -295,7 +301,7 @@ class CatalogPlayerState extends State<CatalogPlayer> {
       final content = await file.readAsString();
       if (!mounted) return;
       if (kIsWeb) {
-        await _action('subtitle', content);
+        if (!await _action('subtitle', content)) return;
       } else {
         await _kernel?.loadSubtitle(file.path, title: file.name);
       }
@@ -488,8 +494,9 @@ class CatalogPlayerState extends State<CatalogPlayer> {
                 tooltip: '切换画质',
                 enabled: enabled,
                 onSelected: (value) async {
-                  await _action('quality', value);
-                  if (mounted) setState(() => _quality = value);
+                  if (await _action('quality', value)) {
+                    setState(() => _quality = value);
+                  }
                 },
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'auto', child: Text('自动画质')),
