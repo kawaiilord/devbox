@@ -286,6 +286,7 @@ func (app *UIApp) handleEmbyStream(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	cache := newPlaybackNative(app, context.Background(), task, downloadID, 0, 0, false)
+	cache.shared = strings.HasPrefix(request.URL.Path, "/bridge/")
 	app.playbackMu.Lock()
 	if app.playbacks[sessionID] != session || ctx.Err() != nil {
 		app.playbackMu.Unlock()

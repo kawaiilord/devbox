@@ -30,6 +30,7 @@ class MediaPlayerKernel {
   Duration get position => player.state.position;
   Duration get duration => player.state.duration;
   bool get playing => player.state.playing;
+  bool get buffering => player.state.buffering;
 
   Stream<Duration> get positionStream => player.stream.position;
   Stream<Duration> get durationStream => player.stream.duration;

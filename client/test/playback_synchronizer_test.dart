@@ -54,4 +54,24 @@ void main() {
     expect(plan.targetPosition, const Duration(seconds: 10));
     expect(plan.action, AlignmentAction.aligned);
   });
+
+  test('buffering does not chase the room clock with repeated seeks', () {
+    AlignmentPlan plan(
+      bool buffering, {
+      bool playing = true,
+      int version = 1,
+    }) => synchronizer.plan(
+      snapshot: snapshot(position: 30, playing: playing),
+      localPosition: Duration.zero,
+      localSourceVersion: version,
+      localEpisode: 0,
+      localNow: now,
+      clockOffset: Duration.zero,
+      localBuffering: buffering,
+    );
+    expect(plan(true).action, AlignmentAction.aligned);
+    expect(plan(true, playing: false).playing, isFalse);
+    expect(plan(false).action, AlignmentAction.hardSeek);
+    expect(plan(true, version: 0).action, AlignmentAction.reloadSource);
+  });
 }

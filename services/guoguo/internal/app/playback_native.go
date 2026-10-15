@@ -35,6 +35,8 @@ type playbackNative struct {
 	quality    int
 	offset     float64
 	background bool
+	shared     bool
+	waiters    map[int]int
 	once       sync.Once
 	workers    sync.WaitGroup
 	mu         sync.Mutex
@@ -153,6 +155,12 @@ func (cache *playbackNative) startJobLocked(index int) {
 		case <-previous.done:
 		default:
 			if index >= previous.start && index < previous.end {
+				return
+			}
+			// A shared episode can be requested at different positions by
+			// multiple viewers. Finish the bounded batch before serving another
+			// range; cancelling each other's batch causes endless rebuffering.
+			if cache.shared {
 				return
 			}
 		}
@@ -340,6 +348,22 @@ func (cache *playbackNative) evictLocked(keep int) {
 }
 
 func (cache *playbackNative) segment(ctx context.Context, index int) ([]byte, error) {
+	if cache.shared {
+		cache.mu.Lock()
+		if cache.waiters == nil {
+			cache.waiters = map[int]int{}
+		}
+		cache.waiters[index]++
+		cache.mu.Unlock()
+		defer func() {
+			cache.mu.Lock()
+			cache.waiters[index]--
+			if cache.waiters[index] == 0 {
+				delete(cache.waiters, index)
+			}
+			cache.mu.Unlock()
+		}()
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -379,6 +403,13 @@ func (cache *playbackNative) prefillLocked(index int) {
 	job := cache.job
 	if cache.background || job == nil || cache.err != nil || cache.closed || index < job.end-3 || job.end >= cache.segmentCountLocked() {
 		return
+	}
+	if cache.shared {
+		for requested := range cache.waiters {
+			if len(cache.segments[requested]) == 0 && (requested < job.start || requested >= job.end) {
+				return
+			}
+		}
 	}
 	select {
 	case <-job.done:

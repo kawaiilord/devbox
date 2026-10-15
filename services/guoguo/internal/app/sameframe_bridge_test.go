@@ -141,3 +141,25 @@ func TestSameFrameRankingUsesDesktopDocument(t *testing.T) {
 		t.Fatal(page, err)
 	}
 }
+
+func TestSameFrameSharedEpisodeServesDifferentPositionsWithoutPreemption(t *testing.T) {
+	app, fixture := nativePlaybackFixture(t, "80", "320x180")
+	cache := newPlaybackNative(app, context.Background(), fixture.tasks[0], fixture.downloadIDs[0], 0, 0, false)
+	cache.shared = true
+	defer cache.Close()
+	cache.start()
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	var wg sync.WaitGroup
+	for _, part := range []int{0, 19, 33, 2, 20, 34} {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			body, err := cache.segment(ctx, index)
+			if err != nil || len(body) < 188 || body[0] != 0x47 {
+				t.Errorf("segment %d: %v bytes %d", index, err, len(body))
+			}
+		}(part)
+	}
+	wg.Wait()
+}

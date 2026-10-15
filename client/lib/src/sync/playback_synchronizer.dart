@@ -42,6 +42,7 @@ class PlaybackSynchronizer {
     required int localEpisode,
     required DateTime localNow,
     required Duration clockOffset,
+    bool localBuffering = false,
   }) {
     final serverNow =
         localNow.millisecondsSinceEpoch + clockOffset.inMilliseconds;
@@ -73,6 +74,17 @@ class PlaybackSynchronizer {
     }
 
     final drift = localPosition - target;
+    // Seeking to a moving room clock while a fragment is still loading cancels
+    // that request repeatedly. Keep play/pause authoritative, let the current
+    // buffer fill, then reconcile the elapsed drift on the next sync tick.
+    if (localBuffering) {
+      return AlignmentPlan(
+        action: AlignmentAction.aligned,
+        targetPosition: target,
+        rate: snapshot.speed,
+        playing: snapshot.playing,
+      );
+    }
     if (drift.abs() > hardSeekThreshold) {
       return AlignmentPlan(
         action: AlignmentAction.hardSeek,
@@ -113,6 +125,7 @@ class PlaybackSynchronizer {
       localEpisode: player.episode,
       localNow: DateTime.now(),
       clockOffset: clockOffset,
+      localBuffering: player.buffering,
     );
     switch (alignment.action) {
       case AlignmentAction.reloadSource:
