@@ -473,14 +473,17 @@ class _WatchPageState extends State<WatchPage> {
                           ),
                         ),
                       if (_episodes.length > 1)
-                        SwitchListTile.adaptive(
-                          dense: true,
-                          title: const Text(
-                            '自动连播',
-                            style: TextStyle(fontSize: 12),
+                        Material(
+                          color: Colors.transparent,
+                          child: SwitchListTile.adaptive(
+                            dense: true,
+                            title: const Text(
+                              '自动连播',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            value: _autoNext,
+                            onChanged: (v) => setState(() => _autoNext = v),
                           ),
-                          value: _autoNext,
-                          onChanged: (v) => setState(() => _autoNext = v),
                         ),
                     ],
                   ),
@@ -560,45 +563,51 @@ class _WatchPageState extends State<WatchPage> {
       borderRadius: BorderRadius.circular(14),
     ),
     child: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_resolver.loading)
-              const CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              )
-            else
-              const Icon(Icons.movie_outlined, size: 42, color: Colors.white70),
-            const SizedBox(height: 20),
-            Text(
-              _resolver.loading
-                  ? '正在为你准备 ${widget.target.title}'
-                  : _resolver.error ?? '暂时没有可播放版本',
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _resolver.loading ? '匹配到片源后自动播放' : '片源更新后可在这里重试',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            if (!_resolver.loading)
-              Padding(
-                padding: const EdgeInsets.only(top: 20),
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                  ),
-                  onPressed: () => _resolver.resolve(seeds: widget.films),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('重试片源'),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_resolver.loading)
+                const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                )
+              else
+                const Icon(
+                  Icons.movie_outlined,
+                  size: 42,
+                  color: Colors.white70,
                 ),
+              const SizedBox(height: 20),
+              Text(
+                _resolver.loading
+                    ? '正在为你准备 ${widget.target.title}'
+                    : _resolver.error ?? '暂时没有可播放版本',
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                textAlign: TextAlign.center,
               ),
-          ],
+              const SizedBox(height: 10),
+              Text(
+                _resolver.loading ? '匹配到片源后自动播放' : '片源更新后可在这里重试',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              if (!_resolver.loading)
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white54),
+                    ),
+                    onPressed: () => _resolver.resolve(seeds: widget.films),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('重试片源'),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     ),
@@ -706,20 +715,23 @@ class _WatchPageState extends State<WatchPage> {
                   ],
                 ),
                 if (_episodes.length > 1)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(
-                      _episodes.length > 500
-                          ? '加入房间时只带入当前集（片单最多 500 集）'
-                          : '加入房间时带上整部剧集',
-                      style: const TextStyle(fontSize: 12),
+                  Material(
+                    color: Colors.transparent,
+                    child: CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(
+                        _episodes.length > 500
+                            ? '加入房间时只带入当前集（片单最多 500 集）'
+                            : '加入房间时带上整部剧集',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      value: _allEpisodes,
+                      onChanged: _busy || _episodes.length > 500
+                          ? null
+                          : (v) => setState(() => _allEpisodes = v ?? false),
                     ),
-                    value: _allEpisodes,
-                    onChanged: _busy || _episodes.length > 500
-                        ? null
-                        : (v) => setState(() => _allEpisodes = v ?? false),
                   ),
                 if (_roomError != null)
                   Padding(

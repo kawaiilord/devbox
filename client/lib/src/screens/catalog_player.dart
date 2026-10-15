@@ -419,29 +419,31 @@ class CatalogPlayerState extends State<CatalogPlayer> {
                     ColoredBox(
                       color: Colors.black87,
                       child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.wifi_off_rounded,
-                                color: Colors.white70,
-                                size: 28,
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                _error!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                              const SizedBox(height: 16),
-                              FilledButton.icon(
-                                onPressed: () => _open(preserve: true),
-                                icon: const Icon(Icons.refresh_rounded),
-                                label: const Text('重试播放'),
-                              ),
-                            ],
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.wifi_off_rounded,
+                                  color: Colors.white70,
+                                  size: 28,
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton.icon(
+                                  onPressed: () => _open(preserve: true),
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('重试播放'),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
