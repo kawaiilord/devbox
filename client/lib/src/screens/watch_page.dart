@@ -164,7 +164,8 @@ class _WatchPageState extends State<WatchPage> {
   }
 
   void _tryFallback() {
-    if (_line == null || _busy || _attempted.length >= 4) return;
+    // Each matching line is attempted once; late sources can still recover playback.
+    if (_line == null || _busy) return;
     for (final next in _resolver.lines) {
       if (_attempted.contains(next.id)) continue;
       if (matchingEpisode(_line!.group, _episode, next.group) < 0) continue;
